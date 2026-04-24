@@ -1,0 +1,19 @@
+# Secrets - never commit
+appscript
+
+# Ignore folder (local docs/notes)
+ignore/
+
+# Agent/IDE config (regenerated)
+.agent/
+.claude/
+
+# OS files
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Python
+__pycache__/
+*.pyc
+node_modules/
