@@ -1,0 +1,9 @@
+**/*.md
+*.xlsx
+node_modules/**
+docs/**
+package*.json
+.gitignore
+.claspignore
+.clasp.json.template
+ignore/

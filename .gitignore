@@ -1,5 +1,9 @@
 # Secrets - never commit
 appscript
+appscript.template
+
+# Clasp — contém o scriptId real (semi-sensível)
+.clasp.json
 
 # Ignore folder (local docs/notes)
 ignore/

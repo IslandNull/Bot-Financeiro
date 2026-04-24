@@ -1,0 +1,15 @@
+{
+  "name": "bot-financeiro",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "push": "clasp push",
+    "pull": "clasp pull",
+    "deploy": "clasp deploy",
+    "logs": "clasp logs",
+    "open": "clasp open"
+  },
+  "devDependencies": {
+    "@google/clasp": "^2.4.2"
+  }
+}

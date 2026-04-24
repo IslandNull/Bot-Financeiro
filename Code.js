@@ -1,17 +1,8 @@
 // ============================================================
-// CONFIG — edite estas constantes com seus valores
+// CONFIG — valores não-sensíveis inline; segredos via PropertiesService
+// Para configurar os segredos, execute setupSecrets() uma vez no Editor
 // ============================================================
 const CONFIG = {
-    OPENAI_API_KEY: 'YOUR_OPENAI_API_KEY',
-    TELEGRAM_TOKEN: 'YOUR_TELEGRAM_BOT_TOKEN',
-    SPREADSHEET_ID: 'YOUR_SPREADSHEET_ID',
-
-    // chat_id → { nome que aparece nas mensagens, pagador default }
-    AUTHORIZED: {
-        'YOUR_CHAT_ID_GUSTAVO': { nome: 'Gustavo', pagador: 'Gustavo' },  // SUBSTITUA
-        'YOUR_CHAT_ID_LUANA': { nome: 'Luana', pagador: 'Luana' }   // SUBSTITUA
-    },
-
     MODEL: 'gpt-5-nano',
     TIMEZONE: 'America/Sao_Paulo',
     SHEETS: {
@@ -21,10 +12,19 @@ const CONFIG = {
     }
 };
 
+function _loadSecrets() {
+    const p = PropertiesService.getScriptProperties();
+    CONFIG.OPENAI_API_KEY = p.getProperty('OPENAI_API_KEY');
+    CONFIG.TELEGRAM_TOKEN = p.getProperty('TELEGRAM_TOKEN');
+    CONFIG.SPREADSHEET_ID = p.getProperty('SPREADSHEET_ID');
+    CONFIG.AUTHORIZED = JSON.parse(p.getProperty('AUTHORIZED') || '{}');
+}
+
 // ============================================================
 // ENTRY POINT — Telegram webhook
 // ============================================================
 function doPost(e) {
+    _loadSecrets();
     try {
         const update = JSON.parse(e.postData.contents);
         const msg = update.message || update.edited_message;
@@ -112,7 +112,6 @@ function formatEntryResponse(p, date) {
 
     if (p.descricao) resp += `\n📝 ${p.descricao}`;
 
-    // Só mostra saldo se for Despesa (Receita não tem "planejado de gasto")
     if (p.tipo === 'Despesa') {
         const s = getCategorySaldo(p.categoria);
         if (s) {
@@ -572,7 +571,17 @@ function formatBRL(n) {
 // ============================================================
 // SETUP — rodar UMA VEZ após o deploy
 // ============================================================
+
+// Configure os segredos pelo Apps Script Editor:
+// Project Settings → Script Properties → Add property
+// Chaves necessárias:
+//   OPENAI_API_KEY   → chave da OpenAI
+//   TELEGRAM_TOKEN   → token do BotFather
+//   SPREADSHEET_ID   → ID da planilha Google Sheets
+//   AUTHORIZED       → JSON: {"CHAT_ID_GUSTAVO":{"nome":"Gustavo","pagador":"Gustavo"},"CHAT_ID_LUANA":{"nome":"Luana","pagador":"Luana"}}
+
 function setWebhook() {
+    _loadSecrets();
     const url = ScriptApp.getService().getUrl();
     if (!url) throw new Error('Deploy o script como Web App primeiro.');
 
@@ -583,11 +592,13 @@ function setWebhook() {
 }
 
 function deleteWebhook() {
+    _loadSecrets();
     UrlFetchApp.fetch(`https://api.telegram.org/bot${CONFIG.TELEGRAM_TOKEN}/deleteWebhook`);
 }
 
 // ⚠️ Use ESTA função — aponta pro proxy Val.town (resolve bug do 302 do Apps Script)
 function apontarWebhookProValTown() {
+    _loadSecrets();
     const urlValTown = 'https://islandd.val.run/';
     const result = UrlFetchApp.fetch(
         `https://api.telegram.org/bot${CONFIG.TELEGRAM_TOKEN}/setWebhook?url=${encodeURIComponent(urlValTown)}&drop_pending_updates=true`
@@ -596,7 +607,7 @@ function apontarWebhookProValTown() {
 }
 
 function testParse() {
-    // Rode pra testar o parse sem precisar do Telegram
+    _loadSecrets();
     const samples = [
         '52 ifood luana cartão',
         'gastei 35 no café',
