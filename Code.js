@@ -1155,6 +1155,86 @@ function setupV52() {
     console.log('\n=== setupV52 CONCLUÍDO ===\n' + log.join('\n'));
 }
 
+// ============================================================
+// FIX FÓRMULAS v5.2 — corrige #ERROR! causado por falta de
+// aspas simples em nomes de aba com caracteres especiais.
+// Rodar UMA VEZ após setupV52() para corrigir as fórmulas.
+// ============================================================
+function fixFormulasV52() {
+    _loadSecrets();
+    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const log = [];
+
+    // ── Investimentos: B4:F4 ──────────────────────────────────
+    const inv = ss.getSheetByName('Investimentos');
+    if (!inv) {
+        log.push('❌ Aba Investimentos não encontrada — rode setupV52() primeiro');
+    } else {
+        inv.getRange('B4').setFormula(
+            `SUMIFS('Lançamentos'!C:C,'Lançamentos'!B:B,"Transferência",'Lançamentos'!D:D,A4,'Lançamentos'!F:F,"Saldo Inicial")`);
+        inv.getRange('C4').setFormula(
+            `SUMIFS('Lançamentos'!C:C,'Lançamentos'!B:B,"Transferência",'Lançamentos'!D:D,A4,'Lançamentos'!A:A,">="&Dashboard!$B$4,'Lançamentos'!A:A,"<="&Dashboard!$D$4,'Lançamentos'!F:F,"<>Saldo Inicial")`);
+        inv.getRange('D4').setFormula(
+            `SUMIFS('Lançamentos'!C:C,'Lançamentos'!B:B,"Transferência",'Lançamentos'!F:F,A4,'Lançamentos'!A:A,">="&Dashboard!$B$4,'Lançamentos'!A:A,"<="&Dashboard!$D$4)`);
+        inv.getRange('E4').setFormula(
+            `SUMIFS('Lançamentos'!C:C,'Lançamentos'!B:B,"Receita",'Lançamentos'!D:D,"Rendimento CDB",'Lançamentos'!A:A,">="&Dashboard!$B$4,'Lançamentos'!A:A,"<="&Dashboard!$D$4)`);
+        inv.getRange('F4').setFormula(
+            `SUMIFS('Lançamentos'!C:C,'Lançamentos'!B:B,"Transferência",'Lançamentos'!D:D,A4)` +
+            `-SUMIFS('Lançamentos'!C:C,'Lançamentos'!B:B,"Transferência",'Lançamentos'!F:F,A4)` +
+            `+SUMIFS('Lançamentos'!C:C,'Lançamentos'!B:B,"Receita",'Lançamentos'!D:D,"Rendimento CDB")`);
+        inv.getRange('B4:F4').setNumberFormat('"R$ "#,##0.00');
+        log.push('✅ Investimentos B4:F4 corrigidos');
+    }
+
+    const dash = ss.getSheetByName('Dashboard');
+
+    // ── Dashboard: Gastos Individuais Gustavo (E69:G75) ───────
+    ['Padaria/café (semana)', 'Lanches esporádicos', 'Cuidado pessoal',
+     'Roupas', 'Peças íntimas', 'Calçado', 'Compras Shopee/ML'
+    ].forEach((cat, i) => {
+        const r = 69 + i;
+        dash.getRange(r, 5).setFormula(
+            `SUMIFS('Lançamentos'!C:C,'Lançamentos'!B:B,"Despesa",'Lançamentos'!D:D,"${cat}",'Lançamentos'!E:E,"Gustavo",'Lançamentos'!A:A,">="&$B$4,'Lançamentos'!A:A,"<="&$D$4)`);
+        dash.getRange(r, 6).setFormula(`D${r}-E${r}`);
+        dash.getRange(r, 7).setFormula(`IF(D${r}=0,0,E${r}/D${r})`);
+    });
+    log.push('✅ Dashboard: Gastos Gustavo (69-75) corrigidos');
+
+    // ── Dashboard: Gastos Individuais Luana (E80:G86) ─────────
+    ['Padaria/café (semana)', 'Lanches esporádicos', 'Cuidado pessoal',
+     'Roupas', 'Peças íntimas', 'Calçado', 'Compras Shopee/ML'
+    ].forEach((cat, i) => {
+        const r = 80 + i;
+        dash.getRange(r, 5).setFormula(
+            `SUMIFS('Lançamentos'!C:C,'Lançamentos'!B:B,"Despesa",'Lançamentos'!D:D,"${cat}",'Lançamentos'!E:E,"Luana",'Lançamentos'!A:A,">="&$B$4,'Lançamentos'!A:A,"<="&$D$4)`);
+        dash.getRange(r, 6).setFormula(`D${r}-E${r}`);
+        dash.getRange(r, 7).setFormula(`IF(D${r}=0,0,E${r}/D${r})`);
+    });
+    log.push('✅ Dashboard: Gastos Luana (80-86) corrigidos');
+
+    // ── Dashboard: Fatura por Cartão (C90:E92) ────────────────
+    ['Nubank Gu', 'Nubank Lu', 'Mercado Pago Gu'].forEach((cartao, i) => {
+        const r = 90 + i;
+        dash.getRange(r, 3).setFormula(
+            `SUMIFS('Lançamentos'!C:C,'Lançamentos'!B:B,"Despesa",'Lançamentos'!F:F,B${r},'Lançamentos'!H:H,">="&$B$4,'Lançamentos'!H:H,"<="&$D$4)`);
+        dash.getRange(r, 5).setFormula(`C${r}+D${r}`);
+    });
+    log.push('✅ Dashboard: Fatura por Cartão (90-92) corrigida');
+
+    // ── Dashboard: Provisões — Saldo Acumulado (D97:G108) ─────
+    for (let i = 0; i < 12; i++) {
+        const r = 97 + i;
+        dash.getRange(r, 4).setFormula(`DATEDIF(Config!$C$7,TODAY(),"M")+1`);
+        dash.getRange(r, 5).setFormula(`C${r}*D${r}`);
+        dash.getRange(r, 6).setFormula(
+            `SUMIFS('Lançamentos'!C:C,'Lançamentos'!B:B,"Despesa",'Lançamentos'!D:D,B${r},'Lançamentos'!A:A,">="&Config!$C$7)`);
+        dash.getRange(r, 7).setFormula(`E${r}-F${r}`);
+    }
+    log.push('✅ Dashboard: Provisões (97-108) corrigidas');
+
+    console.log('\n=== fixFormulasV52 CONCLUÍDO ===\n' + log.join('\n'));
+}
+
 function testParse() {
     _loadSecrets();
     const samples = [
