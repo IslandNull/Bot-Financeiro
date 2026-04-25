@@ -113,18 +113,31 @@ function handleEntry(text, chatId, user) {
 function formatEntryResponse(p, date) {
     const dataStr = Utilities.formatDate(date, CONFIG.TIMEZONE, 'dd/MM/yyyy');
     const valorStr = formatBRL(p.valor);
-    const icon = p.tipo === 'Receita' ? '💵' : '💸';
 
+    if (p.tipo === 'Transferência') {
+        return `✅ Transferência registrada\n💸 ${valorStr}\n📤 ${p.fonte} → ${p.categoria}\n👤 ${p.pagador}\n📅 ${dataStr}`;
+    }
+
+    const icon = p.tipo === 'Receita' ? '💵' : '💸';
     let resp = `✅ Registrado\n${icon} ${valorStr} — ${p.categoria}\n👤 ${p.pagador} • ${p.fonte}\n📅 ${dataStr}`;
 
     if (p.descricao) resp += `\n📝 ${p.descricao}`;
 
     if (p.tipo === 'Despesa') {
-        const s = getCategorySaldo(p.categoria);
-        if (s) {
-            const pct = s.planejado > 0 ? Math.round((s.gasto / s.planejado) * 100) : 0;
-            const alerta = pct > 100 ? ' ⚠️ ESTOUROU' : pct > 80 ? ' ⚡' : pct > 50 ? '' : ' ✅';
-            resp += `\n\n📊 ${p.categoria} no mês:\n${formatBRL(s.gasto)} de ${formatBRL(s.planejado)} (${pct}%)${alerta}`;
+        if (PROVISAO_CATS.includes(p.categoria)) {
+            const s = getAccumulatedSaldo(p.categoria);
+            if (s) {
+                const pct = s.creditoTotal > 0 ? Math.round((s.gastoHistorico / s.creditoTotal) * 100) : 0;
+                const alerta = s.acumulado < 0 ? ' ⚠️ NEGATIVO' : pct > 80 ? ' ⚡' : ' ✅';
+                resp += `\n\n📦 ${p.categoria} (${s.meses} meses acumulados):\n${formatBRL(s.gastoHistorico)} de ${formatBRL(s.creditoTotal)} (${pct}%)\nSaldo envelope: ${formatBRL(s.acumulado)}${alerta}`;
+            }
+        } else {
+            const s = getCategorySaldo(p.categoria);
+            if (s) {
+                const pct = s.planejado > 0 ? Math.round((s.gasto / s.planejado) * 100) : 0;
+                const alerta = pct > 100 ? ' ⚠️ ESTOUROU' : pct > 80 ? ' ⚡' : pct > 50 ? '' : ' ✅';
+                resp += `\n\n📊 ${p.categoria} no mês:\n${formatBRL(s.gasto)} de ${formatBRL(s.planejado)} (${pct}%)${alerta}`;
+            }
         }
     }
 
@@ -591,6 +604,44 @@ function getAcertoMes() {
 // ============================================================
 // HELPERS
 // ============================================================
+function monthsDiff(d1, d2) {
+    return (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth()) + 1;
+}
+
+function getAccumulatedSaldo(categoria) {
+    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const cfg = ss.getSheetByName(CONFIG.SHEETS.config);
+    const dataInicio = cfg.getRange('C7').getValue();
+    if (!dataInicio) return null;
+
+    const meses = monthsDiff(new Date(dataInicio), new Date());
+    const dash = ss.getSheetByName(CONFIG.SHEETS.dashboard);
+
+    // Find planned amount for this category in Dashboard (B and D columns, rows 26-130)
+    const dashData = dash.getRange('B26:D130').getValues();
+    const dashRow = dashData.find(r => r[0] === categoria);
+    const planejado = dashRow ? dashRow[2] : 0;
+    if (!planejado) return null;
+
+    // Sum all historical spending for this category since sistema start
+    const sheet = ss.getSheetByName(CONFIG.SHEETS.lancamentos);
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 6) return { planejado, meses, creditoTotal: planejado * meses, gastoHistorico: 0, acumulado: planejado * meses };
+
+    const lancData = sheet.getRange(6, 1, lastRow - 5, 8).getValues();
+    const gastoHistorico = lancData
+        .filter(r => r[3] === categoria && r[1] === 'Despesa' && r[0] >= dataInicio)
+        .reduce((sum, r) => sum + (typeof r[2] === 'number' ? r[2] : 0), 0);
+
+    return {
+        planejado,
+        meses,
+        creditoTotal: planejado * meses,
+        gastoHistorico,
+        acumulado: planejado * meses - gastoHistorico
+    };
+}
+
 function getCategorySaldo(categoria) {
     const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
     const dash = ss.getSheetByName(CONFIG.SHEETS.dashboard);
