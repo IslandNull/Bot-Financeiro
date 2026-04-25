@@ -513,15 +513,22 @@ function getSaldoCategoria(nomeAprox) {
     const match = categorias.find(c => c.toLowerCase().includes(n));
 
     if (!match) {
-        const sugestoes = categorias.filter(c => {
-            return n.split(' ').some(w => w.length > 2 && c.toLowerCase().includes(w));
-        }).slice(0, 5);
+        const sugestoes = categorias.filter(c =>
+            n.split(' ').some(w => w.length > 2 && c.toLowerCase().includes(w))
+        ).slice(0, 5);
         return `Categoria "${nomeAprox}" não encontrada.${sugestoes.length ? '\n\nTalvez:\n' + sugestoes.map(s => '• ' + s).join('\n') : ''}`;
+    }
+
+    if (PROVISAO_CATS.includes(match)) {
+        const s = getAccumulatedSaldo(match);
+        if (!s) return `Categoria ${match} sem planejado configurado.`;
+        const pct = s.creditoTotal > 0 ? Math.round((s.gastoHistorico / s.creditoTotal) * 100) : 0;
+        const alerta = s.acumulado < 0 ? ' ⚠️ NEGATIVO' : '';
+        return `📦 *${match}* (provisão)\nPlan/mês: ${formatBRL(s.planejado)} × ${s.meses} meses\nCrédito acumulado: ${formatBRL(s.creditoTotal)}\nGasto histórico: ${formatBRL(s.gastoHistorico)} (${pct}%)\nSaldo envelope: ${formatBRL(s.acumulado)}${alerta}`;
     }
 
     const s = getCategorySaldo(match);
     if (!s) return `Categoria ${match} sem planejado.`;
-
     const pct = s.planejado > 0 ? Math.round((s.gasto / s.planejado) * 100) : 0;
     const restante = s.planejado - s.gasto;
     return `📊 *${match}*\nPlanejado: ${formatBRL(s.planejado)}\nGasto: ${formatBRL(s.gasto)} (${pct}%)\nRestante: ${formatBRL(restante)}`;
