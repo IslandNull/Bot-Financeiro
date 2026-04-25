@@ -21,3 +21,7 @@ desktop.ini
 __pycache__/
 *.pyc
 node_modules/
+
+# Binary finance files
+*.xlsx
+*.pdf

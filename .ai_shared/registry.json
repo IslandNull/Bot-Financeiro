@@ -1,0 +1,14 @@
+{
+  "project": "Bot-Financeiro",
+  "version": "1.1.0",
+  "skills_root": "./.ai_shared/skills",
+  "tools_root": "./.ai_shared/tools",
+  "active_skills": [
+    { "id": "code_architect", "source": "gemini-internal", "description": "Arquitetura e visão sistêmica" },
+    { "id": "gas_expert", "source": "awesome-claude-skills", "description": "Best practices para Google Apps Script" },
+    { "id": "prompt_engineering", "source": "superpowers", "description": "Otimização de prompts NLP" },
+    { "id": "handoff_protocol", "source": "multi-agent-orchestration", "description": "Protocolo de transição entre IAs" },
+    { "id": "conflict_resolution", "source": "governance", "description": "Matriz de decisão para conflitos de código" }
+  ],
+  "usage_policy": "Consulte sempre o handoff_protocol ao trocar de IA."
+}
