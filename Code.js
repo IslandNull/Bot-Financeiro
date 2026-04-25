@@ -454,6 +454,17 @@ function handleCommand(text, chatId, user) {
             return desfazerUltimo(chatId, user);
         case '/transferir':
             return sendTelegram(chatId, getAcertoMes());
+        case '/invest':
+        case '/investimentos':
+            return sendTelegram(chatId, getInvestSaldo());
+        case '/manter':
+            return handleManter(chatId, user);
+        case '/parcela':
+            return handleParcela(arg, chatId, user);
+        case '/parcelas':
+            return sendTelegram(chatId, getParcelasAtivas());
+        case '/fatura':
+            return sendTelegram(chatId, getFatura(arg));
         default:
             return sendTelegram(chatId, `Comando "${cmd}" não reconhecido. Mande /help pra ver os comandos.`);
     }
@@ -463,16 +474,28 @@ function helpText() {
     return `🤖 *Bot Financeiro*
 
 *Lançar gasto:* mande no formato livre
-- "52 ifood luana cartão"
-- "gastei 35 no café"
-- "1910 financiamento caixa"
+• "52 ifood luana nubank"
+• "gastei 35 no café"
+• "1910 financiamento caixa"
+
+*Investimentos:*
+• "aportei 500 no cdb"
+• "resgatei 300 do cdb"
+• "cdb rendeu 45,80"
+
+*Parcelas:*
+/parcela 360 3 nubank calçado — cadastra 3x de R$ 120
 
 *Comandos:*
 /resumo — visão geral do mês
 /saldo — top 5 categorias
-/saldo delivery — uma categoria
+/saldo calçado — categoria específica (provisão: mostra envelope acumulado)
 /hoje — lançamentos de hoje
-/transferir — quanto a Luana transfere
+/invest — saldo do CDB
+/fatura — faturas dos cartões
+/parcelas — parcelas ativas
+/manter — registrar acerto mensal (Luana)
+/transferir — quanto Luana transfere
 /desfazer — apaga o último lançamento
 /help — esta ajuda`;
 }
