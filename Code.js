@@ -8,9 +8,17 @@ const CONFIG = {
     SHEETS: {
         lancamentos: 'Lançamentos',
         config: 'Config',
-        dashboard: 'Dashboard'
+        dashboard: 'Dashboard',
+        investimentos: 'Investimentos',
+        parcelas: 'Parcelas'
     }
 };
+
+const PROVISAO_CATS = [
+    'Roupas', 'Peças íntimas', 'Calçado', 'Presentes',
+    'Cuidado pessoal', 'Dentista', 'Coparticipação médica',
+    'Farmácia', 'Óleo moto', 'IPTU', 'Compras Shopee/ML', 'Reserva imprevistos'
+];
 
 function _loadSecrets() {
     const p = PropertiesService.getScriptProperties();
@@ -353,7 +361,7 @@ function getListsCached() {
 
     // Pagadores: B11:B... / Fontes: C11:C... / Categorias despesa: E11:E... / Receita: I11:I...
     const pagadores = cfg.getRange('B11:B20').getValues().flat().filter(String);
-    const fontes = cfg.getRange('C11:C30').getValues().flat().filter(String);
+    const fontes = cfg.getRange('C11:C35').getValues().flat().filter(String);
     const catDesp = cfg.getRange('E11:E60').getValues().flat().filter(String);
     const catRec = cfg.getRange('I11:I20').getValues().flat().filter(String);
 
