@@ -608,6 +608,47 @@ function getAcertoMes() {
     return `💸 *Acerto do mês*\n\nLuana recebeu: ${formatBRL(recebeu)}\n(-) Gastou: ${formatBRL(gastou)}\n(-) Reserva pessoal: ${formatBRL(reserva)}\n= Transfere: *${formatBRL(transfere)}*`;
 }
 
+function getInvestSaldo() {
+    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const inv = ss.getSheetByName(CONFIG.SHEETS.investimentos);
+    if (!inv) return 'Aba Investimentos não encontrada. Configure a planilha primeiro.';
+
+    const row = inv.getRange('A4:F4').getValues()[0];
+    const [ativo, saldoInicial, aportes, resgates, rendimentos, saldoAtual] = row;
+    if (!ativo) return 'Nenhum investimento cadastrado na aba Investimentos.';
+
+    const mes = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'MMMM/yyyy');
+    return `📈 *${ativo}*\n\nSaldo atual: *${formatBRL(saldoAtual)}*\n\n📅 ${mes}:\n  Aportes: ${formatBRL(aportes)}\n  Resgates: ${formatBRL(resgates)}\n  Rendimentos: ${formatBRL(rendimentos)}\n\nSaldo inicial total: ${formatBRL(saldoInicial)}`;
+}
+
+function handleManter(chatId, user) {
+    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const dash = ss.getSheetByName(CONFIG.SHEETS.dashboard);
+    const transfere = dash.getRange('E16').getValue();
+
+    if (!transfere || transfere <= 0) {
+        sendTelegram(chatId, `ℹ️ Acerto do mês: ${formatBRL(transfere)}\nNada a transferir este mês.`);
+        return;
+    }
+
+    const sheet = ss.getSheetByName(CONFIG.SHEETS.lancamentos);
+    const date = new Date();
+    const newRow = sheet.getLastRow() + 1;
+
+    sheet.getRange(newRow, 1, 1, 8).setValues([[
+        date, 'Transferência', transfere, 'Conta Gustavo',
+        user.pagador, 'Conta Luana', 'Acerto mensal', date
+    ]]);
+    sheet.getRange(newRow, 1).setNumberFormat('dd/mm/yyyy');
+    sheet.getRange(newRow, 3).setNumberFormat('"R$ "#,##0.00');
+    sheet.getRange(newRow, 8).setNumberFormat('dd/mm/yyyy');
+
+    PropertiesService.getScriptProperties()
+        .setProperty('last_row_' + chatId, String(newRow));
+
+    sendTelegram(chatId, `✅ Acerto registrado!\n💸 ${formatBRL(transfere)}\n📤 Conta Luana → Conta Gustavo\n📅 ${Utilities.formatDate(date, CONFIG.TIMEZONE, 'dd/MM/yyyy')}`);
+}
+
 // ============================================================
 // HELPERS
 // ============================================================
