@@ -68,12 +68,12 @@ function handleEntry(text, chatId, user) {
     try {
         parsed = parseWithOpenAI(text, user.pagador);
     } catch (err) {
-        sendTelegram(chatId, `⚠️ Erro ao interpretar a mensagem: ${err.message}\n\nTente algo como: "52 ifood luana cartão" ou "gastei 35 no café".`);
+        sendTelegram(chatId, `⚠️ Erro ao interpretar a mensagem: ${err.message}\n\nTente algo como: "52 ifood luana nubank" ou "aportei 500 no cdb".`);
         return;
     }
 
     if (parsed.error) {
-        sendTelegram(chatId, `🤔 Não entendi: ${parsed.error}\n\nExemplos:\n• "52 ifood luana cartão"\n• "gastei 35 no café"\n• "1910 financiamento caixa"`);
+        sendTelegram(chatId, `🤔 Não entendi: ${parsed.error}\n\nExemplos:\n• "52 ifood luana nubank"\n• "gastei 35 no café"\n• "aportei 500 no cdb"`);
         return;
     }
 
@@ -83,31 +83,30 @@ function handleEntry(text, chatId, user) {
         return;
     }
 
-    // Grava na planilha
     const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
     const sheet = ss.getSheetByName(CONFIG.SHEETS.lancamentos);
     const date = new Date();
     const newRow = sheet.getLastRow() + 1;
 
-    sheet.getRange(newRow, 1, 1, 7).setValues([[
+    // Column H (Competência) = same as date for non-installment entries
+    sheet.getRange(newRow, 1, 1, 8).setValues([[
         date,
         parsed.tipo,
         parsed.valor,
         parsed.categoria,
         parsed.pagador,
         parsed.fonte,
-        parsed.descricao || ''
+        parsed.descricao || '',
+        date
     ]]);
 
-    // Formatação: data e moeda
     sheet.getRange(newRow, 1).setNumberFormat('dd/mm/yyyy');
     sheet.getRange(newRow, 3).setNumberFormat('"R$ "#,##0.00');
+    sheet.getRange(newRow, 8).setNumberFormat('dd/mm/yyyy');
 
-    // Guarda última linha no PropertiesService pro /desfazer
     PropertiesService.getScriptProperties()
         .setProperty('last_row_' + chatId, String(newRow));
 
-    // Resposta com saldo
     sendTelegram(chatId, formatEntryResponse(parsed, date));
 }
 
@@ -543,7 +542,7 @@ function getLancamentosHoje() {
     const last = sheet.getLastRow();
     if (last < 6) return 'Nenhum lançamento hoje.';
 
-    const rows = sheet.getRange(6, 1, last - 5, 7).getValues();
+    const rows = sheet.getRange(6, 1, last - 5, 8).getValues();
     const hoje = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy');
     const doDia = rows.filter(r => r[0] && Utilities.formatDate(r[0], CONFIG.TIMEZONE, 'dd/MM/yyyy') === hoje);
 
@@ -567,14 +566,14 @@ function desfazerUltimo(chatId, user) {
     const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
     const sheet = ss.getSheetByName(CONFIG.SHEETS.lancamentos);
     const row = parseInt(lastRow, 10);
-    const vals = sheet.getRange(row, 1, 1, 7).getValues()[0];
+    const vals = sheet.getRange(row, 1, 1, 8).getValues()[0];
 
     if (!vals[2]) {
         sendTelegram(chatId, 'Linha já estava vazia — nada pra desfazer.');
         return;
     }
 
-    sheet.getRange(row, 1, 1, 7).clearContent();
+    sheet.getRange(row, 1, 1, 8).clearContent();
     props.deleteProperty('last_row_' + chatId);
     sendTelegram(chatId, `↩️ Desfeito\n💸 ${formatBRL(vals[2])} — ${vals[3]} (${vals[4]})`);
 }
