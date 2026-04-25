@@ -649,6 +649,116 @@ function handleManter(chatId, user) {
     sendTelegram(chatId, `✅ Acerto registrado!\n💸 ${formatBRL(transfere)}\n📤 Conta Luana → Conta Gustavo\n📅 ${Utilities.formatDate(date, CONFIG.TIMEZONE, 'dd/MM/yyyy')}`);
 }
 
+function getParcelasAtivas() {
+    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(CONFIG.SHEETS.parcelas);
+    if (!sheet) return 'Aba Parcelas não encontrada.';
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 4) return 'Nenhuma parcela cadastrada.';
+
+    const rows = sheet.getRange(4, 1, lastRow - 3, 8).getValues();
+    const ativas = rows.filter(r => r[0] && String(r[7]).toLowerCase() === 'ativa');
+
+    if (!ativas.length) return '✅ Sem parcelas ativas no momento.';
+
+    const linhas = ativas.map(r => {
+        const restantes = r[3] - r[2];
+        return `• ${r[0]}: ${formatBRL(r[1])}/mês (${r[2]}/${r[3]}, ${restantes} restantes) — ${r[4]}`;
+    });
+
+    const totalMensal = ativas.reduce((sum, r) => sum + (typeof r[1] === 'number' ? r[1] : 0), 0);
+    return `📋 *Parcelas Ativas*\n\n${linhas.join('\n')}\n\n*Total mensal:* ${formatBRL(totalMensal)}`;
+}
+
+function handleParcela(arg, chatId, user) {
+    if (!arg) {
+        sendTelegram(chatId, `📋 *Cadastrar parcela*\n\nFormato: /parcela [valor_total] [n_parcelas] [cartão] [categoria]\n\nExemplo:\n/parcela 360 3 nubank calçado\n  → R$ 120,00 × 3x no Nubank Gu`);
+        return;
+    }
+
+    const parts = arg.trim().split(/\s+/);
+    if (parts.length < 3) {
+        sendTelegram(chatId, '⚠️ Formato: /parcela [valor_total] [n_parcelas] [cartão] [categoria?]');
+        return;
+    }
+
+    const valorTotal = parseFloat(parts[0].replace(',', '.'));
+    const nParcelas = parseInt(parts[1], 10);
+    const cartaoRaw = parts[2].toLowerCase();
+    const catRaw = parts.slice(3).join(' ') || '';
+
+    if (isNaN(valorTotal) || valorTotal <= 0 || isNaN(nParcelas) || nParcelas < 1) {
+        sendTelegram(chatId, '⚠️ Valor ou número de parcelas inválido.');
+        return;
+    }
+
+    const { fontes, categorias } = getListsCached();
+
+    let cartao = fontes.find(f => f.toLowerCase().includes(cartaoRaw));
+    if (!cartao) {
+        if (cartaoRaw.includes('lu')) cartao = 'Nubank Lu';
+        else if (cartaoRaw.includes('mp') || cartaoRaw.includes('mercado')) cartao = 'Mercado Pago Gu';
+        else cartao = user.pagador === 'Luana' ? 'Nubank Lu' : 'Nubank Gu';
+    }
+
+    const categoria = categorias.find(c => c.toLowerCase().includes(catRaw.toLowerCase())) || 'Outros';
+    const valorParcela = Math.round((valorTotal / nParcelas) * 100) / 100;
+
+    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const parcelasSheet = ss.getSheetByName(CONFIG.SHEETS.parcelas);
+    const date = new Date();
+    const parcelaRow = Math.max(parcelasSheet.getLastRow() + 1, 4);
+
+    parcelasSheet.getRange(parcelaRow, 1, 1, 8).setValues([[
+        catRaw || categoria, valorParcela, 1, nParcelas, cartao, categoria, date, 'Ativa'
+    ]]);
+    parcelasSheet.getRange(parcelaRow, 2).setNumberFormat('"R$ "#,##0.00');
+    parcelasSheet.getRange(parcelaRow, 7).setNumberFormat('dd/mm/yyyy');
+
+    const lancSheet = ss.getSheetByName(CONFIG.SHEETS.lancamentos);
+    const lancRow = lancSheet.getLastRow() + 1;
+    lancSheet.getRange(lancRow, 1, 1, 8).setValues([[
+        date, 'Despesa', valorParcela, categoria, user.pagador, cartao,
+        `Parcela 1/${nParcelas}`, date
+    ]]);
+    lancSheet.getRange(lancRow, 1).setNumberFormat('dd/mm/yyyy');
+    lancSheet.getRange(lancRow, 3).setNumberFormat('"R$ "#,##0.00');
+    lancSheet.getRange(lancRow, 8).setNumberFormat('dd/mm/yyyy');
+
+    PropertiesService.getScriptProperties()
+        .setProperty('last_row_' + chatId, String(lancRow));
+
+    sendTelegram(chatId, `✅ Parcela cadastrada!\n${catRaw || categoria}: ${formatBRL(valorParcela)}/mês × ${nParcelas}x\nCartão: ${cartao}\nParcela 1/${nParcelas} lançada em ${Utilities.formatDate(date, CONFIG.TIMEZONE, 'dd/MM/yyyy')}`);
+}
+
+function getFatura(arg) {
+    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const dash = ss.getSheetByName(CONFIG.SHEETS.dashboard);
+
+    const cartoes = [
+        { nome: 'Nubank Gu', row: 90 },
+        { nome: 'Nubank Lu', row: 91 },
+        { nome: 'Mercado Pago Gu', row: 92 }
+    ];
+
+    if (arg) {
+        const n = arg.toLowerCase();
+        const found = cartoes.find(c => c.nome.toLowerCase().includes(n));
+        if (!found) return `Cartão "${arg}" não encontrado. Opções: nubank gu, nubank lu, mp`;
+        const total = dash.getRange(`E${found.row}`).getValue();
+        return `💳 *${found.nome}*\nFatura do mês: ${formatBRL(total)}`;
+    }
+
+    const linhas = cartoes.map(c => {
+        const total = dash.getRange(`E${c.row}`).getValue();
+        return `• ${c.nome}: ${formatBRL(total)}`;
+    });
+    const totalGeral = cartoes.reduce((sum, c) => sum + (dash.getRange(`E${c.row}`).getValue() || 0), 0);
+    const mes = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'MMMM/yyyy');
+    return `💳 *Faturas ${mes}*\n\n${linhas.join('\n')}\n\n*Total cartões:* ${formatBRL(totalGeral)}`;
+}
+
 // ============================================================
 // HELPERS
 // ============================================================
