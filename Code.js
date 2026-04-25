@@ -369,17 +369,27 @@ function validateParse(p) {
     if (typeof p.valor !== 'number' || p.valor <= 0) {
         return { ok: false, message: `Valor inválido: "${p.valor}". Precisa ser um número maior que zero.` };
     }
-    if (!categorias.includes(p.categoria)) {
-        return { ok: false, message: `Categoria "${p.categoria}" não existe. Categorias válidas começam com: Financ., Supermercado, Delivery, Padaria/café, etc.` };
+    if (!['Despesa', 'Receita', 'Transferência'].includes(p.tipo)) {
+        return { ok: false, message: `Tipo "${p.tipo}" inválido.` };
     }
     if (!pagadores.includes(p.pagador)) {
         return { ok: false, message: `Pagador "${p.pagador}" inválido. Use Gustavo ou Luana.` };
     }
     if (!fontes.includes(p.fonte)) {
-        return { ok: false, message: `Fonte "${p.fonte}" não existe. Ex: Cartão Gustavo, Conta Luana, VR/VA Gustavo.` };
+        return { ok: false, message: `Fonte "${p.fonte}" não existe. Ex: Nubank Gu, Conta Gustavo, CDB 115% CDI.` };
     }
-    if (!['Despesa', 'Receita'].includes(p.tipo)) {
-        return { ok: false, message: `Tipo "${p.tipo}" inválido.` };
+    // For Transferência, categoria is the destination — can be a category OR a fonte (account)
+    if (p.tipo === 'Transferência') {
+        if (!categorias.includes(p.categoria) && !fontes.includes(p.categoria)) {
+            return { ok: false, message: `Destino "${p.categoria}" inválido para Transferência. Use uma conta ou investimento válido.` };
+        }
+        if (p.fonte === p.categoria) {
+            return { ok: false, message: `Transferência inválida: origem e destino são iguais (${p.fonte}).` };
+        }
+    } else {
+        if (!categorias.includes(p.categoria)) {
+            return { ok: false, message: `Categoria "${p.categoria}" não existe. Ex: Delivery, Supermercado, Financ. Caixa.` };
+        }
     }
     return { ok: true };
 }
