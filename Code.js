@@ -156,7 +156,7 @@ function parseWithOpenAI(text, pagadorDefault) {
                     type: 'object',
                     additionalProperties: false,
                     properties: {
-                        tipo: { type: 'string', enum: ['Despesa', 'Receita'] },
+                        tipo: { type: 'string', enum: ['Despesa', 'Receita', 'Transferência'] },
                         valor: { type: 'number' },
                         categoria: { type: 'string' },
                         pagador: { type: 'string', enum: pagadores },
