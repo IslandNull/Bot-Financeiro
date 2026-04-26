@@ -31,6 +31,7 @@ function handleEntry(text, chatId, user) {
 }
 
 function recordParsedEntry(parsed, chatId, user) {
+    return withScriptLock('recordParsedEntry', function() {
     const validation = validateParse(parsed);
     if (!validation.ok) {
         throw new Error(validation.message);
@@ -79,6 +80,7 @@ function recordParsedEntry(parsed, chatId, user) {
         count: rowsToInsert.length,
         rows: rowsToInsert
     };
+    });
 }
 
 function formatEntryResponse(p, date, isAporte) {
@@ -123,6 +125,7 @@ function formatEntryResponse(p, date, isAporte) {
 // DESFAZER — apaga a última linha gravada por este chatId
 // ============================================================
 function desfazerUltimo(chatId, user) {
+    return withScriptLock('desfazerUltimo', function() {
     const props = PropertiesService.getScriptProperties();
     const lastRowRaw = props.getProperty('last_row_' + chatId);
     if (!lastRowRaw) {
@@ -155,12 +158,14 @@ function desfazerUltimo(chatId, user) {
     let msg = `↩️ Desfeito\n💸 ${formatBRL(vals[3])} — ${vals[2]} (${vals[4]})`;
     if (count > 1) msg += `\n*(Incluindo contrapartida de partida dobrada)*`;
     sendTelegram(chatId, msg);
+    });
 }
 
 // ============================================================
 // /MANTER — registra o acerto mensal (Luana → Gustavo)
 // ============================================================
 function handleManter(chatId, user) {
+    return withScriptLock('handleManter', function() {
     const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
     const dash = ss.getSheetByName(CONFIG.SHEETS.dashboard);
     const transfere = dash.getRange('E16').getValue();
@@ -185,12 +190,14 @@ function handleManter(chatId, user) {
         .setProperty('last_row_' + chatId, JSON.stringify({ row: newRow, count: 1 }));
 
     sendTelegram(chatId, `✅ Acerto registrado!\n💸 ${formatBRL(transfere)}\n📤 Conta Luana → Conta Gustavo\n📅 ${Utilities.formatDate(date, CONFIG.TIMEZONE, 'dd/MM/yyyy')}`);
+    });
 }
 
 // ============================================================
 // /PARCELA — cadastra parcela (aba Parcelas) + 1ª parcela em Lançamentos
 // ============================================================
 function handleParcela(arg, chatId, user) {
+    return withScriptLock('handleParcela', function() {
     if (!arg) {
         sendTelegram(chatId, `📋 *Cadastrar parcela*\n\nFormato: /parcela [valor_total] [n_parcelas] [cartão] [categoria]\n\nExemplo:\n/parcela 360 3 nubank calçado\n  → R$ 120,00 × 3x no Nubank Gu`);
         return;
@@ -250,6 +257,7 @@ function handleParcela(arg, chatId, user) {
         .setProperty('last_row_' + chatId, JSON.stringify({ row: lancRow, count: 1 }));
 
     sendTelegram(chatId, `✅ Parcela cadastrada!\n${catRaw || categoria}: ${formatBRL(valorParcela)}/mês × ${nParcelas}x\nCartão: ${cartao}\nParcela 1/${nParcelas} lançada em ${Utilities.formatDate(date, CONFIG.TIMEZONE, 'dd/MM/yyyy')}`);
+    });
 }
 
 // ============================================================

@@ -12,7 +12,8 @@
     "test:v53": "node scripts/test-v53.js",
     "test:v54:domain": "node scripts/test-v54-domain.js",
     "test:v54:schema": "node scripts/test-v54-schema.js",
-    "test:v54:setup": "node scripts/test-v54-setup-dry-run.js"
+    "test:v54:setup": "node scripts/test-v54-setup-dry-run.js",
+    "test:security-locks": "node scripts/test-security-locks.js"
   },
   "devDependencies": {
     "@google/clasp": "^2.4.2"

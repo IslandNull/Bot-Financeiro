@@ -31,6 +31,8 @@ function _loadSecrets() {
     CONFIG.OPENAI_API_KEY = p.getProperty('OPENAI_API_KEY');
     CONFIG.TELEGRAM_TOKEN = p.getProperty('TELEGRAM_TOKEN');
     CONFIG.SYNC_SECRET = p.getProperty('SYNC_SECRET');
+    CONFIG.WEBHOOK_SECRET = p.getProperty('WEBHOOK_SECRET');
+    CONFIG.VALTOWN_WEBHOOK_URL = p.getProperty('VALTOWN_WEBHOOK_URL');
     CONFIG.SPREADSHEET_ID = p.getProperty('SPREADSHEET_ID');
     CONFIG.AUTHORIZED = JSON.parse(p.getProperty('AUTHORIZED') || '{}');
 }
@@ -41,7 +43,12 @@ function _loadSecrets() {
 function doPost(e) {
     _loadSecrets();
     try {
-        const update = JSON.parse(e.postData.contents);
+        const update = parseTelegramUpdate_(e);
+        if (!isWebhookAuthorized_(e, update)) {
+            console.warn('doPost blocked: missing or invalid WEBHOOK_SECRET.');
+            return _ok();
+        }
+
         const msg = update.message || update.edited_message;
         if (!msg || !msg.text) return _ok();
 
@@ -67,33 +74,88 @@ function doPost(e) {
 
 function _ok() { return ContentService.createTextOutput(''); }
 
+function parseTelegramUpdate_(e) {
+    if (!e || !e.postData || !e.postData.contents) {
+        throw new Error('Missing POST body.');
+    }
+    return JSON.parse(e.postData.contents);
+}
+
+function isWebhookAuthorized_(e, update) {
+    if (!CONFIG.WEBHOOK_SECRET) return false;
+    const provided = extractWebhookSecret_(e, update);
+    return safeCompare_(provided, CONFIG.WEBHOOK_SECRET);
+}
+
+function extractWebhookSecret_(e, update) {
+    const params = (e && e.parameter) || {};
+    const candidates = [
+        params.webhook_secret,
+        params.telegram_secret,
+        update && update._webhook_secret,
+        update && update._bot_financeiro_secret,
+        update && update.webhook_secret,
+        update && update.proxy_secret
+    ];
+
+    for (let i = 0; i < candidates.length; i++) {
+        if (typeof candidates[i] === 'string' && candidates[i]) return candidates[i];
+    }
+    return '';
+}
+
 // ============================================================
 // API ENDPOINT (GET) — Exportar estado para IAs locais
 // ============================================================
 function doGet(e) {
     _loadSecrets();
-    const token = e.parameter.token;
-    
-    if (!token || token !== CONFIG.SYNC_SECRET) {
+    const action = e && e.parameter ? e.parameter.action : '';
+
+    if (!isSyncAuthorized_(e)) {
         return ContentService.createTextOutput('🚫 Acesso Negado.').setMimeType(ContentService.MimeType.TEXT);
     }
     
-    if (e.parameter.action === 'exportState') {
+    if (action === 'exportState') {
         const state = exportSpreadsheetState();
         return ContentService.createTextOutput(state).setMimeType(ContentService.MimeType.TEXT);
     }
 
-    if (e.parameter.action === 'forceFixAllFormulas') {
-        forceFixAllFormulas();
-        return ContentService.createTextOutput('OK: forceFixAllFormulas executed').setMimeType(ContentService.MimeType.TEXT);
+    if (isBlockedMutatingGetAction_(action)) {
+        return ContentService
+            .createTextOutput(`BLOCKED: mutating action "${action}" is not allowed over GET.`)
+            .setMimeType(ContentService.MimeType.TEXT);
     }
+    return ContentService.createTextOutput('Bot Financeiro API V53 (read-only GET)').setMimeType(ContentService.MimeType.TEXT);
+}
 
-    if (e.parameter.action === 'runV53AporteTest') {
-        const result = runV53AporteTest(e.parameter.cleanup !== '0');
-        return ContentService.createTextOutput(JSON.stringify(result, null, 2)).setMimeType(ContentService.MimeType.JSON);
+function isSyncAuthorized_(e) {
+    const token = e && e.parameter ? e.parameter.token : '';
+    return Boolean(CONFIG.SYNC_SECRET) && safeCompare_(String(token || ''), CONFIG.SYNC_SECRET);
+}
+
+function isBlockedMutatingGetAction_(action) {
+    return ['forceFixAllFormulas', 'runV53AporteTest'].indexOf(action) !== -1;
+}
+
+function safeCompare_(candidate, expected) {
+    if (typeof candidate !== 'string' || typeof expected !== 'string' || !candidate || !expected) return false;
+
+    let diff = candidate.length ^ expected.length;
+    const maxLength = Math.max(candidate.length, expected.length);
+    for (let i = 0; i < maxLength; i++) {
+        diff |= (candidate.charCodeAt(i) || 0) ^ (expected.charCodeAt(i) || 0);
     }
-    
-    return ContentService.createTextOutput('Bot Financeiro API V53').setMimeType(ContentService.MimeType.TEXT);
+    return diff === 0;
+}
+
+function withScriptLock(label, fn) {
+    const lock = LockService.getScriptLock();
+    lock.waitLock(30000);
+    try {
+        return fn();
+    } finally {
+        lock.releaseLock();
+    }
 }
 
 // ============================================================

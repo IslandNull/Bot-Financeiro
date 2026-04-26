@@ -15,17 +15,34 @@
 //   OPENAI_API_KEY   → chave da OpenAI
 //   TELEGRAM_TOKEN   → token do BotFather
 //   SPREADSHEET_ID   → ID da planilha Google Sheets
+//   WEBHOOK_SECRET   → segredo compartilhado entre Telegram/Val.town/Apps Script
 //   AUTHORIZED       → JSON: {"CHAT_ID_GUSTAVO":{"nome":"Gustavo","pagador":"Gustavo"},"CHAT_ID_LUANA":{"nome":"Luana","pagador":"Luana"}}
+// Chave opcional:
+//   VALTOWN_WEBHOOK_URL → URL customizada do proxy Val.town, se mudar da padrao
 
 function setWebhook() {
     _loadSecrets();
     const url = ScriptApp.getService().getUrl();
     if (!url) throw new Error('Deploy o script como Web App primeiro.');
+    const webhookSecret = requireWebhookSecret_();
+    const webhookUrl = addWebhookSecretParam_(url, webhookSecret);
 
     const result = UrlFetchApp.fetch(
-        `https://api.telegram.org/bot${CONFIG.TELEGRAM_TOKEN}/setWebhook?url=${encodeURIComponent(url)}`
+        `https://api.telegram.org/bot${CONFIG.TELEGRAM_TOKEN}/setWebhook?url=${encodeURIComponent(webhookUrl)}&secret_token=${encodeURIComponent(webhookSecret)}`
     );
     console.log('Webhook response:', result.getContentText());
+}
+
+function requireWebhookSecret_() {
+    if (!CONFIG.WEBHOOK_SECRET) {
+        throw new Error('WEBHOOK_SECRET must be configured in Script Properties before setting the webhook.');
+    }
+    return CONFIG.WEBHOOK_SECRET;
+}
+
+function addWebhookSecretParam_(url, secret) {
+    const separator = url.indexOf('?') === -1 ? '?' : '&';
+    return `${url}${separator}webhook_secret=${encodeURIComponent(secret)}`;
 }
 
 // ============================================================
@@ -117,9 +134,11 @@ function deleteWebhook() {
 // ⚠️ Use ESTA função — aponta pro proxy Val.town (resolve bug do 302 do Apps Script)
 function apontarWebhookProValTown() {
     _loadSecrets();
-    const urlValTown = 'https://islandd.val.run/';
+    const webhookSecret = requireWebhookSecret_();
+    const urlValTown = CONFIG.VALTOWN_WEBHOOK_URL || 'https://islandd.val.run/';
+    const webhookUrl = addWebhookSecretParam_(urlValTown, webhookSecret);
     const result = UrlFetchApp.fetch(
-        `https://api.telegram.org/bot${CONFIG.TELEGRAM_TOKEN}/setWebhook?url=${encodeURIComponent(urlValTown)}&drop_pending_updates=true`
+        `https://api.telegram.org/bot${CONFIG.TELEGRAM_TOKEN}/setWebhook?url=${encodeURIComponent(webhookUrl)}&secret_token=${encodeURIComponent(webhookSecret)}&drop_pending_updates=true`
     );
     console.log('Webhook apontado para Val.town:', result.getContentText());
 }

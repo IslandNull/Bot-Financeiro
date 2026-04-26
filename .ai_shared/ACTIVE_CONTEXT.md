@@ -37,16 +37,32 @@ Branch: feat/v52-upgrade
 - `cmd /c npm run test:v54:setup` passed on 2026-04-26, including static checks that `planSetupV54` does not call mutating sheet APIs.
 - `cmd /c npm run test:v53` passed on 2026-04-26 without `--mutate`.
 - Direct PowerShell `npm run ...` is blocked by ExecutionPolicy in this environment; use `cmd /c npm ...` or `npm.cmd`.
+- V54 security + locks slice is coded locally on `feat/v52-upgrade`: `doPost` requires `WEBHOOK_SECRET` before trusting Telegram payload/chat data.
+- The local webhook contract accepts `webhook_secret`/`telegram_secret` query parameters for Apps Script and `_webhook_secret`/`_bot_financeiro_secret`/`webhook_secret`/`proxy_secret` body fields for Val.town forwarding.
+- Local webhook setup helpers now set Telegram `secret_token` and append `webhook_secret` to the configured Web App/Val.town URL.
+- `doGet` remains authenticated by `SYNC_SECRET` for `exportState`; mutating GET actions `forceFixAllFormulas` and `runV53AporteTest` are blocked in local code.
+- `withScriptLock()` uses `LockService.getScriptLock().waitLock(30000)` and is used by `recordParsedEntry`, `desfazerUltimo`, `handleManter`, and `handleParcela`.
+- Static security/lock test was added locally: `cmd /c npm run test:security-locks`.
+- `cmd /c npm run test:security-locks` passed on 2026-04-26 after the security + locks slice.
+- `cmd /c npm run test:v54:domain` passed on 2026-04-26 after the security + locks slice.
+- `cmd /c npm run test:v54:schema` passed on 2026-04-26 after the security + locks slice.
+- `cmd /c npm run test:v54:setup` passed on 2026-04-26 after the security + locks slice.
+- `cmd /c npm run test:v53` passed on 2026-04-26 after the security + locks slice; mutating Aporte test was skipped.
 
 ## Unverified claims
 - Double-entry `handleEntry` works end-to-end through Telegram integration.
 - A real Telegram/Val.town webhook message exercises the same behavior in production routing.
 - V54 schema exists in the spreadsheet. It does not; it is only planned.
+- `WEBHOOK_SECRET` is configured in the deployed Apps Script project properties.
+- Val.town proxy currently forwards the agreed `webhook_secret`/body secret contract to Apps Script.
+- The security + locks slice is deployed to Apps Script. No `clasp push` was run in this slice.
+- A replacement protected POST maintenance path for mutating actions exists. Current local code blocks mutating GET instead.
 
 ## Current task
-Execute V54 safely in small phases. Current completed phase: read-only multi-agent review, first local pure-domain V54 test suite, and consolidation of the external analysis into the masterplan/schema spec. Do not mutate production spreadsheet yet.
+Execute V54 safely in small phases. Current local phase: security hardening and write-lock wrappers coded on `feat/v52-upgrade` and verified by local/static tests. Do not mutate production spreadsheet yet.
 
 ## Next safe action
-1. Run and keep passing `cmd /c npm run test:v54:domain`, `cmd /c npm run test:v54:schema`, `cmd /c npm run test:v54:setup`, and `cmd /c npm run test:v53`.
-2. Next implementation slice should be security hardening for `doPost`/mutating maintenance endpoints plus `LockService` write protection, before formula builders or any production mutation.
-3. Do not run `clasp push`, setup functions, mutating tests, Telegram production tests, or spreadsheet mutation until local schema/domain tests and security blockers are addressed.
+1. Run and keep passing `cmd /c npm run test:security-locks`, `cmd /c npm run test:v54:domain`, `cmd /c npm run test:v54:schema`, `cmd /c npm run test:v54:setup`, and `cmd /c npm run test:v53`.
+2. Configure `WEBHOOK_SECRET` in Apps Script and verify/update the Val.town proxy contract before Telegram production testing.
+3. Decide whether mutating maintenance actions need a new protected POST path; current local code blocks them over GET.
+4. Do not run `clasp push`, setup functions, mutating tests, Telegram production tests, or spreadsheet mutation until the reviewed security slice is approved.

@@ -154,3 +154,22 @@ Expand the planned V54 schema with `Pagamentos_Fatura`, `Dividas`, and `Fechamen
 
 Reason:
 Invoice payment needs its own entity to support partial payments, reconciliation, and no duplicate DRE expense. Caixa and Vasco need explicit debt records before amortization advice is meaningful. Monthly closing is the decision layer for the couple. Visibility rules are required so personal spending can remain autonomous and not become surveillance in shared reports.
+
+## D016 - V54 Security And Write Locks Gate
+Status: Accepted
+Date: 2026-04-26
+
+Decision:
+Before any production mutation or new V54 financial feature, `doPost` must fail closed unless `WEBHOOK_SECRET` is present and matches a request secret. The accepted local contract supports Apps Script query parameters (`webhook_secret` or `telegram_secret`) and Val.town-forwarded body fields (`_webhook_secret`, `_bot_financeiro_secret`, `webhook_secret`, or `proxy_secret`). Telegram webhook setup must also set `secret_token`.
+
+`doGet` remains read-only for `exportState` behind `SYNC_SECRET`. Mutating GET actions, including `forceFixAllFormulas` and `runV53AporteTest`, must be blocked over GET until a reviewed protected POST maintenance path exists.
+
+Write paths that use spreadsheet row allocation or deletion must run under `withScriptLock()` using Apps Script `LockService`. The local guarded paths are `recordParsedEntry`, `desfazerUltimo`, `handleManter`, and `handleParcela`.
+
+Reason:
+The verified risks were spoofable webhook payload trust, query-string mutating maintenance endpoints, and concurrent writes based on `getLastRow() + 1`. A shared webhook secret plus fail-closed routing prevents trusting arbitrary payloads before chat authorization, blocking mutating GET avoids accidental or leaked-link spreadsheet mutation, and `LockService` reduces row-race risk for Gustavo/Luana concurrent writes.
+
+Rejected:
+- Trusting Telegram `chat.id` alone as webhook authentication.
+- Reusing read-only `doGet` as the route for mutating maintenance actions.
+- Adding new V54 spreadsheet mutation before security and write-safety checks are locally verified.
