@@ -329,3 +329,21 @@ Rejected:
 - Using random IDs or wall-clock timestamps in tests.
 - Writing `undefined` into optional spreadsheet link columns.
 - Handling installment fan-out, invoice generation, invoice payments, or real spreadsheet append in the mapper prep phase.
+
+## D026 - ActionsV54 MVP Is Fake-First And Not Routed
+Status: Accepted
+Date: 2026-04-26
+
+Decision:
+Create `src/ActionsV54.js` as an isolated MVP write-path module for simple V54 events only: `despesa`, `receita`, `transferencia`, and `aporte`. The MVP validates and maps entries to one canonical 19-column `Lancamentos_V54` row, appends through injectable spreadsheet/sheet dependencies, and requires an injectable lock wrapper around the append.
+
+Unsupported financial events (`compra_cartao`, `compra_parcelada`, `pagamento_fatura`, `divida_pagamento`, and `ajuste`) are rejected explicitly until their own card, invoice, debt, and reconciliation phases exist. The module is not wired into `doPost`, routing, Telegram, `Parser.js`, or V53 production flow.
+
+Reason:
+The first Apps Script-facing V54 action should prove the write boundary with fake-spreadsheet tests before touching the real spreadsheet. Keeping all production dependencies injectable lets local tests verify row shape, header matching, lock usage, deterministic ID/timestamp behavior, and V53 isolation without `SpreadsheetApp` mutation.
+
+Rejected:
+- Routing Telegram messages to V54 during the MVP action phase.
+- Supporting card/fatura/installment/debt/reconciliation events in the simple write-path phase.
+- Calling real `SpreadsheetApp` from local tests.
+- Modifying V53 production files to make V54 tests pass.

@@ -59,7 +59,7 @@ As seguintes ações são candidatas a refatoração, mas devem ser divididas em
 
 ### Fase 3: Transaction Write Paths V54 (MVP)
 - **Fase 3A-prep — Mapper local de `Lancamentos_V54`:** DONE. `scripts/lib/v54-lancamentos-mapper.js` maps validated `ParsedEntryV54` objects to canonical 19-column `Lancamentos_V54` row payloads with injected ID/timestamp dependencies. This is local-only and not wired into production.
-- **Fase 3A — Write Path Simples:** Implementar `ActionsV54.js` MVP (`recordEntryV54` para Lançamentos Simples, Receitas e Transferências), gerando as 19 colunas corretas. Testes fake-spreadsheet obrigatórios.
+- **Fase 3A — Write Path Simples:** DONE locally. `src/ActionsV54.js` implements `recordEntryV54` for simple V54 events (`despesa`, `receita`, `transferencia`, `aporte`) with fake-spreadsheet tests only. It is not wired into Telegram/routing and does not implement cards, invoices, installments, debts, reconciliation, or reporting.
 
 ### Fase 4: Complexidade Financeira (Cartões e Faturas)
 *Desenvolver o motor progressivamente:*
