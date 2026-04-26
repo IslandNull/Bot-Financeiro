@@ -330,6 +330,35 @@ function forceFixAllFormulas() {
     // 2. Dashboard
     const dash = ss.getSheetByName('Dashboard');
     if (dash) {
+        dash.getRange('E8').setFormula(`=SUMIFS('Lançamentos'!D:D; 'Lançamentos'!B:B; "Receita"; 'Lançamentos'!A:A; ">=" & $B$4; 'Lançamentos'!A:A; "<=" & $D$4)`);
+        dash.getRange('E9').setFormula(`=SUMIFS('Lançamentos'!D:D; 'Lançamentos'!B:B; "Despesa"; 'Lançamentos'!A:A; ">=" & $B$4; 'Lançamentos'!A:A; "<=" & $D$4)`);
+        dash.getRange('F8').setFormula(`=E8 - D8`);
+        dash.getRange('G8').setFormula(`=IF(D8=0; 0; E8/D8)`);
+        dash.getRange('F9').setFormula(`=D9 - E9`);
+        dash.getRange('D10').setFormula(`=D8 - D9`);
+        dash.getRange('E10').setFormula(`=E8 - E9`);
+
+        dash.getRange('E13').setFormula(`=SUMIFS('Lançamentos'!D:D; 'Lançamentos'!B:B; "Receita"; 'Lançamentos'!A:A; ">=" & $B$4; 'Lançamentos'!A:A; "<=" & $D$4; 'Lançamentos'!G:G; "Luana")`);
+        dash.getRange('E14').setFormula(`=SUMIFS('Lançamentos'!D:D; 'Lançamentos'!B:B; "Despesa"; 'Lançamentos'!A:A; ">=" & $B$4; 'Lançamentos'!A:A; "<=" & $D$4; 'Lançamentos'!G:G; "Luana")`);
+        dash.getRange('E16').setFormula(`=E13 - E14 - E15`);
+
+        dash.getRange('C21').setFormula(`=SUMIFS('Lançamentos'!D:D; 'Lançamentos'!B:B; "Despesa"; 'Lançamentos'!A:A; ">=" & $B$4; 'Lançamentos'!A:A; "<=" & $D$4; 'Lançamentos'!G:G; "Gustavo")`);
+        dash.getRange('D21').setFormula(`=IF($E$9=0; 0; C21/$E$9)`);
+        dash.getRange('C22').setFormula(`=SUMIFS('Lançamentos'!D:D; 'Lançamentos'!B:B; "Despesa"; 'Lançamentos'!A:A; ">=" & $B$4; 'Lançamentos'!A:A; "<=" & $D$4; 'Lançamentos'!G:G; "Luana")`);
+        dash.getRange('D22').setFormula(`=IF($E$9=0; 0; C22/$E$9)`);
+
+        dash.getRange('D26:G63').clearContent();
+        for (let r = 26; r <= 63; r++) {
+            dash.getRange(r, 4).setFormula(`=IF(B${r}=""; ""; IFERROR(VLOOKUP(B${r}; 'Orçamento Mensal'!A:B; 2; FALSE()); 0))`);
+            dash.getRange(r, 5).setFormula(`=IF(B${r}=""; ""; SUMIFS('Lançamentos'!D:D; 'Lançamentos'!B:B; "Despesa"; 'Lançamentos'!C:C; XLOOKUP(B${r}; 'Config'!B:B; 'Config'!A:A); 'Lançamentos'!A:A; ">=" & $B$4; 'Lançamentos'!A:A; "<=" & $D$4))`);
+            dash.getRange(r, 6).setFormula(`=IF(B${r}=""; ""; D${r} - E${r})`);
+            dash.getRange(r, 7).setFormula(`=IF(B${r}=""; ""; IF(D${r}=0; IF(E${r}=0; 0; 9,99); E${r}/D${r}))`);
+        }
+        dash.getRange('D64').setFormula(`=SUM(D26:D63)`);
+        dash.getRange('E64').setFormula(`=SUM(E26:E63)`);
+        dash.getRange('F64').setFormula(`=D64 - E64`);
+        dash.getRange('G64').setFormula(`=IF(D64=0; IF(E64=0; 0; 9,99); E64/D64)`);
+
         dash.getRange('E69:E75').clearContent();
         dash.getRange('F69:F75').clearContent();
         dash.getRange('G69:G75').clearContent();
@@ -415,6 +444,28 @@ function exportSpreadsheetState() {
         // 2. Used ranges overview
         report.push(`**Size:** ${lastCol} columns x ${lastRow} rows\n`);
 
+        // 2.1. Structural rows only. Avoid dumping transaction rows with real values.
+        const structuralRanges = [];
+        if (name === CONFIG.SHEETS.lancamentos) structuralRanges.push('A5:H5');
+        if (name === CONFIG.SHEETS.config) structuralRanges.push('A11:L20');
+        if (name === CONFIG.SHEETS.investimentos) structuralRanges.push('A3:F3');
+        if (name === CONFIG.SHEETS.parcelas) structuralRanges.push('A3:H3');
+
+        if (structuralRanges.length > 0) {
+            report.push('**Structural Rows:**');
+            structuralRanges.forEach(a1 => {
+                const range = sheet.getRange(a1);
+                const values = range.getDisplayValues();
+                values.forEach((row, idx) => {
+                    const nonEmpty = row.some(v => v !== '');
+                    if (!nonEmpty) return;
+                    const rowNumber = range.getRow() + idx;
+                    report.push(`- \`${a1}\` row ${rowNumber}: ${row.map(v => v === '' ? '(empty)' : v).join(' | ')}`);
+                });
+            });
+            report.push('\n');
+        }
+
         // 3. Formula Map (Apenas para abas analíticas)
         if (['Dashboard', 'Investimentos', 'Config'].includes(name)) {
             report.push('**Important Formulas:**');
@@ -436,7 +487,7 @@ function exportSpreadsheetState() {
                             formulasEncontradas++;
                             const cellRef = sheet.getRange(r + 1, c + 1).getA1Notation();
                             const val = displayValues[r][c];
-                            const status = (val.includes('#ERROR!') || val.includes('#NAME?') || val.includes('#REF!')) ? '❌ ERRO' : '✅ OK';
+                            const status = (val.includes('#ERROR!') || val.includes('#NAME?') || val.includes('#REF!') || val.includes('#N/A')) ? '❌ ERRO' : '✅ OK';
                             report.push(`- \`${cellRef}\` (${status}): \`${f}\``);
                         }
                     }

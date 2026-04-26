@@ -26,6 +26,25 @@ function askQuestion(query) {
     return new Promise(resolve => rl.question(query, ans => { rl.close(); resolve(ans.trim()); }));
 }
 
+function validateExportedState(text, contentType) {
+    const trimmed = text.trim();
+
+    if (/text\/html/i.test(contentType || '') || /^<!doctype html/i.test(trimmed) || /^<html/i.test(trimmed)) {
+        if (text.includes('doGet')) {
+            throw new Error('Apps Script returned an HTML error: doGet was not found in the current deployment.');
+        }
+        throw new Error('Apps Script returned HTML instead of the spreadsheet state.');
+    }
+
+    if (text.includes('Acesso Negado')) {
+        throw new Error('Acesso Negado: SHEETS_SYNC_SECRET is incorrect or SYNC_SECRET is missing in Apps Script.');
+    }
+
+    if (!trimmed.startsWith('# Spreadsheet State')) {
+        throw new Error('Unexpected response: it does not look like a valid spreadsheet snapshot.');
+    }
+}
+
 async function run() {
     let env = loadEnv();
     let updated = false;
@@ -60,21 +79,20 @@ async function run() {
         
         const text = await response.text();
         
-        if (text.includes('Acesso Negado')) {
-            throw new Error('Acesso Negado: Token do Telegram incorreto.');
-        }
+        validateExportedState(text, response.headers.get('content-type'));
 
         // Garante que o diretório existe
         const dir = path.dirname(outPath);
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-        fs.writeFileSync(outPath, text);
+        fs.writeFileSync(outPath, text.trimEnd() + '\n');
         console.log(`✅ Sucesso! Estado da planilha atualizado e salvo em:`);
         console.log(`   👉 ${outPath}`);
         
     } catch(err) {
         console.error('\n❌ Erro ao sincronizar:', err.message);
         console.log('Dica: Verifique se a URL do Web App é a versão final (Executável) e se o seu Token está correto.');
+        process.exitCode = 1;
     }
 }
 

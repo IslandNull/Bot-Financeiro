@@ -8,7 +8,8 @@
     "deploy": "clasp deploy",
     "logs": "clasp logs",
     "open": "clasp open",
-    "sync": "node scripts/sync-state.js"
+    "sync": "node scripts/sync-state.js",
+    "test:v53": "node scripts/test-v53.js"
   },
   "devDependencies": {
     "@google/clasp": "^2.4.2"

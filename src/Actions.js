@@ -21,10 +21,19 @@ function handleEntry(text, chatId, user) {
         return;
     }
 
+    try {
+        const result = recordParsedEntry(parsed, chatId, user);
+        sendTelegram(chatId, formatEntryResponse(parsed, result.date, result.isAporte));
+    } catch (err) {
+        sendTelegram(chatId, `Erro: ${err.message}`);
+    }
+    return;
+}
+
+function recordParsedEntry(parsed, chatId, user) {
     const validation = validateParse(parsed);
     if (!validation.ok) {
-        sendTelegram(chatId, `⚠️ ${validation.message}`);
-        return;
+        throw new Error(validation.message);
     }
 
     const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
@@ -33,10 +42,9 @@ function handleEntry(text, chatId, user) {
     const newRow = sheet.getLastRow() + 1;
 
     let rowsToInsert = [];
-    let isAporte = parsed.tipo === 'Transferência' && parsed.categoria.startsWith('INV-');
+    let isAporte = parsed.tipo === 'Transferência' && String(parsed.id_categoria || parsed.categoria).startsWith('INV-');
 
     if (isAporte) {
-        // Motor de Partidas Dobradas: Aporte gera duas linhas
         rowsToInsert.push([
             date, 'Despesa', 'INV-APORTE', parsed.valor, parsed.fonte, parsed.descricao || 'Débito Aporte', parsed.pagador, date
         ]);
@@ -44,11 +52,10 @@ function handleEntry(text, chatId, user) {
             date, 'Receita', parsed.id_categoria, parsed.valor, parsed.fonte, parsed.descricao || 'Crédito Aporte', parsed.pagador, date
         ]);
     } else {
-        // Lançamento normal no novo schema V53
         rowsToInsert.push([
             date,
             parsed.tipo,
-            parsed.id_categoria, // grava o ID relacional
+            parsed.id_categoria,
             parsed.valor,
             parsed.fonte,
             parsed.descricao || '',
@@ -58,7 +65,6 @@ function handleEntry(text, chatId, user) {
     }
 
     sheet.getRange(newRow, 1, rowsToInsert.length, 8).setValues(rowsToInsert);
-
     sheet.getRange(newRow, 1, rowsToInsert.length, 1).setNumberFormat('dd/mm/yyyy');
     sheet.getRange(newRow, 4, rowsToInsert.length, 1).setNumberFormat('"R$ "#,##0.00');
     sheet.getRange(newRow, 8, rowsToInsert.length, 1).setNumberFormat('dd/mm/yyyy');
@@ -66,7 +72,13 @@ function handleEntry(text, chatId, user) {
     PropertiesService.getScriptProperties()
         .setProperty('last_row_' + chatId, JSON.stringify({ row: newRow, count: rowsToInsert.length }));
 
-    sendTelegram(chatId, formatEntryResponse(parsed, date, isAporte));
+    return {
+        date,
+        isAporte,
+        firstRow: newRow,
+        count: rowsToInsert.length,
+        rows: rowsToInsert
+    };
 }
 
 function formatEntryResponse(p, date, isAporte) {

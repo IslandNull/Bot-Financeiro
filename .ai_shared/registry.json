@@ -1,14 +1,69 @@
 {
   "project": "Bot-Financeiro",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "skills_root": "./.ai_shared/skills",
   "tools_root": "./.ai_shared/tools",
   "active_skills": [
-    { "id": "code_architect", "source": "gemini-internal", "description": "Arquitetura e visão sistêmica" },
-    { "id": "gas_expert", "source": "awesome-claude-skills", "description": "Best practices para Google Apps Script" },
-    { "id": "prompt_engineering", "source": "superpowers", "description": "Otimização de prompts NLP" },
-    { "id": "handoff_protocol", "source": "multi-agent-orchestration", "description": "Protocolo de transição entre IAs" },
-    { "id": "conflict_resolution", "source": "governance", "description": "Matriz de decisão para conflitos de código" }
+    {
+      "id": "code_architect",
+      "source": "gemini-internal",
+      "description": "Arquitetura e visao sistemica"
+    },
+    {
+      "id": "gas_expert",
+      "source": "awesome-claude-skills",
+      "description": "Best practices para Google Apps Script"
+    },
+    {
+      "id": "prompt_engineering",
+      "source": "superpowers",
+      "description": "Otimizacao de prompts NLP"
+    },
+    {
+      "id": "handoff_protocol",
+      "source": "multi-agent-orchestration",
+      "description": "Protocolo de transicao entre IAs"
+    },
+    {
+      "id": "conflict_resolution",
+      "source": "governance",
+      "description": "Matriz de decisao para conflitos de codigo"
+    },
+    {
+      "id": "create-plan",
+      "source": "https://github.com/ComposioHQ/awesome-codex-skills/tree/master/create-plan",
+      "installed_path": "C:/Users/Luana/.codex/skills/create-plan",
+      "shared_path": "./.ai_shared/skills/create-plan.md",
+      "description": "Criar planos concisos e ordenados antes de mudancas complexas."
+    },
+    {
+      "id": "spreadsheet-formula-helper",
+      "source": "https://github.com/ComposioHQ/awesome-codex-skills/tree/master/spreadsheet-formula-helper",
+      "installed_path": "C:/Users/Luana/.codex/skills/spreadsheet-formula-helper",
+      "shared_path": "./.ai_shared/skills/spreadsheet-formula-helper.md",
+      "description": "Escrever, traduzir e auditar formulas de Google Sheets e Excel."
+    },
+    {
+      "id": "invoice-organizer",
+      "source": "https://github.com/ComposioHQ/awesome-codex-skills/tree/master/invoice-organizer",
+      "installed_path": "C:/Users/Luana/.codex/skills/invoice-organizer",
+      "shared_path": "./.ai_shared/skills/invoice-organizer.md",
+      "description": "Organizar notas, recibos e faturas para conciliacao e controle financeiro."
+    },
+    {
+      "id": "content-research-writer",
+      "source": "https://github.com/ComposioHQ/awesome-codex-skills/tree/master/content-research-writer",
+      "installed_path": "C:/Users/Luana/.codex/skills/content-research-writer",
+      "shared_path": "./.ai_shared/skills/content-research-writer.md",
+      "description": "Pesquisar, sintetizar e documentar recomendacoes com fontes."
+    },
+    {
+      "id": "changelog-generator",
+      "source": "https://github.com/ComposioHQ/awesome-codex-skills/tree/master/changelog-generator",
+      "installed_path": "C:/Users/Luana/.codex/skills/changelog-generator",
+      "shared_path": "./.ai_shared/skills/changelog-generator.md",
+      "description": "Gerar changelog e notas de entrega a partir do historico de mudancas."
+    }
   ],
-  "usage_policy": "Consulte sempre o handoff_protocol ao trocar de IA."
+  "usage_policy": "Consulte sempre o handoff_protocol ao trocar de IA. Skills externas devem estar registradas aqui e resumidas em .ai_shared/skills antes de uso por outra IA."
 }

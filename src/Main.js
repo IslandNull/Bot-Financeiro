@@ -82,6 +82,16 @@ function doGet(e) {
         const state = exportSpreadsheetState();
         return ContentService.createTextOutput(state).setMimeType(ContentService.MimeType.TEXT);
     }
+
+    if (e.parameter.action === 'forceFixAllFormulas') {
+        forceFixAllFormulas();
+        return ContentService.createTextOutput('OK: forceFixAllFormulas executed').setMimeType(ContentService.MimeType.TEXT);
+    }
+
+    if (e.parameter.action === 'runV53AporteTest') {
+        const result = runV53AporteTest(e.parameter.cleanup !== '0');
+        return ContentService.createTextOutput(JSON.stringify(result, null, 2)).setMimeType(ContentService.MimeType.JSON);
+    }
     
     return ContentService.createTextOutput('Bot Financeiro API V53').setMimeType(ContentService.MimeType.TEXT);
 }
