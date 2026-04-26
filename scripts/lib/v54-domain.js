@@ -36,6 +36,10 @@ function addMonths(date, amount) {
     return new Date(date.getFullYear(), date.getMonth() + amount, 1);
 }
 
+function addDays(date, amount) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate() + amount);
+}
+
 function calculateIncomeShares(incomes) {
     const entries = Object.entries(incomes || {});
     const total = entries.reduce((sum, [, value]) => sum + Number(value || 0), 0);
@@ -126,6 +130,170 @@ function summarizeFutureHomeForecast(items) {
     }, { forecastTotal: 0, activeDreTotal: 0 });
 }
 
+function summarizeUpcomingInvoices(invoices, { asOfDate, days = 60 } = {}) {
+    const start = toDateOnly(asOfDate || new Date());
+    const end = addDays(start, Number(days || 60));
+
+    return (invoices || []).reduce((acc, invoice) => {
+        const status = String(invoice.status || '').toLowerCase();
+        if (['paga', 'pago', 'cancelada', 'cancelado'].includes(status)) return acc;
+        if (!invoice.data_vencimento) return acc;
+
+        const dueDate = toDateOnly(invoice.data_vencimento);
+        if (dueDate < start || dueDate > end) return acc;
+
+        const closedValue = Number(invoice.valor_fechado || 0);
+        const expectedValue = Number(invoice.valor_previsto || 0);
+        const paidValue = Number(invoice.valor_pago || 0);
+        const baseValue = closedValue > 0 ? closedValue : expectedValue;
+        const outstanding = roundMoney(Math.max(0, baseValue - paidValue));
+        if (outstanding <= 0) return acc;
+
+        acc.total = roundMoney(acc.total + outstanding);
+        acc.invoices.push({
+            id_fatura: invoice.id_fatura,
+            data_vencimento: formatDate(dueDate),
+            outstanding,
+        });
+        return acc;
+    }, { total: 0, invoices: [] });
+}
+
+function calculateEmergencyReserveBalance(assets) {
+    return roundMoney((assets || []).reduce((sum, asset) => {
+        if (!asset.conta_reserva_emergencia) return sum;
+        if (asset.ativo === false) return sum;
+        return sum + Number(asset.saldo_atual || 0);
+    }, 0));
+}
+
+function calculateNetWorth({ assets = [], debts = [] } = {}) {
+    const assetTotal = assets.reduce((sum, asset) => {
+        if (asset.ativo === false) return sum;
+        return sum + Number(asset.saldo_atual || 0);
+    }, 0);
+
+    const debtTotal = debts.reduce((sum, debt) => {
+        if (debt.status && String(debt.status).toLowerCase() !== 'ativa') return sum;
+        return sum + Number(debt.saldo_devedor || 0);
+    }, 0);
+
+    return {
+        assets: roundMoney(assetTotal),
+        debts: roundMoney(debtTotal),
+        netWorth: roundMoney(assetTotal - debtTotal),
+    };
+}
+
+function summarizeSettlementStatus(settlement, tolerance = 1) {
+    const people = Object.keys(settlement || {}).filter((key) => key !== 'cashBase' && key !== 'shares');
+    if (people.length === 0) return { status: 'not_calculated', transfers: [] };
+
+    const debtors = [];
+    const creditors = [];
+
+    people.forEach((person) => {
+        const difference = roundMoney((settlement[person] && settlement[person].difference) || 0);
+        if (difference < -tolerance) debtors.push({ person, amount: roundMoney(Math.abs(difference)) });
+        if (difference > tolerance) creditors.push({ person, amount: difference });
+    });
+
+    if (debtors.length === 0 && creditors.length === 0) {
+        return { status: 'balanced', transfers: [] };
+    }
+
+    const transfers = [];
+    debtors.forEach((debtor) => {
+        let remaining = debtor.amount;
+        creditors.forEach((creditor) => {
+            if (remaining <= 0 || creditor.amount <= 0) return;
+            const amount = roundMoney(Math.min(remaining, creditor.amount));
+            if (amount <= 0) return;
+            transfers.push({ from: debtor.person, to: creditor.person, amount });
+            remaining = roundMoney(remaining - amount);
+            creditor.amount = roundMoney(creditor.amount - amount);
+        });
+    });
+
+    return { status: 'pending_transfer', transfers };
+}
+
+function evaluateAmortizationReadiness({
+    reserveBalance,
+    reserveMinimum = 15000,
+    upcomingInvoicesTotal,
+    debts = [],
+} = {}) {
+    const reasons = [];
+    if (Number(reserveBalance || 0) < Number(reserveMinimum || 0)) reasons.push('reserve_below_minimum');
+    if (upcomingInvoicesTotal === undefined || upcomingInvoicesTotal === null) reasons.push('upcoming_invoices_unknown');
+
+    const activeDebts = debts.filter((debt) => !debt.status || String(debt.status).toLowerCase() === 'ativa');
+    if (activeDebts.length === 0) reasons.push('no_active_debts');
+
+    activeDebts.forEach((debt) => {
+        ['saldo_devedor', 'valor_parcela', 'parcelas_total'].forEach((field) => {
+            if (!Number(debt[field])) reasons.push(`debt_${debt.id_divida || debt.nome || 'unknown'}_${field}_missing`);
+        });
+    });
+
+    return {
+        ready: reasons.length === 0,
+        reasons: [...new Set(reasons)],
+    };
+}
+
+function sanitizeEntriesForSharedView(entries) {
+    return (entries || [])
+        .filter((entry) => entry.visibilidade !== 'privada')
+        .map((entry) => {
+            if (entry.visibilidade !== 'resumo') return { ...entry };
+            return {
+                ...entry,
+                descricao: '',
+                id_fonte: '',
+                id_cartao: '',
+                summarized: true,
+            };
+        });
+}
+
+function buildMonthlyClosing({
+    competencia,
+    events = [],
+    invoices = [],
+    assets = [],
+    debts = [],
+    settlement = null,
+    asOfDate,
+    savingsAmount = 0,
+    decisions = [],
+} = {}) {
+    const dre = summarizeOperationalDre(events);
+    const upcomingInvoices = summarizeUpcomingInvoices(invoices, { asOfDate });
+    const reserveTotal = calculateEmergencyReserveBalance(assets);
+    const netWorth = calculateNetWorth({ assets, debts });
+    const settlementStatus = summarizeSettlementStatus(settlement || {});
+    const receitas = Number(dre.receitas || 0);
+
+    return {
+        competencia,
+        status: 'draft',
+        receitas_operacionais: dre.receitas,
+        despesas_operacionais: dre.despesas,
+        saldo_operacional: dre.saldo,
+        faturas_60d: upcomingInvoices.total,
+        parcelas_futuras: 0,
+        taxa_poupanca: receitas > 0 ? roundMoney(Number(savingsAmount || 0) / receitas) : 0,
+        reserva_total: reserveTotal,
+        patrimonio_liquido: netWorth.netWorth,
+        acerto_status: settlementStatus.status,
+        decisao_1: decisions[0] || '',
+        decisao_2: decisions[1] || '',
+        decisao_3: decisions[2] || '',
+    };
+}
+
 function calculateInvoiceCycle(purchaseDateValue, card) {
     const purchaseDate = toDateOnly(purchaseDateValue);
     const closeDay = Number(card.fechamento_dia);
@@ -180,11 +348,18 @@ function buildInstallmentSchedule({ purchaseDate, card, totalInstallments, insta
 }
 
 module.exports = {
+    buildMonthlyClosing,
     buildInstallmentSchedule,
+    calculateEmergencyReserveBalance,
     calculateHouseholdSettlement,
     calculateIncomeShares,
     calculateInvoiceCycle,
+    calculateNetWorth,
     classifyReserve,
+    evaluateAmortizationReadiness,
+    sanitizeEntriesForSharedView,
+    summarizeSettlementStatus,
     summarizeFutureHomeForecast,
     summarizeOperationalDre,
+    summarizeUpcomingInvoices,
 };

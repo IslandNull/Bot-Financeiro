@@ -173,3 +173,20 @@ Rejected:
 - Trusting Telegram `chat.id` alone as webhook authentication.
 - Reusing read-only `doGet` as the route for mutating maintenance actions.
 - Adding new V54 spreadsheet mutation before security and write-safety checks are locally verified.
+
+## D017 - V54 Phase 1 Domain Fixtures Before Sheet Mutation
+Status: Accepted
+Date: 2026-04-26
+
+Decision:
+Before creating or mutating V54 sheets, the financial rules for invoice exposure, emergency reserve, net worth, monthly closing, privacy, and amortization readiness must be represented as deterministic local tests.
+
+The local helpers may calculate planning outputs, but they must not become production truth until wired into reviewed Apps Script paths and verified against spreadsheet snapshots.
+
+Reason:
+The next production risk is not syntax; it is wrong financial semantics. Local fixtures catch duplicate DRE recognition, accidental reserve overstatement, unsafe amortization advice, and privacy leakage before the spreadsheet schema exists.
+
+Rejected:
+- Treating home-item earmarked assets as emergency reserve.
+- Recommending amortization while reserve, invoice exposure, or debt fields are unknown/incomplete.
+- Showing private personal entries in shared detailed reports.

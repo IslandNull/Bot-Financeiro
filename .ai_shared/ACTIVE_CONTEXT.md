@@ -48,6 +48,9 @@ Branch: feat/v52-upgrade
 - `cmd /c npm run test:v54:schema` passed on 2026-04-26 after the security + locks slice.
 - `cmd /c npm run test:v54:setup` passed on 2026-04-26 after the security + locks slice.
 - `cmd /c npm run test:v53` passed on 2026-04-26 after the security + locks slice; mutating Aporte test was skipped.
+- V54 Phase 1 non-mutating domain fixtures were expanded locally on 2026-04-26.
+- `scripts/lib/v54-domain.js` now has local helpers for upcoming invoice exposure, emergency reserve balance, net worth, settlement status, amortization readiness, shared-view privacy sanitization, and monthly closing draft assembly.
+- `cmd /c npm run test:v54:domain` passed on 2026-04-26 with fixtures for invoice payment reconciliation, home-earmarked asset exclusion from reserve, amortization readiness gates, monthly closing, and privacy rules.
 
 ## Unverified claims
 - Double-entry `handleEntry` works end-to-end through Telegram integration.
@@ -57,12 +60,14 @@ Branch: feat/v52-upgrade
 - Val.town proxy currently forwards the agreed `webhook_secret`/body secret contract to Apps Script.
 - The security + locks slice is deployed to Apps Script. No `clasp push` was run in this slice.
 - A replacement protected POST maintenance path for mutating actions exists. Current local code blocks mutating GET instead.
+- V54 Phase 1 domain helpers are integrated with Apps Script write paths. They are local Node.js planning/test helpers only.
 
 ## Current task
-Execute V54 safely in small phases. Current local phase: security hardening and write-lock wrappers coded on `feat/v52-upgrade` and verified by local/static tests. Do not mutate production spreadsheet yet.
+Execute V54 safely in small phases. Current local phase: Phase 1 non-mutating V54 domain fixtures are being expanded after the security/write-lock gate. Do not mutate production spreadsheet yet.
 
 ## Next safe action
 1. Run and keep passing `cmd /c npm run test:security-locks`, `cmd /c npm run test:v54:domain`, `cmd /c npm run test:v54:schema`, `cmd /c npm run test:v54:setup`, and `cmd /c npm run test:v53`.
-2. Configure `WEBHOOK_SECRET` in Apps Script and verify/update the Val.town proxy contract before Telegram production testing.
-3. Decide whether mutating maintenance actions need a new protected POST path; current local code blocks them over GET.
-4. Do not run `clasp push`, setup functions, mutating tests, Telegram production tests, or spreadsheet mutation until the reviewed security slice is approved.
+2. Continue Phase 1 by auditing V53 formulas numerically with controlled fixtures or by preparing the additive V54 sheet-setup apply function behind dry-run/review gates.
+3. Configure `WEBHOOK_SECRET` in Apps Script and verify/update the Val.town proxy contract before Telegram production testing.
+4. Decide whether mutating maintenance actions need a new protected POST path; current local code blocks them over GET.
+5. Do not run `clasp push`, setup functions, mutating tests, Telegram production tests, or spreadsheet mutation until explicitly approved.

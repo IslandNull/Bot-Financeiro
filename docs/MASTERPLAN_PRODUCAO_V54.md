@@ -4,6 +4,7 @@ Date: 2026-04-25
 Status: TODO - planning document for review before implementation
 Branch context: feat/v52-upgrade
 Last consolidated analysis: 2026-04-26
+Last local Phase 1 domain expansion: 2026-04-26
 
 ## 1. Goals And Non-Goals
 
@@ -50,6 +51,8 @@ Last consolidated analysis: 2026-04-26
 - VERIFIED: `.ai_shared/ANALISE_A_SER_CONSIDERADA.MD` was reviewed on 2026-04-26 and its findings were consolidated into this masterplan.
 - UNVERIFIED: Real Telegram/Val.town webhook routing exercises the same production behavior end-to-end.
 - UNVERIFIED: V54 schema exists in the spreadsheet. It does not exist according to active context and schema docs.
+- VERIFIED: Phase 0.5 security/write-lock gate is coded locally and covered by `cmd /c npm run test:security-locks`.
+- VERIFIED: Phase 1 local domain fixtures now cover invoice payment reconciliation, emergency reserve exclusion for home-earmarked assets, net worth, amortization readiness gates, monthly closing draft fields, and shared-view privacy sanitization.
 
 ### 2.1 Pre-Implementation Blockers Found On 2026-04-26
 
@@ -524,17 +527,17 @@ Phase 0 - Approval:
 
 Phase 0.5 - Security and write-safety gate:
 
-- TODO: Add webhook/proxy secret validation before any write path can run.
-- TODO: Separate read-only sync from mutating maintenance actions; deny unknown actions by default.
-- TODO: Add `withScriptLock()` around all write paths and mutating tests.
-- TODO: Add local/static tests proving the security and lock wrappers exist before `clasp push`.
+- VERIFIED: Add webhook/proxy secret validation before any write path can run.
+- VERIFIED: Separate read-only sync from mutating maintenance actions; deny unknown actions by default.
+- VERIFIED: Add `withScriptLock()` around current V53 write paths.
+- VERIFIED: Add local/static tests proving the security and lock wrappers exist before `clasp push`.
 
 Phase 1 - Non-mutating design:
 
-- TODO: Add tests/spec fixtures for V54 calculations before changing production sheets.
+- VERIFIED: Add tests/spec fixtures for V54 calculations before changing production sheets.
 - TODO: Audit current V53 formulas numerically with controlled fixtures.
-- TODO: Define invoice cycle calculation for closing day and due day edge cases.
-- TODO: Expand schema tests for `Pagamentos_Fatura`, `Dividas`, `Fechamentos_Mensais`, `afeta_patrimonio`, and `visibilidade`.
+- VERIFIED: Define invoice cycle calculation for closing day and due day edge cases.
+- VERIFIED: Expand schema tests for `Pagamentos_Fatura`, `Dividas`, `Fechamentos_Mensais`, `afeta_patrimonio`, and `visibilidade`.
 
 Phase 2 - Sheet preparation:
 
@@ -563,22 +566,22 @@ Phase 5 - Bot behavior:
 
 Non-mutating tests:
 
-- TODO: Security static test proving webhook/proxy auth is enforced before command/write routing.
-- TODO: Lock static test proving write paths use `withScriptLock()` or equivalent.
+- VERIFIED: Security static test proving webhook/proxy auth is enforced before command/write routing.
+- VERIFIED: Lock static test proving write paths use `withScriptLock()` or equivalent.
 - TODO: Snapshot structure test for required V54 sheets and headers.
 - TODO: Formula syntax test using `setFormula()` with English functions and semicolon separators.
-- TODO: DRE exclusion test proving investments, reserve transfers, and invoice payments do not affect operational DRE.
-- TODO: Card cycle test for each configured card:
+- VERIFIED: DRE exclusion test proving investments, reserve transfers, and invoice payments do not affect operational DRE.
+- VERIFIED: Card cycle test for each configured card:
   - Nubank Gustavo close 30 due 7.
   - Mercado Pago Gustavo close 5 due 10.
   - Nubank Luana close 1 due 8.
-- TODO: Installment schedule test for purchases crossing month/year boundaries.
-- TODO: Rateio test using Gustavo `3400`, Luana `3500`, and benefit usage.
-- TODO: Reserve target test for below `15000`, between `15000` and `30000`, and above `30000`.
-- TODO: Future home forecast test proving inactive forecast does not enter current DRE.
-- TODO: Debt/amortization rule test proving recommendations require known reserve, invoices, and debt data.
-- TODO: Monthly closing test covering DRE, faturas 60d, reserve, net worth, settlement, and three decisions.
-- TODO: Privacy test proving `visibilidade = privada` is not exposed in shared detail reports.
+- VERIFIED: Installment schedule test for purchases crossing month/year boundaries.
+- VERIFIED: Rateio test using Gustavo `3400`, Luana `3500`, and benefit usage.
+- VERIFIED: Reserve target test for below `15000`, between `15000` and `30000`, and above `30000`.
+- VERIFIED: Future home forecast test proving inactive forecast does not enter current DRE.
+- VERIFIED: Debt/amortization rule test proving recommendations require known reserve, invoices, and debt data.
+- VERIFIED: Monthly closing test covering DRE, faturas 60d, reserve, net worth, settlement, and three decisions.
+- VERIFIED: Privacy test proving `visibilidade = privada` is not exposed in shared detail reports.
 
 Mutating protected tests:
 
