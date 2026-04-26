@@ -277,3 +277,20 @@ V54 seed data (categories, sources, cards, incomes, debts, and initial assets) i
 
 Reason:
 To safely bootstrap the V54 architecture without migrating V53 history, the canonical configuration needs to be planted reliably. Using the same dry-run and lock-protected pattern as the sheet setup ensures no accidental duplication or corruption occurs if the function is run multiple times.
+
+## D023 - ParsedEntryV54 Contract Is Strict And Local
+Status: Accepted
+Date: 2026-04-26
+
+Decision:
+Define `ParsedEntryV54` as a deterministic local Node.js contract before implementing `ParserV54` or V54 write paths. The validator returns structured `{ ok, errors, normalized }` results, trims strings, accepts only safe dot-decimal numeric strings, rejects comma money strings, requires explicit boolean flags, and rejects unknown top-level fields.
+
+`compra_parcelada` may include a local `parcelamento` object (`parcelas_total`, optional `numero_parcela`, optional `valor_parcela`) so a future parser can express installment intent before the write path creates `Compras_Parceladas` and `Parcelas_Agenda` rows.
+
+Reason:
+The next risk is not spreadsheet mutation; it is allowing future LLM output to become a loose JSON blob. A strict local contract gives `ParserV54` and future write paths a narrow, testable interface before any production route or spreadsheet write is changed.
+
+Rejected:
+- Allowing unknown fields for forward compatibility.
+- Accepting ambiguous Brazilian comma money strings before an explicit parser normalization layer exists.
+- Wiring the contract into `doPost`, `Parser.js`, or `Actions.js` during Phase 2A.

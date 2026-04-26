@@ -50,6 +50,8 @@ As seguintes ações são candidatas a refatoração, mas devem ser divididas em
 **Phase 1 close gate:** DONE on remote. Phase 1A local negative webhook coverage and Phase 1B routing-mode foundation are represented by commit `c43cb41`. Phase 1B.2 routing diagnostics/refactoring handoff documentation is represented by commits `4deab8d` and `804ffc1`. Phase 1C legacy setup isolation is represented by commit `022daeb`. Gemini handoff shell guidance was pushed in `b34e679`. Before Phase 2 starts, the working tree must be clean and the branch must be synced with origin.
 
 ### Fase 2: Contrato e Parser Duplo
+
+**Phase 2A status:** DONE. `ParsedEntryV54` is a strict local contract with structured validation result `{ ok, errors, normalized }`; it is not wired into production routing.
 - **Fase 2A — Definir Contrato V54:** Estabelecer a interface estrita (`ParsedEntryV54`) exigida pelo novo write path.
 - **Fase 2B — ParserV54:** Fazer o parser resolver os IDs canônicos utilizando os dicionários `Config_Categorias` e `Config_Fontes`.
 

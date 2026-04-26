@@ -100,6 +100,9 @@ Branch: feat/v54-production-readiness
   - Phase 1B.2 routing diagnostics/refactoring handoff documentation is represented by commits `4deab8d` and `804ffc1`.
   - Phase 1C legacy setup isolation is represented by commit `022daeb`, which moved legacy setup/test helpers into `src/SetupLegacy.js` while preserving global Apps Script function names.
 - Gemini handoff wrapper was updated in commit `b34e679` after verifying `pwsh.exe` is installed locally; it documents Windows command chaining guidance for Gemini CLI sessions.
+- V54 refactoring Phase 1 closeout was completed in commit `3db4280`; this is the actual remote head that documents the Phase 1 gate.
+- V54 Phase 2A contract work is coded locally: `scripts/lib/v54-parsed-entry-contract.js` defines `validateParsedEntryV54()` and `scripts/test-v54-parsed-entry-contract.js` covers the strict local contract.
+- `cmd /c npm run test:v54:contract` passed on 2026-04-26. The contract remains local-only and is not wired into `doPost`, `Parser.js`, `Actions.js`, Telegram, or Apps Script mutation paths.
 
 ## Unverified claims
 - Negative webhook security behavior is not yet production-tested: POST without secret, POST with invalid secret, and valid secret with unauthorized chat should not write anything.
@@ -110,9 +113,9 @@ Branch: feat/v54-production-readiness
 - V53 sheets are safe to remove or rename. They are not: current production code still depends on them until V54 write paths replace V53.
 
 ## Current task
-Execute V54 safely in small phases. Current phase: V54 refactoring Phase 1 is closed on the remote branch (`feat/v54-production-readiness` through `b34e679`). The next implementation gate is Phase 2A: define the strict `ParsedEntryV54` contract before building `ParserV54` or any V54 write path.
+Execute V54 safely in small phases. Current phase: V54 refactoring Phase 2A defines the strict `ParsedEntryV54` contract and covers it with local tests. The next implementation gate is Phase 2B: build `ParserV54` against the contract without changing productive V53 routing.
 
 ## Next safe action
-1. Start Phase 2A only: define and test the local `ParsedEntryV54` contract.
-2. Do not modify productive V53 routing, `doPost`, `Parser.js`, `Actions.js`, or Telegram behavior during Phase 2A.
-3. Do not write to the spreadsheet, run `clasp push`, deploy, seed, setup, or migration during Phase 2A.
+1. Start Phase 2B only after Phase 2A is committed: implement `ParserV54` against `validateParsedEntryV54()` without changing productive V53 routing.
+2. Keep `Parser.js`, `Actions.js`, `Commands.js`, `Views.js`, `doPost`, and V53 routing unchanged unless a later phase explicitly authorizes integration.
+3. Do not write to the spreadsheet, run `clasp push`, deploy, seed, setup, migration, or Telegram mutation during parser work.
