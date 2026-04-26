@@ -13,7 +13,8 @@ A estratégia segura é: adicionar testes de segurança (caminhos negativos), cr
 - **VERIFIED:** Fluxo atual no Telegram usa estritamente código V53 (`Actions.js` escreve em `CONFIG.SHEETS.lancamentos`).
 - **VERIFIED:** Decisão D021: V53 *não* servirá como fonte de migração de histórico. V54 é um *clean start*.
 - **VERIFIED:** Locks de segurança (`withScriptLock`) e verificação de `WEBHOOK_SECRET` estão ativos no caminho produtivo feliz.
-- **UNVERIFIED:** Comportamento defensivo da webhook perante requisições maliciosas ou sem token (Testes Negativos) ainda não foi provado localmente de forma dinâmica.
+- **VERIFIED:** Testes negativos dinâmicos locais cobrem os cenários principais de webhook.
+- **UNVERIFIED:** Esses cenários ainda não foram testados contra o endpoint real de produção.
 
 ## 3. Políticas de Engenharia
 

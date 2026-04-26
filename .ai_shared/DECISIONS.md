@@ -273,7 +273,7 @@ Status: Accepted
 Date: 2026-04-26
 
 Decision:
-V54 seed data (categories, sources, cards, incomes, debts, and initial assets) is applied using a dry-run-first, lock-protected, additive mechanism (planSeedV54ForState and pplySeedV54). It uses exact matching to avoid conflicts and does not mutate existing rows.
+V54 seed data (categories, sources, cards, incomes, debts, and initial assets) is applied using a dry-run-first, lock-protected, additive mechanism (`planSeedV54ForState` and `applySeedV54`). It uses exact matching to avoid conflicts and does not mutate existing rows.
 
 Reason:
 To safely bootstrap the V54 architecture without migrating V53 history, the canonical configuration needs to be planted reliably. Using the same dry-run and lock-protected pattern as the sheet setup ensures no accidental duplication or corruption occurs if the function is run multiple times.
