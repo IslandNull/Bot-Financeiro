@@ -15,7 +15,8 @@
     "test:v54:seed": "node scripts/test-v54-seed.js",
     "test:v54:snapshot": "node scripts/test-v54-snapshot.js",
     "test:v54:setup": "node scripts/test-v54-setup-dry-run.js",
-    "test:security-locks": "node scripts/test-security-locks.js"
+    "test:security-locks": "node scripts/test-security-locks.js",
+    "test:routing-mode": "node scripts/test-routing-mode.js"
   },
   "devDependencies": {
     "@google/clasp": "^2.4.2"

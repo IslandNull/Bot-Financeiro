@@ -152,6 +152,76 @@ failed += test('npm_script_registered', () => {
     assert.strictEqual(packageJson.scripts['test:security-locks'], 'node scripts/test-security-locks.js');
 });
 
+failed += test('doPost_rejects_unauthorized_webhooks_dynamically', () => {
+    const vm = require('vm');
+    let routedToCommand = false;
+    let routedToEntry = false;
+    let sentMessages = [];
+
+    const mockEnv = {
+        PropertiesService: {
+            getScriptProperties: () => ({
+                getProperty: (k) => {
+                    if (k === 'WEBHOOK_SECRET') return 'secret-123';
+                    if (k === 'AUTHORIZED') return JSON.stringify({ '123': { pagador: 'Teste' } });
+                    return null;
+                }
+            })
+        },
+        ContentService: {
+            createTextOutput: (s) => ({
+                setMimeType: () => {}
+            })
+        },
+        UrlFetchApp: {
+            fetch: (url, opts) => {
+                if (url.includes('/sendMessage')) {
+                    const payload = JSON.parse(opts.payload);
+                    sentMessages.push(payload.text);
+                }
+            }
+        },
+        console: { warn: () => {}, error: () => {} },
+        handleCommand: () => { routedToCommand = true; },
+        handleEntry: () => { routedToEntry = true; }
+    };
+
+    const context = vm.createContext(mockEnv);
+    vm.runInContext(main, context);
+
+    function resetMock() {
+        routedToCommand = false;
+        routedToEntry = false;
+        sentMessages = [];
+    }
+
+    // 1. Missing secret in request
+    let e = { postData: { contents: JSON.stringify({ message: { text: '/saldo', chat: { id: 123 } } }) } };
+    context.doPost(e);
+    assert.strictEqual(routedToCommand, false, 'Should not route without secret');
+
+    // 2. Invalid secret
+    resetMock();
+    e.parameter = { webhook_secret: 'wrong-secret' };
+    context.doPost(e);
+    assert.strictEqual(routedToCommand, false, 'Should not route with wrong secret');
+
+    // 3. Valid secret, unauthorized chat
+    resetMock();
+    e.parameter = { webhook_secret: 'secret-123' };
+    e.postData.contents = JSON.stringify({ message: { text: '/saldo', chat: { id: 999 } } });
+    context.doPost(e);
+    assert.strictEqual(routedToCommand, false, 'Should not route unauthorized chat');
+    assert.ok(sentMessages.some(m => m.includes('não está autorizado')), 'Should notify unauthorized user');
+
+    // 4. Valid secret, authorized chat (sanity check for the mock)
+    resetMock();
+    e.parameter = { webhook_secret: 'secret-123' };
+    e.postData.contents = JSON.stringify({ message: { text: '/saldo', chat: { id: 123 } } });
+    context.doPost(e);
+    assert.strictEqual(routedToCommand, true, 'Should route valid request');
+});
+
 if (failed > 0) {
     console.error(`\n${failed} security/lock check(s) failed.`);
     process.exitCode = 1;

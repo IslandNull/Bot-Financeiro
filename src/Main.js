@@ -20,6 +20,52 @@ const CONFIG = {
     }
 };
 
+const ROUTING_MODES = Object.freeze({
+    V53_CURRENT: 'V53_CURRENT',
+    V54_SHADOW: 'V54_SHADOW',
+    V54_PRIMARY: 'V54_PRIMARY'
+});
+
+function getRoutingMode_() {
+    const p = PropertiesService.getScriptProperties();
+    const raw = p.getProperty('V54_ROUTING_MODE');
+    if (raw === ROUTING_MODES.V54_SHADOW) return ROUTING_MODES.V54_SHADOW;
+    if (raw === ROUTING_MODES.V54_PRIMARY) return ROUTING_MODES.V54_PRIMARY;
+    return ROUTING_MODES.V53_CURRENT;
+}
+
+function diagnoseRoutingMode() {
+    _loadSecrets();
+    const p = PropertiesService.getScriptProperties();
+    const rawMode = p.getProperty('V54_ROUTING_MODE');
+    const effectiveMode = getRoutingMode_();
+    
+    const allowedModes = Object.keys(ROUTING_MODES).map(key => ROUTING_MODES[key]);
+    const rawModeConfigured = rawMode !== null && rawMode !== undefined;
+    const rawModeKnown = rawModeConfigured && allowedModes.indexOf(rawMode) !== -1;
+    
+    let fallbackReason = 'none';
+    if (!rawModeConfigured) {
+        fallbackReason = 'missing';
+    } else if (rawMode === '') {
+        fallbackReason = 'empty';
+    } else if (!rawModeKnown) {
+        fallbackReason = 'invalid';
+    }
+
+    const report = {
+        ok: true,
+        effectiveMode: effectiveMode,
+        rawModeConfigured: rawModeConfigured,
+        rawModeKnown: rawModeKnown,
+        fallbackReason: fallbackReason,
+        allowedModes: allowedModes
+    };
+    
+    console.log(JSON.stringify(report, null, 2));
+    return report;
+}
+
 const PROVISAO_CATS = [
     'Roupas', 'Peças íntimas', 'Calçado', 'Presentes',
     'Cuidado pessoal', 'Dentista', 'Coparticipação médica',
