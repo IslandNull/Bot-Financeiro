@@ -65,6 +65,9 @@ Branch: feat/v54-production-readiness
 - The refreshed snapshot lists only current V53-era sheets: `Dashboard`, `Investimentos`, `Parcelas`, `Lançamentos`, `Orçamento Mensal`, `Compras da Casa`, `Metas de Poupança`, and `Config`; no V54 sheets exist in the real spreadsheet yet.
 - The refreshed snapshot has no detected `#ERROR!`, `#NAME?`, `#REF!`, `#N/A`, HTML, exception, or access-denied payload markers.
 - `cmd /c npm run test:v53` passed on 2026-04-26 against the refreshed snapshot.
+- `cmd /c npm run push` (`clasp push`) succeeded on 2026-04-26 after explicit approval and pushed 8 Apps Script files: `Actions.js`, `appsscript.json`, `Commands.js`, `Main.js`, `Parser.js`, `Setup.js`, `Tests.js`, and `Views.js`.
+- `cmd /c npx clasp deployments` confirmed two deployments: an `@HEAD` deployment and version `@23 - Bot Telegram V2`.
+- `cmd /c npx clasp run planSetupV54` could not execute from this environment because clasp reported missing Apps Script API execution credentials (`Could not read API credentials. Are you logged in locally?`). `planSetupV54()` was not executed through clasp.
 
 ## Unverified claims
 - Double-entry `handleEntry` works end-to-end through Telegram integration.
@@ -72,18 +75,18 @@ Branch: feat/v54-production-readiness
 - V54 schema exists in the spreadsheet. It does not; it is only planned.
 - `WEBHOOK_SECRET` is configured in the deployed Apps Script project properties.
 - Val.town proxy currently forwards the agreed `webhook_secret`/body secret contract to Apps Script.
-- The security + locks slice is deployed to Apps Script. No `clasp push` was run in this slice.
+- The security + locks slice is active in the deployed Telegram Web App route. The code was pushed to the Apps Script project on 2026-04-26, but the versioned Web App deployment still needs explicit verification before claiming production routing uses it.
 - A replacement protected POST maintenance path for mutating actions exists. Current local code blocks mutating GET instead.
 - V54 Phase 1 domain helpers are integrated with Apps Script write paths. They are local Node.js planning/test helpers only.
-- V54 setup planner hardening is deployed to Apps Script. No `clasp push` was run for this slice.
-- `applySetupV54` is deployed or executed in Apps Script. It exists locally only; no `clasp push` and no spreadsheet mutation were run for this slice.
+- `planSetupV54()` has been executed in Apps Script after the 2026-04-26 push. It has not; `clasp run` failed locally due execution credentials.
+- `applySetupV54()` has been executed in Apps Script. It has not; no spreadsheet mutation was run for this slice.
 
 ## Current task
-Execute V54 safely in small phases. Current local phase: Phase 2 additive setup function exists locally, is covered by local tests, and the pre-mutation spreadsheet snapshot has been refreshed. Do not mutate production spreadsheet yet.
+Execute V54 safely in small phases. Current phase: Phase 2 additive setup code has been pushed to the Apps Script project, local tests pass, and the pre-mutation spreadsheet snapshot has been refreshed. `planSetupV54()` still needs to be run from the Apps Script editor or through a future authenticated execution path. Do not mutate production spreadsheet yet.
 
 ## Next safe action
 1. Run and keep passing `cmd /c npm run test:security-locks`, `cmd /c npm run test:v54:domain`, `cmd /c npm run test:v54:schema`, `cmd /c npm run test:v54:setup`, and `cmd /c npm run test:v53`.
-2. Only after explicit approval, `clasp push` the local security/setup code and execute `planSetupV54()` first, then review the dry-run result before considering `applySetupV54()`.
+2. Run `planSetupV54()` from the Apps Script editor and review the logged dry-run result before considering `applySetupV54()`.
 3. Configure `WEBHOOK_SECRET` in Apps Script and verify/update the Val.town proxy contract before Telegram production testing.
 4. Decide whether mutating maintenance actions need a new protected POST path; current local code blocks them over GET.
-5. Do not run `clasp push`, setup functions, mutating tests, Telegram production tests, or spreadsheet mutation until explicitly approved.
+5. Do not run `applySetupV54()`, mutating tests, Telegram production tests, or spreadsheet mutation until explicitly approved after reviewing the dry-run.
