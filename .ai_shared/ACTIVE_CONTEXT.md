@@ -74,6 +74,9 @@ Branch: feat/v54-production-readiness
 - The refreshed snapshot verifies that all 14 V54 sheets exist in the real spreadsheet with headers matching `scripts/lib/v54-schema.js`: `Config_Categorias`, `Config_Fontes`, `Rendas`, `Cartoes`, `Faturas`, `Pagamentos_Fatura`, `Compras_Parceladas`, `Parcelas_Agenda`, `Orcamento_Futuro_Casa`, `Lancamentos_V54`, `Patrimonio_Ativos`, `Dividas`, `Acertos_Casal`, and `Fechamentos_Mensais`.
 - The refreshed snapshot after V54 setup has no detected `#ERROR!`, `#NAME?`, `#REF!`, `#N/A`, HTML, exception, or access-denied payload markers.
 - `cmd /c npm run test:security-locks`, `cmd /c npm run test:v54:domain`, `cmd /c npm run test:v54:schema`, `cmd /c npm run test:v54:setup`, and `cmd /c npm run test:v53` passed on 2026-04-26 after V54 sheet creation.
+- Post-review blockers were addressed on 2026-04-26: `docs/MASTERPLAN_PRODUCAO_V54.md` was updated to the post-setup state and `scripts/test-v54-snapshot.js` was added with npm script `test:v54:snapshot`.
+- `cmd /c npm run test:v54:snapshot` passed on 2026-04-26 and verifies `.ai_shared/SPREADSHEET_STATE.md` contains all 14 V54 sheets with headers exactly matching `scripts/lib/v54-schema.js`.
+- `node --check scripts\test-v54-snapshot.js`, `cmd /c npm run test:security-locks`, `cmd /c npm run test:v54:domain`, `cmd /c npm run test:v54:schema`, `cmd /c npm run test:v54:setup`, and `cmd /c npm run test:v53` passed on 2026-04-26 after adding the V54 snapshot test.
 
 ## Unverified claims
 - Double-entry `handleEntry` works end-to-end through Telegram integration.
@@ -89,7 +92,7 @@ Branch: feat/v54-production-readiness
 Execute V54 safely in small phases. Current phase: Phase 2 additive sheet setup is applied and verified: V54 skeleton sheets exist in the real spreadsheet, snapshot sync passed, and local tests passed. Next gate is configuring/validating production webhook security before Telegram production testing, then implementing V54 seed/migration/write paths in separate reviewed slices.
 
 ## Next safe action
-1. Run and keep passing `cmd /c npm run test:security-locks`, `cmd /c npm run test:v54:domain`, `cmd /c npm run test:v54:schema`, `cmd /c npm run test:v54:setup`, and `cmd /c npm run test:v53`.
+1. Run and keep passing `cmd /c npm run test:security-locks`, `cmd /c npm run test:v54:domain`, `cmd /c npm run test:v54:schema`, `cmd /c npm run test:v54:snapshot`, `cmd /c npm run test:v54:setup`, and `cmd /c npm run test:v53`.
 2. Configure `WEBHOOK_SECRET` in Apps Script and verify/update the Val.town proxy contract before Telegram production testing.
 3. Decide whether mutating maintenance actions need a new protected POST path; current local code blocks them over GET.
 4. Implement the next V54 slice without touching V53 production flows: likely seed/config loaders for categories, sources, cards, incomes, debts, and assets, with tests before any real data writes.

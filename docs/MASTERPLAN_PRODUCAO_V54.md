@@ -1,11 +1,12 @@
 # MASTERPLAN PRODUCAO V54
 
 Date: 2026-04-25
-Status: TODO - planning document for review before implementation
+Status: IN PROGRESS - V54 skeleton applied and verified; V53 remains the production flow
 Branch context: feat/v54-production-readiness
 Last consolidated analysis: 2026-04-26
 Last local Phase 1 domain expansion: 2026-04-26
 Last local Phase 2 setup-planner hardening: 2026-04-26
+Last real V54 sheet setup: 2026-04-26
 
 ## 1. Goals And Non-Goals
 
@@ -21,12 +22,12 @@ Last local Phase 2 setup-planner hardening: 2026-04-26
 - TODO: Model debts, monthly closing, and net worth before allowing amortization/investment recommendations.
 - TODO: Preserve privacy and personal autonomy with explicit visibility rules, not only payer/scope fields.
 - TODO: Enable rule-based bot recommendations for 13th salary, vacation pay, bonus, extra income, large surplus, large purchases, reserve, amortization, investment, and home item decisions.
-- TODO: Define migration, tests, rollback, and acceptance criteria before any code or spreadsheet mutation.
+- VERIFIED: Define migration, tests, rollback, and acceptance criteria before V54 production activation.
 
 ### Non-Goals
 
-- TODO: Do not implement V54 in code before this plan is reviewed.
-- TODO: Do not mutate the production spreadsheet before approval and rollback preparation.
+- VERIFIED: Do not activate V54 as the production flow before this plan and the staged gates are reviewed.
+- VERIFIED: Only additive V54 skeleton sheet setup has been applied so far; do not run seed, migration, or V54 writes without a reviewed dry-run.
 - TODO: Do not treat invoice payment as expense.
 - TODO: Do not count the existing home-item earmarked balance as emergency reserve.
 - TODO: Do not migrate fully paid historical installments unless explicitly requested later.
@@ -39,8 +40,8 @@ Last local Phase 2 setup-planner hardening: 2026-04-26
 - VERIFIED: Current branch is `feat/v54-production-readiness`.
 - VERIFIED: On 2026-04-26, the branch was renamed from `feat/v52-upgrade` to `feat/v54-production-readiness`.
 - VERIFIED: On 2026-04-26, `.emdash.json` was removed locally and added to `.gitignore`; related remote Emdash branches were removed.
-- VERIFIED: `.ai_shared/ACTIVE_CONTEXT.md` states that V53 schema implementation is coded locally and V54 is not implemented.
-- VERIFIED: `.ai_shared/SPREADSHEET_STATE.md` was generated on 2026-04-25 18:36:14 and starts with `# Spreadsheet State`.
+- VERIFIED: `.ai_shared/ACTIVE_CONTEXT.md` states that V53 remains the active production flow and V54 skeleton sheets/headers now exist in the real spreadsheet.
+- VERIFIED: `.ai_shared/SPREADSHEET_STATE.md` was generated on 2026-04-26 15:27:14 and starts with `# Spreadsheet State`.
 - VERIFIED: Current verified sheet structure includes:
   - `Lancamentos!A5:H5`: `Data | TIPO | ID | VALOR | FONTE | DESCRICAO | PAGADOR | COMPETENCIA`
   - `Config!A11:F11`: `ID_CATEGORIA | NOME_CATEGORIA | TIPO_MOVIMENTO | CLASSE_DRE | TIPO_ATIVO | REGRA_RENDIMENTO`
@@ -52,19 +53,19 @@ Last local Phase 2 setup-planner hardening: 2026-04-26
 - VERIFIED: Architecture/risk/fatiamento reviews executed on 2026-04-26 in read-only mode found V54 pre-implementation blockers documented below.
 - VERIFIED: `.ai_shared/ANALISE_A_SER_CONSIDERADA.MD` was reviewed on 2026-04-26 and its findings were consolidated into this masterplan.
 - UNVERIFIED: Real Telegram/Val.town webhook routing exercises the same production behavior end-to-end.
-- UNVERIFIED: V54 schema exists in the spreadsheet. It does not exist according to active context and schema docs.
+- VERIFIED: V54 skeleton schema exists in the real spreadsheet. The exported snapshot generated on 2026-04-26 15:27:14 contains all 14 V54 sheets with row-1 headers matching `scripts/lib/v54-schema.js`.
 - VERIFIED: Phase 0.5 security/write-lock gate is coded locally and covered by `cmd /c npm run test:security-locks`.
 - VERIFIED: Phase 1 local domain fixtures now cover invoice payment reconciliation, emergency reserve exclusion for home-earmarked assets, net worth, amortization readiness gates, monthly closing draft fields, and shared-view privacy sanitization.
 - VERIFIED: Phase 2 setup dry-run planner was hardened locally to return explicit safe/blocked states instead of `UPDATE_HEADERS`.
 - VERIFIED: `cmd /c npm run test:v54:setup` covers exact Apps Script/local schema parity, empty state, perfect state, blank existing sheets, header mismatch, existing data, extra headers, extra blank header columns with data below, V53 sheet preservation, and absence of `UPDATE_HEADERS`.
-- VERIFIED: `applySetupV54()` exists locally as a manual additive function covered by fake-spreadsheet tests. It has not been pushed or executed against the real spreadsheet.
+- VERIFIED: `applySetupV54()` was pushed to the Apps Script project, executed manually from the Apps Script editor on 2026-04-26, and applied 14 `CREATE_SHEET` actions with `summary.blocked: 0`.
 
 ### 2.1 Pre-Implementation Blockers Found On 2026-04-26
 
-- VERIFIED: `doPost` currently trusts Telegram `chat.id` from the request payload and does not verify a non-spoofable webhook secret before write paths. This must be fixed before claiming production safety.
-- VERIFIED: Current GET maintenance endpoints protected by `SYNC_SECRET` can execute mutating actions. V54 must separate read-only sync from maintenance/mutating actions and keep deny-by-default behavior.
-- VERIFIED: Existing setup/repair functions have high spreadsheet blast radius. V54 setup must be additive, idempotent, versioned, and preferably dry-run first.
-- VERIFIED: Current write paths do not use `LockService`; V54 write paths and mutating tests must use locking to avoid concurrent row races.
+- VERIFIED: `doPost` previously trusted Telegram `chat.id` from the request payload before verifying a non-spoofable webhook secret. Local code now requires `WEBHOOK_SECRET` before routing, but the real Apps Script/Val.town production contract remains UNVERIFIED.
+- VERIFIED: GET maintenance mutation was identified as a risk. Local code now keeps `doGet` read-only for `exportState` and explicitly blocks known mutating GET actions, including `applySetupV54`.
+- VERIFIED: Existing setup/repair functions have high spreadsheet blast radius. V54 setup was implemented as additive, manual, lock-protected, dry-run-first, and non-formula.
+- VERIFIED: Current V53 write paths were missing locks. Local code now wraps `recordParsedEntry`, `desfazerUltimo`, `handleManter`, and `handleParcela` with `withScriptLock()`.
 - VERIFIED: V54 must treat payment of invoice as liability settlement, not a new operational expense.
 - VERIFIED: V54 must add `Pagamentos_Fatura`, `Dividas`, `Fechamentos_Mensais`, `afeta_patrimonio`, and `visibilidade` to avoid incomplete recommendations and privacy leakage.
 - VERIFIED: `Config_Fontes` and `Cartoes` must not duplicate authority for closing day, due day, and limit.
@@ -548,9 +549,10 @@ Phase 2 - Sheet preparation:
 
 - VERIFIED: Harden `planSetupV54ForState()` before apply: safe actions are `OK`, `CREATE_SHEET`, and `INITIALIZE_HEADERS`; blocked actions are `BLOCKED_HEADER_MISMATCH`, `BLOCKED_EXTRA_HEADERS`, and `BLOCKED_EXISTING_DATA`. The planner also blocks extra real columns beyond schema width even when the extra header cell is blank.
 - VERIFIED: Create local `applySetupV54()` as a controlled additive setup function that does not destroy V53 data, does not write formulas, and aborts on any `BLOCKED_*` action.
-- TODO: Snapshot spreadsheet before mutation with `npm run sync`.
-- TODO: Review `planSetupV54()` output in Apps Script before executing `applySetupV54()` against the real spreadsheet.
-- TODO: Avoid running dangerous legacy setup functions blindly.
+- VERIFIED: Snapshot spreadsheet before mutation with `cmd /c npm run sync`.
+- VERIFIED: Review `planSetupV54()` output in Apps Script before executing `applySetupV54()` against the real spreadsheet.
+- VERIFIED: Execute `applySetupV54()` manually from the Apps Script editor and verify the post-apply snapshot.
+- VERIFIED: Avoid running dangerous legacy setup functions blindly.
 
 Phase 3 - Data migration:
 
@@ -575,7 +577,7 @@ Non-mutating tests:
 
 - VERIFIED: Security static test proving webhook/proxy auth is enforced before command/write routing.
 - VERIFIED: Lock static test proving write paths use `withScriptLock()` or equivalent.
-- TODO: Snapshot structure test for required V54 sheets and headers.
+- VERIFIED: Snapshot structure test for required V54 sheets and headers: `cmd /c npm run test:v54:snapshot`.
 - TODO: Formula syntax test using `setFormula()` with English functions and semicolon separators.
 - VERIFIED: V54 setup dry-run planner test blocks header mismatch, extra headers, extra blank header columns with data below, existing data with divergent headers, and confirms V53 sheets are ignored.
 - VERIFIED: V54 setup apply tests prove the local apply aborts blocked plans, creates only missing V54 sheets with headers, avoids formulas, and is explicitly blocked over GET.
@@ -631,7 +633,7 @@ Rollback actions:
 V54 can be considered ready for production only when all applicable criteria are VERIFIED:
 
 - TODO: `docs/MASTERPLAN_PRODUCAO_V54.md` reviewed and approved.
-- TODO: V54 schema exists in spreadsheet and is verified by exported snapshot.
+- VERIFIED: V54 skeleton schema exists in spreadsheet and is verified by exported snapshot.
 - TODO: Webhook/proxy authentication, mutating maintenance endpoint separation, and `LockService` write protection are verified before production mutation.
 - TODO: Tests verify operational DRE excludes investments, reserve transfers, asset movements, and invoice payments.
 - TODO: Card purchases/installments appear once in expense recognition and invoice payment appears only as settlement.
