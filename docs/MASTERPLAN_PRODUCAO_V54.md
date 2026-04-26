@@ -1,7 +1,7 @@
 # MASTERPLAN PRODUCAO V54
 
 Date: 2026-04-25
-Status: IN PROGRESS - V54 skeleton applied and verified; V53 remains the production flow
+Status: IN PROGRESS - V54 skeleton and Telegram positive production path verified; V53 remains the production flow
 Branch context: feat/v54-production-readiness
 Last consolidated analysis: 2026-04-26
 Last local Phase 1 domain expansion: 2026-04-26
@@ -31,7 +31,7 @@ Last real V54 sheet setup: 2026-04-26
 - TODO: Do not treat invoice payment as expense.
 - TODO: Do not count the existing home-item earmarked balance as emergency reserve.
 - TODO: Do not migrate fully paid historical installments unless explicitly requested later.
-- TODO: Do not claim Telegram/Val.town end-to-end production behavior is verified until tested.
+- VERIFIED: Do not claim Telegram/Val.town production behavior until tested. Positive read/write/desfazer behavior was tested on 2026-04-26; negative webhook security tests are still pending.
 - TODO: Do not let generative AI make financial recommendations before deterministic safety rules have checked reserve, debts, invoices, and cash flow.
 
 ## 2. Current Verified State
@@ -52,7 +52,7 @@ Last real V54 sheet setup: 2026-04-26
 - VERIFIED: `npm run test:v53` exists, and `npm run test:v53 -- --mutate` was previously verified through the active context as passed against deployment version 23.
 - VERIFIED: Architecture/risk/fatiamento reviews executed on 2026-04-26 in read-only mode found V54 pre-implementation blockers documented below.
 - VERIFIED: `.ai_shared/ANALISE_A_SER_CONSIDERADA.MD` was reviewed on 2026-04-26 and its findings were consolidated into this masterplan.
-- UNVERIFIED: Real Telegram/Val.town webhook routing exercises the same production behavior end-to-end.
+- VERIFIED: Real Telegram/Val.town positive routing was tested on 2026-04-26: `/saldo` returned real spreadsheet data, a controlled `R$ 1,00` `Restaurante casal` launch was written, `/hoje` showed it, `/desfazer` removed it, and a final `/hoje` showed no launch for the day.
 - VERIFIED: V54 skeleton schema exists in the real spreadsheet. The exported snapshot generated on 2026-04-26 15:27:14 contains all 14 V54 sheets with row-1 headers matching `scripts/lib/v54-schema.js`.
 - VERIFIED: Phase 0.5 security/write-lock gate is coded locally and covered by `cmd /c npm run test:security-locks`.
 - VERIFIED: Phase 1 local domain fixtures now cover invoice payment reconciliation, emergency reserve exclusion for home-earmarked assets, net worth, amortization readiness gates, monthly closing draft fields, and shared-view privacy sanitization.
@@ -62,7 +62,7 @@ Last real V54 sheet setup: 2026-04-26
 
 ### 2.1 Pre-Implementation Blockers Found On 2026-04-26
 
-- VERIFIED: `doPost` previously trusted Telegram `chat.id` from the request payload before verifying a non-spoofable webhook secret. Local code now requires `WEBHOOK_SECRET` before routing, but the real Apps Script/Val.town production contract remains UNVERIFIED.
+- VERIFIED: `doPost` previously trusted Telegram `chat.id` from the request payload before verifying a non-spoofable webhook secret. Code now requires `WEBHOOK_SECRET` before routing, and the positive Apps Script/Val.town production contract was verified on 2026-04-26. Negative security tests remain TODO.
 - VERIFIED: GET maintenance mutation was identified as a risk. Local code now keeps `doGet` read-only for `exportState` and explicitly blocks known mutating GET actions, including `applySetupV54`.
 - VERIFIED: Existing setup/repair functions have high spreadsheet blast radius. V54 setup was implemented as additive, manual, lock-protected, dry-run-first, and non-formula.
 - VERIFIED: Current V53 write paths were missing locks. Local code now wraps `recordParsedEntry`, `desfazerUltimo`, `handleManter`, and `handleParcela` with `withScriptLock()`.
@@ -538,7 +538,7 @@ Phase 0.5 - Security and write-safety gate:
 - VERIFIED: Add `withScriptLock()` around current V53 write paths.
 - VERIFIED: Add local/static tests proving the security and lock wrappers exist before `clasp push`.
 - VERIFIED: Add redacted read-only webhook diagnostics: `diagnoseWebhookSecurity()` and `getTelegramWebhookInfo()`.
-- TODO: Execute the webhook diagnostics in the Apps Script editor and review results before Telegram production testing.
+- VERIFIED: Execute webhook diagnostics in the Apps Script editor and review results before Telegram production testing. On 2026-04-26, diagnostics showed required secrets configured, `authorizedUserCount: 2`, Val.town URL configured, and Telegram webhook URL redacted with `pending_update_count: 0`.
 
 Phase 1 - Non-mutating design:
 
@@ -571,7 +571,8 @@ Phase 5 - Bot behavior:
 
 - TODO: Update parser/write paths to populate V54 fields.
 - TODO: Add recommendation responses for approved event types.
-- TODO: Test deterministic write paths before Telegram end-to-end validation.
+- VERIFIED: Test current V53 Telegram positive production route with a controlled low-value fixture and `/desfazer`.
+- TODO: Test V54 deterministic write paths before V54 Telegram end-to-end validation.
 
 ## 11. Test Plan
 
@@ -607,8 +608,9 @@ Mutating protected tests:
 
 End-to-end tests:
 
-- UNVERIFIED: Telegram/Val.town production route.
-- TODO: After deterministic tests pass, send real Telegram test messages through production routing and verify spreadsheet effects.
+- VERIFIED: Current V53 Telegram/Val.town positive production route was tested on 2026-04-26 with `/saldo`, a controlled `R$ 1,00` write, `/hoje`, `/desfazer`, and final `/hoje`.
+- TODO: Add negative production webhook tests for missing secret, invalid secret, and unauthorized chat.
+- TODO: After V54 deterministic tests pass, send real V54 Telegram test messages through production routing and verify spreadsheet effects.
 
 ## 12. Rollback Plan
 
@@ -637,8 +639,8 @@ V54 can be considered ready for production only when all applicable criteria are
 
 - TODO: `docs/MASTERPLAN_PRODUCAO_V54.md` reviewed and approved.
 - VERIFIED: V54 skeleton schema exists in spreadsheet and is verified by exported snapshot.
-- TODO: Webhook/proxy authentication, mutating maintenance endpoint separation, and `LockService` write protection are verified before production mutation.
-- TODO: `diagnoseWebhookSecurity()` and `getTelegramWebhookInfo()` logs are reviewed and show the expected deployment/webhook state without exposing secrets.
+- VERIFIED: Webhook/proxy positive authentication path, mutating maintenance endpoint separation, and `LockService` write protection are verified before broader production mutation.
+- VERIFIED: `diagnoseWebhookSecurity()` and `getTelegramWebhookInfo()` logs were reviewed and showed the expected deployment/webhook state without exposing raw secrets.
 - TODO: Tests verify operational DRE excludes investments, reserve transfers, asset movements, and invoice payments.
 - TODO: Card purchases/installments appear once in expense recognition and invoice payment appears only as settlement.
 - TODO: `Pagamentos_Fatura` supports at least full payment, partial payment, and reconciliation against `Faturas`.
@@ -653,7 +655,8 @@ V54 can be considered ready for production only when all applicable criteria are
 - TODO: `npm run test:v53` still passes or an approved V54 successor test replaces it.
 - TODO: V54 mutating protected tests pass with automatic cleanup.
 - TODO: `npm run sync` succeeds after changes and exported snapshot contains no unexpected Apps Script HTML/error payload.
-- TODO: Real Telegram/Val.town route is tested before claiming production end-to-end readiness.
+- VERIFIED: Current V53 real Telegram/Val.town positive route was tested before claiming positive route readiness.
+- TODO: V54 real Telegram/Val.town route must be tested before claiming V54 production end-to-end readiness.
 
 ## 14. Open Questions
 

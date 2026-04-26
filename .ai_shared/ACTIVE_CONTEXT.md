@@ -81,25 +81,25 @@ Branch: feat/v54-production-readiness
 - `cmd /c npm run push` (`clasp push`) succeeded on 2026-04-26 after adding webhook diagnostics and pushed the Apps Script files to the project.
 - `cmd /c npx clasp deployments` still shows an `@HEAD` deployment plus version `@23 - Bot Telegram V2`; production route/version activation remains UNVERIFIED until manually checked.
 - `node --check src\Setup.js`, `node --check scripts\test-security-locks.js`, `cmd /c npm run test:security-locks`, `cmd /c npm run test:v54:setup`, `cmd /c npm run test:v54:domain`, `cmd /c npm run test:v54:schema`, `cmd /c npm run test:v54:snapshot`, and `cmd /c npm run test:v53` passed on 2026-04-26 after adding webhook diagnostics.
+- `diagnoseWebhookSecurity()` was executed manually in the Apps Script editor on 2026-04-26 and returned `ok: true` with `telegramTokenConfigured`, `spreadsheetIdConfigured`, `syncSecretConfigured`, `webhookSecretConfigured`, `webAppUrlAvailable`, and `valTownWebhookUrlConfigured` all true, plus `authorizedUserCount: 2`.
+- `apontarWebhookProValTown()` was executed manually in the Apps Script editor on 2026-04-26 and Telegram returned `{"ok":true,"result":true,"description":"Webhook was set"}`.
+- `getTelegramWebhookInfo()` was executed manually after webhook registration on 2026-04-26 and returned `ok: true`, URL `https://islandd.val.run/?webhook_secret=REDACTED`, `pending_update_count: 0`, and `allowed_updates: ["message"]`.
+- Telegram/Val.town positive production path was tested on 2026-04-26: `/saldo` returned data from the real spreadsheet, a controlled `R$ 1,00` `Restaurante casal` launch through Telegram was written, `/hoje` showed it, `/desfazer` removed it, and a final `/hoje` returned no launches for 2026-04-26.
+- `cmd /c npm run sync` passed after the Telegram write/desfazer test and refreshed `.ai_shared/SPREADSHEET_STATE.md` with generation time `2026-04-26 15:55:22`; searching the snapshot did not find the test description or `R$ 1,00` test residue.
 
 ## Unverified claims
-- Double-entry `handleEntry` works end-to-end through Telegram integration.
-- A real Telegram/Val.town webhook message exercises the same behavior in production routing.
-- `WEBHOOK_SECRET` is configured in the deployed Apps Script project properties.
-- Val.town proxy currently forwards the agreed `webhook_secret`/body secret contract to Apps Script.
-- `diagnoseWebhookSecurity()` has been executed in the Apps Script editor. It has not; the function was pushed but still needs manual execution and log review.
-- `getTelegramWebhookInfo()` has been executed in the Apps Script editor. It has not; the function was pushed but still needs manual execution and log review.
-- The security + locks slice is active in the deployed Telegram Web App route. The code was pushed to the Apps Script project on 2026-04-26, but the versioned Web App deployment still needs explicit verification before claiming production routing uses it.
+- Negative webhook security behavior is not yet production-tested: POST without secret, POST with invalid secret, and valid secret with unauthorized chat should not write anything.
+- The exact versioned deployment mechanics behind the Telegram route remain not fully characterized beyond the successful positive Telegram/Val.town production test.
 - A replacement protected POST maintenance path for mutating actions exists. Current local code blocks mutating GET instead.
 - V54 Phase 1 domain helpers are integrated with Apps Script write paths. They are local Node.js planning/test helpers only.
 - V54 sheets contain production seed data, formulas, dropdowns, or migrated transactions. Only sheet creation and header rows are verified.
 
 ## Current task
-Execute V54 safely in small phases. Current phase: Phase 2 additive sheet setup is applied and verified: V54 skeleton sheets exist in the real spreadsheet, snapshot sync passed, and local tests passed. Next gate is configuring/validating production webhook security before Telegram production testing, then implementing V54 seed/migration/write paths in separate reviewed slices.
+Execute V54 safely in small phases. Current phase: Phase 2 additive sheet setup is applied and verified, and Telegram/Val.town positive production routing is verified for read-only command, controlled write, and `desfazer`. Next gate is implementing V54 seed/config planning as a dry-run-first, idempotent, non-migrating slice; optional negative webhook tests can be added before broader production writes.
 
 ## Next safe action
 1. Run and keep passing `cmd /c npm run test:security-locks`, `cmd /c npm run test:v54:domain`, `cmd /c npm run test:v54:schema`, `cmd /c npm run test:v54:snapshot`, `cmd /c npm run test:v54:setup`, and `cmd /c npm run test:v53`.
-2. In the Apps Script editor, run `diagnoseWebhookSecurity()` and review the redacted JSON before any Telegram production test.
-3. In the Apps Script editor, run `getTelegramWebhookInfo()` and confirm the current Telegram webhook target without exposing secrets.
-4. If diagnostics show missing or stale webhook config, configure `WEBHOOK_SECRET`/Val.town and only then consider running `apontarWebhookProValTown()`.
-5. Do not run mutating Telegram production tests, V54 seed writes, or migration writes until explicitly approved after reviewing diagnostics and planned payloads.
+2. Design V54 seed/config payloads for `Config_Categorias`, `Config_Fontes`, `Rendas`, `Cartoes`, `Patrimonio_Ativos`, `Dividas`, and `Orcamento_Futuro_Casa`.
+3. Implement seed as dry-run-first and fake-spreadsheet-tested; do not write real seed data until the payload is reviewed.
+4. Keep V54 seed separate from historical migration and Telegram V54 write paths.
+5. If broader Telegram production use is planned before V54 seed, add negative webhook tests for missing secret, invalid secret, and unauthorized chat.
