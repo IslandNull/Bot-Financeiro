@@ -95,6 +95,11 @@ Branch: feat/v54-production-readiness
 - All pre-existing test suites passed successfully after these additions.
 - V54 seed data was pushed to Apps Script and successfully applied to the production spreadsheet via manual execution of `applySeedV54` on 2026-04-26.
 - `cmd /c npm run sync` and subsequent tests (`test:v54:snapshot`, `test:v53`) confirmed the real spreadsheet is stable and contains the new seed rows without corrupting V53 formulas.
+- V54 refactoring Phase 1 is closed on the remote branch as of 2026-04-26:
+  - Phase 1A local negative webhook coverage and Phase 1B routing-mode foundation are represented by commit `c43cb41`.
+  - Phase 1B.2 routing diagnostics/refactoring handoff documentation is represented by commits `4deab8d` and `804ffc1`.
+  - Phase 1C legacy setup isolation is represented by commit `022daeb`, which moved legacy setup/test helpers into `src/SetupLegacy.js` while preserving global Apps Script function names.
+- Gemini handoff wrapper was updated in commit `b34e679` after verifying `pwsh.exe` is installed locally; it documents Windows command chaining guidance for Gemini CLI sessions.
 
 ## Unverified claims
 - Negative webhook security behavior is not yet production-tested: POST without secret, POST with invalid secret, and valid secret with unauthorized chat should not write anything.
@@ -105,9 +110,9 @@ Branch: feat/v54-production-readiness
 - V53 sheets are safe to remove or rename. They are not: current production code still depends on them until V54 write paths replace V53.
 
 ## Current task
-Execute V54 safely in small phases. Current phase: V54 clean seed data has been applied and validated on production. The physical structure and canonical metadata (categories, sources, cards, debts, initial asset balances) are now established. The next gate is wiring up the new V54 structure to receive transactional writes via the webhook, ensuring security and proper locking.
+Execute V54 safely in small phases. Current phase: V54 refactoring Phase 1 is closed on the remote branch (`feat/v54-production-readiness` through `b34e679`). The next implementation gate is Phase 2A: define the strict `ParsedEntryV54` contract before building `ParserV54` or any V54 write path.
 
 ## Next safe action
-1. If broader Telegram production use is planned before wiring up V54 transaction paths, implement and run negative webhook security tests (missing secret, invalid secret, unauthorized chat) to ensure the endpoint fails securely.
-2. If negative tests are not an immediate priority, begin designing the transaction parser and write paths for `Lancamentos_V54` utilizing `withScriptLock`.
-3. Before replacing V53 write paths, ensure automated tests for V54 transaction writes exist and pass.
+1. Start Phase 2A only: define and test the local `ParsedEntryV54` contract.
+2. Do not modify productive V53 routing, `doPost`, `Parser.js`, `Actions.js`, or Telegram behavior during Phase 2A.
+3. Do not write to the spreadsheet, run `clasp push`, deploy, seed, setup, or migration during Phase 2A.
