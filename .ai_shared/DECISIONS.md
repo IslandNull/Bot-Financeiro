@@ -130,7 +130,7 @@ Status: Accepted
 Date: 2026-04-26
 
 Decision:
-Start V54 setup with `planSetupV54()` dry-run only. It can inspect existing sheets and headers and return planned `CREATE_SHEET`/`UPDATE_HEADERS` actions, but must not call mutating spreadsheet APIs.
+Start V54 setup with `planSetupV54()` dry-run only. It can inspect existing sheets and headers and return planned actions, but must not call mutating spreadsheet APIs. The original dry-run action vocabulary was later hardened by D018 to replace generic header updates with explicit safe/blocked states.
 
 Reason:
 Existing setup/repair functions have high blast radius. A dry-run planner provides a reviewable migration plan before any sheet creation, header rewrite, formula injection, or data migration.
@@ -190,3 +190,28 @@ Rejected:
 - Treating home-item earmarked assets as emergency reserve.
 - Recommending amortization while reserve, invoice exposure, or debt fields are unknown/incomplete.
 - Showing private personal entries in shared detailed reports.
+
+## D018 - V54 Setup Planner Blocks Header Drift
+Status: Accepted
+Date: 2026-04-26
+
+Decision:
+Before implementing any mutating V54 setup/apply function, `planSetupV54ForState()` must return explicit safe or blocked states instead of a generic `UPDATE_HEADERS` action.
+
+Accepted planner actions are:
+- `OK`
+- `CREATE_SHEET`
+- `INITIALIZE_HEADERS`
+- `BLOCKED_HEADER_MISMATCH`
+- `BLOCKED_EXTRA_HEADERS`
+- `BLOCKED_EXISTING_DATA`
+
+The planner may propose creating missing V54 sheets or initializing headers on a blank existing V54 sheet. It must block existing nonblank divergent headers, extra headers, and any divergent header situation with data rows below the header.
+
+Reason:
+A future `applySetupV54()` should be additive and reviewable. Automatically rewriting headers in existing sheets can silently corrupt manually created V54 data or hide schema drift. Blocking unsafe states forces human review before spreadsheet mutation.
+
+Rejected:
+- Reusing `UPDATE_HEADERS` as an apply-ready action.
+- Ignoring extra headers beyond the expected schema width.
+- Rewriting V54 headers automatically when data already exists.

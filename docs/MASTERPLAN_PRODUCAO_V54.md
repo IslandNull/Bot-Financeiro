@@ -2,9 +2,10 @@
 
 Date: 2026-04-25
 Status: TODO - planning document for review before implementation
-Branch context: feat/v52-upgrade
+Branch context: feat/v54-production-readiness
 Last consolidated analysis: 2026-04-26
 Last local Phase 1 domain expansion: 2026-04-26
+Last local Phase 2 setup-planner hardening: 2026-04-26
 
 ## 1. Goals And Non-Goals
 
@@ -35,8 +36,9 @@ Last local Phase 1 domain expansion: 2026-04-26
 ## 2. Current Verified State
 
 - VERIFIED: Repository startup protocol was run on 2026-04-26: `git status --short`, `git branch --show-current`, `cat package.json`, and `ls`/`Get-ChildItem`.
-- VERIFIED: Current branch is `feat/v52-upgrade`.
-- VERIFIED: On 2026-04-26, `git status --short` showed only `.emdash.json` as untracked before V54 domain-test edits.
+- VERIFIED: Current branch is `feat/v54-production-readiness`.
+- VERIFIED: On 2026-04-26, the branch was renamed from `feat/v52-upgrade` to `feat/v54-production-readiness`.
+- VERIFIED: On 2026-04-26, `.emdash.json` was removed locally and added to `.gitignore`; related remote Emdash branches were removed.
 - VERIFIED: `.ai_shared/ACTIVE_CONTEXT.md` states that V53 schema implementation is coded locally and V54 is not implemented.
 - VERIFIED: `.ai_shared/SPREADSHEET_STATE.md` was generated on 2026-04-25 18:36:14 and starts with `# Spreadsheet State`.
 - VERIFIED: Current verified sheet structure includes:
@@ -53,6 +55,8 @@ Last local Phase 1 domain expansion: 2026-04-26
 - UNVERIFIED: V54 schema exists in the spreadsheet. It does not exist according to active context and schema docs.
 - VERIFIED: Phase 0.5 security/write-lock gate is coded locally and covered by `cmd /c npm run test:security-locks`.
 - VERIFIED: Phase 1 local domain fixtures now cover invoice payment reconciliation, emergency reserve exclusion for home-earmarked assets, net worth, amortization readiness gates, monthly closing draft fields, and shared-view privacy sanitization.
+- VERIFIED: Phase 2 setup dry-run planner was hardened locally to return explicit safe/blocked states instead of `UPDATE_HEADERS`.
+- VERIFIED: `cmd /c npm run test:v54:setup` covers empty state, perfect state, blank existing sheets, header mismatch, existing data, extra headers, V53 sheet preservation, and absence of `UPDATE_HEADERS`.
 
 ### 2.1 Pre-Implementation Blockers Found On 2026-04-26
 
@@ -541,6 +545,7 @@ Phase 1 - Non-mutating design:
 
 Phase 2 - Sheet preparation:
 
+- VERIFIED: Harden `planSetupV54ForState()` before apply: safe actions are `OK`, `CREATE_SHEET`, and `INITIALIZE_HEADERS`; blocked actions are `BLOCKED_HEADER_MISMATCH`, `BLOCKED_EXTRA_HEADERS`, and `BLOCKED_EXISTING_DATA`.
 - TODO: Create V54 sheets in a controlled setup function that is idempotent and does not destroy V53 data.
 - TODO: Avoid running dangerous legacy setup functions blindly.
 - TODO: Snapshot spreadsheet before mutation with `npm run sync`.
@@ -570,6 +575,7 @@ Non-mutating tests:
 - VERIFIED: Lock static test proving write paths use `withScriptLock()` or equivalent.
 - TODO: Snapshot structure test for required V54 sheets and headers.
 - TODO: Formula syntax test using `setFormula()` with English functions and semicolon separators.
+- VERIFIED: V54 setup dry-run planner test blocks header mismatch, extra headers, existing data with divergent headers, and confirms V53 sheets are ignored.
 - VERIFIED: DRE exclusion test proving investments, reserve transfers, and invoice payments do not affect operational DRE.
 - VERIFIED: Card cycle test for each configured card:
   - Nubank Gustavo close 30 due 7.

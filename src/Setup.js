@@ -67,6 +67,17 @@ function getV54Schema() {
     };
 }
 
+function isBlankHeaderRow_(headers) {
+    return (headers || []).every((header) => !String(header || '').trim());
+}
+
+function hasExistingDataRows_(sheetState) {
+    if (!sheetState) return false;
+    if (sheetState.hasDataRows === true) return true;
+    if (Number(sheetState.dataRows || 0) > 0) return true;
+    return Number(sheetState.lastRow || 0) > 1;
+}
+
 function planSetupV54ForState(state) {
     const schema = getV54Schema();
     const existing = state || {};
@@ -86,23 +97,72 @@ function planSetupV54ForState(state) {
         }
 
         const currentHeaders = sheetState.headers || [];
-        const matches = expectedHeaders.length === currentHeaders.length
-            && expectedHeaders.every((header, index) => header === currentHeaders[index]);
+        const comparableHeaders = currentHeaders.slice(0, expectedHeaders.length);
+        const expectedWidthMatches = expectedHeaders.every((header, index) => header === comparableHeaders[index]);
+        const extraHeaders = currentHeaders
+            .slice(expectedHeaders.length)
+            .filter((header) => String(header || '').trim());
+        const hasDataRows = hasExistingDataRows_(sheetState);
 
-        if (!matches) {
+        if (extraHeaders.length > 0) {
             actions.push({
-                action: 'UPDATE_HEADERS',
+                action: 'BLOCKED_EXTRA_HEADERS',
+                sheet: sheetName,
+                currentHeaders,
+                expectedHeaders,
+                extraHeaders,
+            });
+            return;
+        }
+
+        if (expectedWidthMatches) {
+            actions.push({
+                action: 'OK',
+                sheet: sheetName,
+                headers: expectedHeaders,
+            });
+            return;
+        }
+
+        if (hasDataRows) {
+            actions.push({
+                action: 'BLOCKED_EXISTING_DATA',
                 sheet: sheetName,
                 currentHeaders,
                 expectedHeaders,
             });
+            return;
         }
+
+        if (isBlankHeaderRow_(comparableHeaders)) {
+            actions.push({
+                action: 'INITIALIZE_HEADERS',
+                sheet: sheetName,
+                headers: expectedHeaders,
+            });
+            return;
+        }
+
+        actions.push({
+            action: 'BLOCKED_HEADER_MISMATCH',
+            sheet: sheetName,
+            currentHeaders,
+            expectedHeaders,
+        });
     });
 
+    const blockedActions = actions.filter((action) => action.action.indexOf('BLOCKED_') === 0);
+
     return {
-        ok: actions.length === 0,
+        ok: blockedActions.length === 0,
         dryRun: true,
         actions,
+        summary: {
+            ok: actions.filter((action) => action.action === 'OK').length,
+            createSheet: actions.filter((action) => action.action === 'CREATE_SHEET').length,
+            initializeHeaders: actions.filter((action) => action.action === 'INITIALIZE_HEADERS').length,
+            blocked: blockedActions.length,
+        },
     };
 }
 
@@ -115,8 +175,12 @@ function planSetupV54() {
     Object.keys(schema).forEach((sheetName) => {
         const sheet = ss.getSheetByName(sheetName);
         if (!sheet) return;
-        const width = schema[sheetName].length;
+        const lastRow = sheet.getLastRow();
+        const lastColumn = sheet.getLastColumn();
+        const width = Math.max(schema[sheetName].length, lastColumn);
         state[sheetName] = {
+            lastRow,
+            lastColumn,
             headers: sheet.getRange(1, 1, 1, width).getValues()[0],
         };
     });
