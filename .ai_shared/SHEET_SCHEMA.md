@@ -6,6 +6,7 @@ This file is the shared schema reference for Google Sheets. Agents must verify t
 
 - Current verified production flow: `V53`.
 - Current verified V54 state: skeleton sheets and headers created in the real spreadsheet on 2026-04-26; seed data, formulas, dropdowns, write paths, and migrations are not implemented yet.
+- Migration strategy: V54 is now a clean start. Do not migrate V53 history by default; only manually approved seed/opening data should be written to V54.
 - Formula standard is defined in `.ai_shared/FORMULA_STANDARD.md`.
 
 ## Formula Standard
@@ -105,6 +106,7 @@ Verified scope:
 - Sheet creation and row-1 headers exist.
 - No V54 seed data, formulas, dropdowns, write-path integration, or migration is verified yet.
 - V53 sheets remain the active production flow until V54 writes and reports are implemented in later phases.
+- V53/V54 visual duplication is expected during transition and is not a schema error.
 
 ### Required New/Redesigned Sheets
 
@@ -236,7 +238,7 @@ Proposed columns:
 - `id_lancamento`
 
 Rule:
-- Existing active installments should be migrated only for future/open installments, not fully paid history.
+- Do not migrate V53 installment history by default. If the user later wants active old installments in V54, insert only manually reviewed open/future installments.
 
 #### Lancamentos_V54
 
@@ -376,10 +378,9 @@ These must be forecast-only until the home is received.
 ## Remaining Production Work
 
 Before using V54 as the active production flow:
-- Audit current V53 formulas numerically with fixtures.
 - Decide how to represent investments without inflating operational DRE.
-- Design card invoice cycle calculation before migrating installments.
+- Design card invoice cycle calculation before enabling V54 card/installment writes.
 - Define couple settlement formula based on proportional income and benefit usage.
 - Update tests before changing production sheets.
 - Implement and verify seed/config writes for V54 categories, sources, cards, incomes, debts, and assets.
-- Implement V54 write paths, reports, and controlled migration without deleting or rewriting V53 history.
+- Implement V54 write paths and reports without deleting or rewriting V53 sheets until V54 is production-ready.

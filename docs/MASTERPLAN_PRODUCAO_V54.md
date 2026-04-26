@@ -22,7 +22,7 @@ Last real V54 sheet setup: 2026-04-26
 - TODO: Model debts, monthly closing, and net worth before allowing amortization/investment recommendations.
 - TODO: Preserve privacy and personal autonomy with explicit visibility rules, not only payer/scope fields.
 - TODO: Enable rule-based bot recommendations for 13th salary, vacation pay, bonus, extra income, large surplus, large purchases, reserve, amortization, investment, and home item decisions.
-- VERIFIED: Define migration, tests, rollback, and acceptance criteria before V54 production activation.
+- VERIFIED: Define clean-start bootstrap, tests, rollback, and acceptance criteria before V54 production activation.
 
 ### Non-Goals
 
@@ -30,7 +30,7 @@ Last real V54 sheet setup: 2026-04-26
 - VERIFIED: Only additive V54 skeleton sheet setup has been applied so far; do not run seed, migration, or V54 writes without a reviewed dry-run.
 - TODO: Do not treat invoice payment as expense.
 - TODO: Do not count the existing home-item earmarked balance as emergency reserve.
-- TODO: Do not migrate fully paid historical installments unless explicitly requested later.
+- VERIFIED: Do not migrate V53 history by default. V54 is a clean start; only manually approved opening data should be seeded.
 - VERIFIED: Do not claim Telegram/Val.town production behavior until tested. Positive read/write/desfazer behavior was tested on 2026-04-26; negative webhook security tests are still pending.
 - TODO: Do not let generative AI make financial recommendations before deterministic safety rules have checked reserve, debts, invoices, and cash flow.
 
@@ -59,6 +59,8 @@ Last real V54 sheet setup: 2026-04-26
 - VERIFIED: Phase 2 setup dry-run planner was hardened locally to return explicit safe/blocked states instead of `UPDATE_HEADERS`.
 - VERIFIED: `cmd /c npm run test:v54:setup` covers exact Apps Script/local schema parity, empty state, perfect state, blank existing sheets, header mismatch, existing data, extra headers, extra blank header columns with data below, V53 sheet preservation, and absence of `UPDATE_HEADERS`.
 - VERIFIED: `applySetupV54()` was pushed to the Apps Script project, executed manually from the Apps Script editor on 2026-04-26, and applied 14 `CREATE_SHEET` actions with `summary.blocked: 0`.
+- VERIFIED: V54 sheet audit found no blocking schema duplication. Apparent duplicate sheets are expected because V53 remains the current bot flow while V54 is staged as a clean start.
+- VERIFIED: User confirmed V53 has no meaningful valid history to preserve. V54 should bootstrap from reviewed seed/config/opening data, not from default V53 historical migration.
 
 ### 2.1 Pre-Implementation Blockers Found On 2026-04-26
 
@@ -70,7 +72,7 @@ Last real V54 sheet setup: 2026-04-26
 - VERIFIED: V54 must add `Pagamentos_Fatura`, `Dividas`, `Fechamentos_Mensais`, `afeta_patrimonio`, and `visibilidade` to avoid incomplete recommendations and privacy leakage.
 - VERIFIED: `Config_Fontes` and `Cartoes` must not duplicate authority for closing day, due day, and limit.
 - VERIFIED: `Parcelas_Agenda` uses stable `id_parcela`, and `Lancamentos_V54` references it.
-- TODO: Specify deterministic invoice-cycle rules before migrating installments, including purchase on closing day, closing day 30 in February, purchases after closing, payment partials, refunds, and closed versus expected invoice values.
+- TODO: Specify deterministic invoice-cycle rules before enabling V54 card/installment writes, including purchase on closing day, closing day 30 in February, purchases after closing, payment partials, refunds, and closed versus expected invoice values.
 
 ### 2.2 Consolidated External Analysis
 
@@ -125,7 +127,7 @@ VERIFIED consolidated conclusions:
 
 ## 4. Schema Proposal
 
-V54 should prefer explicit tables over overloading the current V53 `Lancamentos` table. Existing V53 sheets can remain during migration, but production reporting should read from the V54 model once verified.
+V54 should prefer explicit tables over overloading the current V53 `Lancamentos` table. Existing V53 sheets remain as temporary fallback while V54 is bootstrapped cleanly, but production reporting should read from the V54 model once verified.
 
 ### Config_Categorias
 
@@ -402,7 +404,7 @@ TODO `Parcelas_Agenda` columns:
 Migration rule:
 
 - TODO: Migrate only open/future installments.
-- TODO: Do not migrate fully paid historical installments unless the user explicitly requests historical reconstruction.
+- VERIFIED: Do not migrate V53 installment history by default. If old active installments are needed later, insert only manually reviewed open/future installments.
 - TODO: User must provide each active installment with description, card, installment value, current installment number, total installments, category, payer/responsible person, and scope.
 
 ## 6. Emergency Reserve Model
@@ -556,11 +558,12 @@ Phase 2 - Sheet preparation:
 - VERIFIED: Execute `applySetupV54()` manually from the Apps Script editor and verify the post-apply snapshot.
 - VERIFIED: Avoid running dangerous legacy setup functions blindly.
 
-Phase 3 - Data migration:
+Phase 3 - Clean V54 bootstrap:
 
-- TODO: Migrate config categories, sources, cards, income, assets, debts, privacy defaults, and future home forecast.
-- TODO: Migrate only open/future installments from user-provided list.
-- TODO: Keep V53 `Lancamentos` readable during transition.
+- TODO: Seed reviewed V54 config categories, sources, cards, income, assets, debts, privacy defaults, and future home forecast.
+- TODO: Do not migrate V53 transaction history by default.
+- TODO: Add only manually reviewed opening balances and active obligations needed for V54 to start correctly.
+- TODO: Keep V53 sheets readable and available as fallback during transition.
 
 Phase 4 - Reporting:
 
@@ -617,14 +620,14 @@ End-to-end tests:
 Before implementation:
 
 - TODO: Run `npm run sync` and keep a verified snapshot.
-- TODO: Export or duplicate production spreadsheet manually if a destructive migration is planned.
+- TODO: Export or duplicate production spreadsheet manually if destructive cleanup/archive is planned.
 - TODO: Ensure new setup functions are additive or versioned.
 
 During implementation:
 
-- TODO: Do not delete V53 sheets during V54 rollout.
+- TODO: Do not delete, rename, or hide V53 sheets during V54 rollout.
 - TODO: Write V54 sheets alongside V53 until reports are verified.
-- TODO: Keep migration functions idempotent and able to skip already-created rows by IDs.
+- TODO: Keep V54 seed/bootstrap functions idempotent and able to skip already-created rows by IDs.
 
 Rollback actions:
 
@@ -647,7 +650,7 @@ V54 can be considered ready for production only when all applicable criteria are
 - TODO: `Dividas` includes Caixa and Vasco with enough fields to block unsafe amortization recommendations.
 - TODO: `Fechamentos_Mensais` produces monthly DRE, faturas 60d, reserve, net worth, settlement status, and three decisions.
 - TODO: Privacy rules prevent private personal purchases from appearing in shared detailed reports.
-- TODO: Active installment migration is verified against user-provided list.
+- TODO: Any manually selected old active installment bootstrap is verified against user-provided list.
 - TODO: Emergency reserve dashboard starts at `0` and does not count the `16635` home-item earmark.
 - TODO: Future home costs total `900` and remain forecast-only until activated.
 - TODO: Couple rateio/acerto is calculated from approved rules and matches controlled fixtures.

@@ -249,3 +249,20 @@ Rejected:
 - Printing full webhook secrets or Telegram tokens in logs.
 - Validating Telegram production readiness by sending real bot messages before negative auth checks.
 - Mutating webhook configuration as part of diagnostics.
+
+## D021 - V54 Fresh Start With V53 Temporary Fallback
+Status: Accepted
+Date: 2026-04-26
+
+Decision:
+Treat V54 as a clean production start instead of migrating V53 historical data by default. V53 remains the temporary production/fallback flow until V54 has reviewed seed/config data, V54 write paths, reports, and Telegram validation.
+
+Do not delete, rename, or hide V53 sheets yet, because current Apps Script commands still read from and write to V53 sheets such as `Config`, `Lancamentos`, `Dashboard`, `Investimentos`, and `Parcelas`.
+
+Reason:
+The user confirmed that V53 does not contain meaningful valid historical data. Migrating it would add semantic risk without value, especially around categories, investments, installments, invoices, and DRE behavior. A fresh V54 seed keeps the model cleaner and reduces migration work.
+
+Rejected:
+- Migrating V53 transaction history by default.
+- Deleting or renaming V53 sheets before V54 write paths are production-ready.
+- Treating visual duplication between V53 and V54 sheets as a schema error during the transition.

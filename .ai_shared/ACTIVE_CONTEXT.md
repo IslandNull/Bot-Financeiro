@@ -86,6 +86,8 @@ Branch: feat/v54-production-readiness
 - `getTelegramWebhookInfo()` was executed manually after webhook registration on 2026-04-26 and returned `ok: true`, URL `https://islandd.val.run/?webhook_secret=REDACTED`, `pending_update_count: 0`, and `allowed_updates: ["message"]`.
 - Telegram/Val.town positive production path was tested on 2026-04-26: `/saldo` returned data from the real spreadsheet, a controlled `R$ 1,00` `Restaurante casal` launch through Telegram was written, `/hoje` showed it, `/desfazer` removed it, and a final `/hoje` returned no launches for 2026-04-26.
 - `cmd /c npm run sync` passed after the Telegram write/desfazer test and refreshed `.ai_shared/SPREADSHEET_STATE.md` with generation time `2026-04-26 15:55:22`; searching the snapshot did not find the test description or `R$ 1,00` test residue.
+- V54 sheet/schema audit concluded that the current sheet list is OK but visually confusing because V53 and V54 coexist. The apparent duplicates (`Config` vs `Config_Categorias`/`Config_Fontes`, `Parcelas` vs `Compras_Parceladas`/`Parcelas_Agenda`, `Lancamentos` vs `Lancamentos_V54`, `Investimentos` vs `Patrimonio_Ativos`) are expected during transition.
+- User confirmed V53 has no meaningful valid historical data to preserve. Decision D021 was accepted: V54 will be a clean start with reviewed seed/config data, not a default migration of V53 history. V53 remains temporary fallback until V54 write paths and reports are verified.
 
 ## Unverified claims
 - Negative webhook security behavior is not yet production-tested: POST without secret, POST with invalid secret, and valid secret with unauthorized chat should not write anything.
@@ -93,13 +95,14 @@ Branch: feat/v54-production-readiness
 - A replacement protected POST maintenance path for mutating actions exists. Current local code blocks mutating GET instead.
 - V54 Phase 1 domain helpers are integrated with Apps Script write paths. They are local Node.js planning/test helpers only.
 - V54 sheets contain production seed data, formulas, dropdowns, or migrated transactions. Only sheet creation and header rows are verified.
+- V53 sheets are safe to remove or rename. They are not: current production code still depends on them until V54 write paths replace V53.
 
 ## Current task
-Execute V54 safely in small phases. Current phase: Phase 2 additive sheet setup is applied and verified, and Telegram/Val.town positive production routing is verified for read-only command, controlled write, and `desfazer`. Next gate is implementing V54 seed/config planning as a dry-run-first, idempotent, non-migrating slice; optional negative webhook tests can be added before broader production writes.
+Execute V54 safely in small phases. Current phase: Phase 2 additive sheet setup is applied and verified, Telegram/Val.town positive production routing is verified for read-only command, controlled write, and `desfazer`, and V54 is now defined as a clean start instead of a V53 history migration. Next gate is implementing V54 seed/config planning as a dry-run-first, idempotent, non-migrating slice; optional negative webhook tests can be added before broader production writes.
 
 ## Next safe action
 1. Run and keep passing `cmd /c npm run test:security-locks`, `cmd /c npm run test:v54:domain`, `cmd /c npm run test:v54:schema`, `cmd /c npm run test:v54:snapshot`, `cmd /c npm run test:v54:setup`, and `cmd /c npm run test:v53`.
 2. Design V54 seed/config payloads for `Config_Categorias`, `Config_Fontes`, `Rendas`, `Cartoes`, `Patrimonio_Ativos`, `Dividas`, and `Orcamento_Futuro_Casa`.
 3. Implement seed as dry-run-first and fake-spreadsheet-tested; do not write real seed data until the payload is reviewed.
-4. Keep V54 seed separate from historical migration and Telegram V54 write paths.
+4. Do not migrate V53 history by default; only manually chosen opening balances, debts, cards, income, categories, and future-home forecast should seed V54.
 5. If broader Telegram production use is planned before V54 seed, add negative webhook tests for missing secret, invalid secret, and unauthorized chat.
