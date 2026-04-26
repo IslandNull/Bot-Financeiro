@@ -58,6 +58,7 @@ As seguintes ações são candidatas a refatoração, mas devem ser divididas em
 **Phase 2B status:** DONE. The local ParserV54 adapter builds prompts from canonical context, parses JSON/fenced JSON, and validates candidates through `ParsedEntryV54`; it is not wired into production routing.
 
 ### Fase 3: Transaction Write Paths V54 (MVP)
+- **Fase 3A-prep — Mapper local de `Lancamentos_V54`:** DONE. `scripts/lib/v54-lancamentos-mapper.js` maps validated `ParsedEntryV54` objects to canonical 19-column `Lancamentos_V54` row payloads with injected ID/timestamp dependencies. This is local-only and not wired into production.
 - **Fase 3A — Write Path Simples:** Implementar `ActionsV54.js` MVP (`recordEntryV54` para Lançamentos Simples, Receitas e Transferências), gerando as 19 colunas corretas. Testes fake-spreadsheet obrigatórios.
 
 ### Fase 4: Complexidade Financeira (Cartões e Faturas)

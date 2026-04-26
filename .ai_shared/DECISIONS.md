@@ -311,3 +311,21 @@ Rejected:
 - Importing or calling OpenAI in local ParserV54 tests.
 - Importing Apps Script globals in the local parser adapter.
 - Wiring ParserV54 into `doPost`, `Parser.js`, `Actions.js`, or V54 write paths during Phase 2B.
+
+## D025 - Lancamentos_V54 Mapper Is Pure And Deterministic
+Status: Accepted
+Date: 2026-04-26
+
+Decision:
+Define the first V54 write-path boundary as a local pure mapper from a validated `ParsedEntryV54` candidate to the canonical 19-column `Lancamentos_V54` row payload. The mapper validates through `validateParsedEntryV54()`, returns structured failures without throwing for normal invalid input, uses `scripts/lib/v54-schema.js` as the header authority, fills optional link fields as empty strings, preserves booleans and numeric values, and supports dependency injection for `makeId()` and `now()` so tests stay deterministic.
+
+This phase intentionally creates only a local row-payload contract in `scripts/lib`; it does not append to Google Sheets, import Apps Script globals, create `ActionsV54.js`, or wire V54 into Telegram routing.
+
+Reason:
+Before implementing a real Apps Script write path, the project needs a tested, schema-aligned conversion from strict parser output to spreadsheet row shape. Keeping ID and timestamp generation injectable avoids nondeterministic tests and makes the eventual `ActionsV54` layer a thin, lock-protected append around an already verified row contract.
+
+Rejected:
+- Generating row payloads directly inside a production Apps Script action before local mapper tests exist.
+- Using random IDs or wall-clock timestamps in tests.
+- Writing `undefined` into optional spreadsheet link columns.
+- Handling installment fan-out, invoice generation, invoice payments, or real spreadsheet append in the mapper prep phase.
