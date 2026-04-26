@@ -12,6 +12,7 @@ ignore/
 # Agent/IDE config (regenerated)
 .agent/
 .claude/
+.emdash.json
 
 # OS files
 Thumbs.db
