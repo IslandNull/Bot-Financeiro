@@ -4,6 +4,8 @@ const path = require('path');
 const vm = require('vm');
 
 const { V54_HEADERS, V54_SHEETS } = require('./lib/v54-schema');
+const { validateParsedEntryV54 } = require('./lib/v54-parsed-entry-contract');
+const { mapParsedEntryToLancamentoV54 } = require('./lib/v54-lancamentos-mapper');
 
 const actionsV54Path = path.join(__dirname, '..', 'src', 'ActionsV54.js');
 const actionsV54Source = fs.readFileSync(actionsV54Path, 'utf8');
@@ -118,6 +120,13 @@ function deterministicDeps(fakeSpreadsheet, lockCalls) {
     };
 }
 
+function deterministicMapperDeps() {
+    return {
+        now: () => '2026-04-26T22:00:00.000Z',
+        makeId: () => 'LAN_V54_TEST_ACTION_0001',
+    };
+}
+
 function record(entry, fakeSpreadsheet, lockCalls) {
     const { recordEntryV54 } = loadActionsV54();
     return recordEntryV54(entry, deterministicDeps(fakeSpreadsheet, lockCalls || []));
@@ -137,12 +146,179 @@ function assertError(result, code, field) {
     }), `Expected ${code}${field ? ` on ${field}` : ''}, got ${JSON.stringify(result.errors)}`);
 }
 
+function assertMatchingErrors(actualErrors, expectedErrors) {
+    const actualPairs = JSON.parse(JSON.stringify(actualErrors)).map((error) => `${error.code}:${error.field}`).sort();
+    const expectedPairs = expectedErrors.map((error) => `${error.code}:${error.field}`).sort();
+    assert.deepStrictEqual(actualPairs, expectedPairs);
+}
+
+function assertCanonicalValidationParity(entry) {
+    const canonical = validateParsedEntryV54(entry);
+    const actions = record(entry, makeFakeSpreadsheet(), []);
+
+    assert.strictEqual(actions.ok, canonical.ok, JSON.stringify({ canonical: canonical.errors, actions: actions.errors }));
+    if (!canonical.ok) {
+        assertMatchingErrors(actions.errors, canonical.errors);
+        return { canonical, actions };
+    }
+
+    assert.strictEqual(actions.errors.length, 0);
+    return { canonical, actions };
+}
+
+function assertCanonicalMapperParity(entry, keyFields) {
+    const canonical = mapParsedEntryToLancamentoV54(entry, deterministicMapperDeps());
+    const actions = assertOk(record(entry, makeFakeSpreadsheet(), []));
+
+    assert.strictEqual(canonical.ok, true, JSON.stringify(canonical.errors));
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(actions.rowValues)), canonical.rowValues);
+    keyFields.forEach((field) => {
+        assert.deepStrictEqual(actions.rowObject[field], canonical.rowObject[field], field);
+    });
+    return { canonical, actions };
+}
+
+function validEntriesByMvpType() {
+    return {
+        despesa: baseEntry({
+            tipo_evento: 'despesa',
+            valor: '105.25',
+            descricao: '  Restaurante casal  ',
+            id_categoria: 'OPEX_RESTAURANTE_CASAL',
+            id_fonte: 'FONTE_CONTA_GU',
+            afeta_dre: true,
+            afeta_acerto: true,
+            afeta_patrimonio: false,
+        }),
+        receita: baseEntry({
+            tipo_evento: 'receita',
+            valor: '3400.00',
+            descricao: 'Salario Gustavo',
+            id_categoria: 'REC_SALARIO',
+            id_fonte: 'FONTE_CONTA_GU',
+            visibilidade: 'resumo',
+            afeta_dre: true,
+            afeta_acerto: true,
+            afeta_patrimonio: true,
+        }),
+        transferencia: baseEntry({
+            tipo_evento: 'transferencia',
+            valor: 1400,
+            descricao: 'transferencia reserva',
+            id_categoria: undefined,
+            id_fonte: 'FONTE_CONTA_GU',
+            visibilidade: 'resumo',
+            afeta_dre: false,
+            afeta_acerto: false,
+            afeta_patrimonio: true,
+        }),
+        aporte: baseEntry({
+            tipo_evento: 'aporte',
+            valor: 900,
+            descricao: 'aporte reserva',
+            id_categoria: undefined,
+            id_fonte: 'FONTE_CONTA_GU',
+            visibilidade: 'resumo',
+            afeta_dre: false,
+            afeta_acerto: true,
+            afeta_patrimonio: true,
+        }),
+    };
+}
+
+function unsupportedCanonicalAcceptedEntries() {
+    return {
+        compra_cartao: baseEntry({
+            tipo_evento: 'compra_cartao',
+            valor: 80,
+            descricao: 'Compra credito',
+            id_categoria: 'OPEX_MERCADO_CASAL',
+            id_fonte: undefined,
+            id_cartao: 'CARD_NUBANK_GU',
+            afeta_dre: true,
+            afeta_acerto: true,
+            afeta_patrimonio: false,
+        }),
+        compra_parcelada: baseEntry({
+            tipo_evento: 'compra_parcelada',
+            valor: 600,
+            descricao: 'Compra parcelada',
+            id_categoria: 'OPEX_CASA_CASAL',
+            id_fonte: undefined,
+            id_cartao: 'CARD_NUBANK_GU',
+            afeta_dre: true,
+            afeta_acerto: true,
+            afeta_patrimonio: false,
+            parcelamento: {
+                parcelas_total: 3,
+                numero_parcela: 1,
+                valor_parcela: 200,
+            },
+        }),
+        pagamento_fatura: baseEntry({
+            tipo_evento: 'pagamento_fatura',
+            valor: 1200,
+            descricao: 'Pagamento fatura',
+            id_categoria: undefined,
+            id_fonte: 'FONTE_CONTA_GU',
+            id_fatura: 'FAT_NUBANK_2026_04',
+            afeta_dre: false,
+            afeta_acerto: true,
+            afeta_patrimonio: true,
+        }),
+        divida_pagamento: baseEntry({
+            tipo_evento: 'divida_pagamento',
+            valor: 500,
+            descricao: 'Pagamento divida',
+            id_categoria: 'DIV_AMORTIZACAO',
+            id_fonte: 'FONTE_CONTA_GU',
+            afeta_dre: true,
+            afeta_acerto: true,
+            afeta_patrimonio: true,
+        }),
+        ajuste: baseEntry({
+            tipo_evento: 'ajuste',
+            valor: 25,
+            descricao: 'Ajuste manual',
+            id_categoria: undefined,
+            id_fonte: undefined,
+            afeta_dre: false,
+            afeta_acerto: false,
+            afeta_patrimonio: true,
+        }),
+    };
+}
+
 let failed = 0;
 
 failed += test('actions_v54_headers_match_canonical_schema', () => {
     const { V54_LANCAMENTOS_HEADERS } = loadActionsV54();
     assert.deepStrictEqual(JSON.parse(JSON.stringify(V54_LANCAMENTOS_HEADERS)), V54_HEADERS[V54_SHEETS.LANCAMENTOS_V54]);
     assert.strictEqual(V54_LANCAMENTOS_HEADERS.length, 19);
+});
+
+failed += test('valid_mvp_events_match_canonical_mapper_key_fields', () => {
+    const keyFields = [
+        'id_lancamento',
+        'data',
+        'competencia',
+        'tipo_evento',
+        'id_categoria',
+        'valor',
+        'id_fonte',
+        'pessoa',
+        'escopo',
+        'afeta_dre',
+        'afeta_acerto',
+        'afeta_patrimonio',
+        'visibilidade',
+        'descricao',
+        'created_at',
+    ];
+
+    Object.values(validEntriesByMvpType()).forEach((entry) => {
+        assertCanonicalMapperParity(entry, keyFields);
+    });
 });
 
 failed += test('valid_despesa_appends_one_row', () => {
@@ -217,6 +393,66 @@ failed += test('invalid_parsed_entry_rejects_before_append', () => {
     assert.strictEqual(fake.writes.length, 0);
 });
 
+failed += test('comma_money_string_rejection_matches_canonical_contract', () => {
+    const { canonical, actions } = assertCanonicalValidationParity(baseEntry({ valor: '12,34' }));
+    assertError(actions, 'AMBIGUOUS_MONEY_STRING', 'valor');
+    assertError(canonical, 'AMBIGUOUS_MONEY_STRING', 'valor');
+});
+
+failed += test('unknown_field_rejection_matches_canonical_contract', () => {
+    const { canonical, actions } = assertCanonicalValidationParity(baseEntry({ unexpected_field: 'nope' }));
+    assertError(actions, 'UNKNOWN_FIELD', 'unexpected_field');
+    assertError(canonical, 'UNKNOWN_FIELD', 'unexpected_field');
+});
+
+failed += test('missing_required_fields_produce_structured_canonical_rejection', () => {
+    const entry = baseEntry({
+        data: undefined,
+        competencia: undefined,
+        valor: undefined,
+        descricao: undefined,
+        pessoa: undefined,
+        escopo: undefined,
+        visibilidade: undefined,
+        id_categoria: undefined,
+        id_fonte: undefined,
+        afeta_dre: undefined,
+        afeta_acerto: undefined,
+        afeta_patrimonio: undefined,
+    });
+    const { canonical, actions } = assertCanonicalValidationParity(entry);
+
+    [
+        'data',
+        'competencia',
+        'valor',
+        'descricao',
+        'pessoa',
+        'escopo',
+        'visibilidade',
+        'afeta_dre',
+        'afeta_acerto',
+        'afeta_patrimonio',
+    ].forEach((field) => {
+        assertError(actions, 'REQUIRED_FIELD', field);
+        assertError(canonical, 'REQUIRED_FIELD', field);
+    });
+    assertError(actions, 'REQUIRED_FOR_EVENT', 'id_categoria');
+    assertError(actions, 'REQUIRED_FOR_EVENT', 'id_fonte');
+});
+
+failed += test('boolean_string_rejection_matches_canonical_contract', () => {
+    const { canonical, actions } = assertCanonicalValidationParity(baseEntry({
+        afeta_dre: 'true',
+        afeta_acerto: 'false',
+        afeta_patrimonio: 'false',
+    }));
+    ['afeta_dre', 'afeta_acerto', 'afeta_patrimonio'].forEach((field) => {
+        assertError(actions, 'INVALID_BOOLEAN', field);
+        assertError(canonical, 'INVALID_BOOLEAN', field);
+    });
+});
+
 failed += test('missing_lancamentos_v54_sheet_rejects', () => {
     const fake = makeFakeSpreadsheet({ missingSheet: true });
     const result = record(baseEntry(), fake, []);
@@ -255,6 +491,47 @@ failed += test('optional_fields_become_empty_strings_not_undefined', () => {
         assert.strictEqual(result.rowValues[result.rowValues.indexOf(undefined)], undefined);
     });
     assert.strictEqual(result.rowValues.includes(undefined), false);
+});
+
+failed += test('optional_link_fields_become_empty_strings_in_row_payload_like_canonical_mapper', () => {
+    const entry = baseEntry({
+        tipo_evento: 'transferencia',
+        id_categoria: undefined,
+        id_cartao: undefined,
+        id_fatura: undefined,
+        id_compra: undefined,
+        id_parcela: undefined,
+        afeta_dre: false,
+    });
+    const { canonical, actions } = assertCanonicalMapperParity(entry, [
+        'id_categoria',
+        'id_cartao',
+        'id_fatura',
+        'id_compra',
+        'id_parcela',
+    ]);
+
+    ['id_categoria', 'id_cartao', 'id_fatura', 'id_compra', 'id_parcela'].forEach((field) => {
+        const index = V54_HEADERS[V54_SHEETS.LANCAMENTOS_V54].indexOf(field);
+        assert.strictEqual(actions.rowObject[field], '');
+        assert.strictEqual(canonical.rowObject[field], '');
+        assert.strictEqual(actions.rowValues[index], '');
+        assert.strictEqual(canonical.rowValues[index], '');
+    });
+});
+
+failed += test('unsupported_mvp_events_are_rejected_by_actions_even_when_canonical_accepts', () => {
+    Object.entries(unsupportedCanonicalAcceptedEntries()).forEach(([tipo_evento, entry]) => {
+        const canonical = validateParsedEntryV54(entry);
+        const mapped = mapParsedEntryToLancamentoV54(entry, deterministicMapperDeps());
+        const fake = makeFakeSpreadsheet();
+        const actions = record(entry, fake, []);
+
+        assert.strictEqual(canonical.ok, true, `${tipo_evento} canonical validation errors: ${JSON.stringify(canonical.errors)}`);
+        assert.strictEqual(mapped.ok, true, `${tipo_evento} canonical mapper errors: ${JSON.stringify(mapped.errors)}`);
+        assertError(actions, 'UNSUPPORTED_EVENT', 'tipo_evento');
+        assert.strictEqual(fake.writes.length, 0);
+    });
 });
 
 failed += test('booleans_and_numbers_are_preserved', () => {
