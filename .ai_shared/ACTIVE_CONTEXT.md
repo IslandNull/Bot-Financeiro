@@ -54,8 +54,13 @@ Branch: feat/v54-production-readiness
 - Branch was renamed from `feat/v52-upgrade` to `feat/v54-production-readiness` on 2026-04-26 and pushed to origin.
 - Emdash local config was removed and `.emdash.json` was added to `.gitignore`.
 - V54 setup dry-run planner was hardened locally on 2026-04-26: it now returns explicit `OK`, `CREATE_SHEET`, `INITIALIZE_HEADERS`, `BLOCKED_HEADER_MISMATCH`, `BLOCKED_EXTRA_HEADERS`, and `BLOCKED_EXISTING_DATA` actions instead of proposing `UPDATE_HEADERS`.
-- `planSetupV54()` now reads the full existing header width using `Math.max(expected schema width, sheet.getLastColumn())` so extra headers are visible to the planner.
-- `cmd /c npm run test:v54:setup` passed on 2026-04-26 with fixtures for empty state, perfect state, blank existing sheets, header mismatch, existing data, extra headers, V53 sheet preservation, and absence of `UPDATE_HEADERS`.
+- `planSetupV54()` now reads the full existing header width using `Math.max(expected schema width, sheet.getLastColumn())` so extra headers and extra real columns are visible to the planner.
+- `planSetupV54ForState()` blocks extra real columns beyond the expected schema width even when the extra header cell is blank, preventing hidden data below blank headers from being treated as `OK`.
+- `cmd /c npm run test:v54:setup` passed on 2026-04-26 with fixtures for exact Apps Script/local schema parity, empty state, perfect state, blank existing sheets, header mismatch, existing data, extra headers, extra blank header columns with data below, V53 sheet preservation, and absence of `UPDATE_HEADERS`.
+- `applySetupV54()` was added locally on 2026-04-26 as a manual additive setup function. It runs under `withScriptLock('applySetupV54', ...)`, aborts without mutation on any `BLOCKED_*` planner action, creates only missing V54 sheets, initializes only blank existing V54 sheet headers, writes headers with `setValues()`, freezes row 1, and does not write formulas or migrate data.
+- `doGet` explicitly blocklists `applySetupV54` as a mutating GET action; `doPost` does not route setup actions.
+- `cmd /c npm run test:v54:setup` passed on 2026-04-26 with fake-spreadsheet tests for `applySetupV54` aborting blocked plans and creating only missing V54 sheets with headers.
+- `cmd /c npm run test:security-locks` passed on 2026-04-26 after adding `applySetupV54` to the mutating GET blocklist.
 
 ## Unverified claims
 - Double-entry `handleEntry` works end-to-end through Telegram integration.
@@ -67,13 +72,15 @@ Branch: feat/v54-production-readiness
 - A replacement protected POST maintenance path for mutating actions exists. Current local code blocks mutating GET instead.
 - V54 Phase 1 domain helpers are integrated with Apps Script write paths. They are local Node.js planning/test helpers only.
 - V54 setup planner hardening is deployed to Apps Script. No `clasp push` was run for this slice.
+- `applySetupV54` is deployed or executed in Apps Script. It exists locally only; no `clasp push` and no spreadsheet mutation were run for this slice.
 
 ## Current task
-Execute V54 safely in small phases. Current local phase: Phase 2 setup preparation is being hardened locally after Phase 1 domain fixtures. Do not mutate production spreadsheet yet.
+Execute V54 safely in small phases. Current local phase: Phase 2 additive setup function exists locally and is covered by local tests. Do not mutate production spreadsheet yet.
 
 ## Next safe action
 1. Run and keep passing `cmd /c npm run test:security-locks`, `cmd /c npm run test:v54:domain`, `cmd /c npm run test:v54:schema`, `cmd /c npm run test:v54:setup`, and `cmd /c npm run test:v53`.
-2. Continue Phase 2 by preparing an additive V54 sheet-setup apply function behind dry-run/review gates. The apply function must honor the blocked planner states and must not rewrite existing V54 headers automatically.
-3. Configure `WEBHOOK_SECRET` in Apps Script and verify/update the Val.town proxy contract before Telegram production testing.
-4. Decide whether mutating maintenance actions need a new protected POST path; current local code blocks them over GET.
-5. Do not run `clasp push`, setup functions, mutating tests, Telegram production tests, or spreadsheet mutation until explicitly approved.
+2. Before any real V54 sheet creation, run `cmd /c npm run sync` and review a fresh snapshot.
+3. Only after explicit approval, `clasp push` the local security/setup code and execute `planSetupV54()` first, then review the dry-run result before considering `applySetupV54()`.
+4. Configure `WEBHOOK_SECRET` in Apps Script and verify/update the Val.town proxy contract before Telegram production testing.
+5. Decide whether mutating maintenance actions need a new protected POST path; current local code blocks them over GET.
+6. Do not run `clasp push`, setup functions, mutating tests, Telegram production tests, or spreadsheet mutation until explicitly approved.

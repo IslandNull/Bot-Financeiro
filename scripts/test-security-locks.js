@@ -82,10 +82,12 @@ failed += test('doGet_export_state_only_and_blocks_mutating_get_actions', () => 
     assert.ok(body.includes('isBlockedMutatingGetAction_(action)'));
     assert.strictEqual(body.includes('forceFixAllFormulas();'), false, 'doGet must not execute forceFixAllFormulas');
     assert.strictEqual(body.includes('runV53AporteTest('), false, 'doGet must not execute runV53AporteTest');
+    assert.strictEqual(body.includes('applySetupV54('), false, 'doGet must not execute applySetupV54');
 
     const blocklist = extractFunction(main, 'isBlockedMutatingGetAction_');
     assert.ok(blocklist.includes("'forceFixAllFormulas'"));
     assert.ok(blocklist.includes("'runV53AporteTest'"));
+    assert.ok(blocklist.includes("'applySetupV54'"));
 });
 
 failed += test('sync_secret_uses_constant_time_compare', () => {

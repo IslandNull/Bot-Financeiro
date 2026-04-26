@@ -206,7 +206,7 @@ Accepted planner actions are:
 - `BLOCKED_EXTRA_HEADERS`
 - `BLOCKED_EXISTING_DATA`
 
-The planner may propose creating missing V54 sheets or initializing headers on a blank existing V54 sheet. It must block existing nonblank divergent headers, extra headers, and any divergent header situation with data rows below the header.
+The planner may propose creating missing V54 sheets or initializing headers on a blank existing V54 sheet. It must block existing nonblank divergent headers, extra headers, extra real columns beyond the expected schema width even when the extra header cell is blank, and any divergent header situation with data rows below the header.
 
 Reason:
 A future `applySetupV54()` should be additive and reviewable. Automatically rewriting headers in existing sheets can silently corrupt manually created V54 data or hide schema drift. Blocking unsafe states forces human review before spreadsheet mutation.
@@ -215,3 +215,20 @@ Rejected:
 - Reusing `UPDATE_HEADERS` as an apply-ready action.
 - Ignoring extra headers beyond the expected schema width.
 - Rewriting V54 headers automatically when data already exists.
+
+## D019 - V54 Setup Apply Is Additive And Manual
+Status: Accepted
+Date: 2026-04-26
+
+Decision:
+`applySetupV54()` may exist as a manual Apps Script setup function, but it must be additive and must honor `planSetupV54ForState()` blocked states. It creates only missing V54 sheets, initializes headers only for existing blank V54 sheets, writes headers with `setValues()`, freezes row 1, and aborts without mutation if any action starts with `BLOCKED_`.
+
+`applySetupV54()` must run under `withScriptLock('applySetupV54', ...)` and must not be exposed through `doGet` or `doPost`. `doGet` explicitly blocklists `applySetupV54` as a mutating action.
+
+Reason:
+The first real V54 spreadsheet mutation should be reviewable, idempotent, and low blast-radius. A manual apply function behind the dry-run planner allows creating the V54 skeleton while preserving all V53 sheets and avoiding formulas, seed data, migration, and hidden header rewrites.
+
+Rejected:
+- Running V54 setup from a GET maintenance endpoint.
+- Rewriting divergent existing V54 headers automatically.
+- Migrating data, writing formulas, or touching V53 sheets during the initial V54 sheet skeleton creation.

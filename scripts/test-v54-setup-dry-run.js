@@ -5,6 +5,7 @@ const vm = require('vm');
 
 const setupPath = path.join(__dirname, '..', 'src', 'Setup.js');
 const source = fs.readFileSync(setupPath, 'utf8');
+const { V54_HEADERS } = require('./lib/v54-schema');
 
 function extractFunction(name) {
     const start = source.indexOf(`function ${name}(`);
@@ -49,6 +50,73 @@ function loadPlanningFunctions() {
     return sandbox.result;
 }
 
+function loadApplyFunctions(stubs) {
+    const sandbox = Object.assign({ console: { log() {} } }, stubs || {});
+    const functions = [
+        'isBlankHeaderRow_',
+        'hasExistingDataRows_',
+        'getV54Schema',
+        'planSetupV54ForState',
+        'readV54SetupState_',
+        'writeV54Headers_',
+        'applySetupV54',
+    ].map(extractFunction).join('\n');
+
+    vm.runInNewContext(`${functions}\nresult = { getV54Schema, applySetupV54 };`, sandbox);
+    return sandbox.result;
+}
+
+function makeFakeSpreadsheet(initialState) {
+    const mutations = [];
+    const sheets = {};
+
+    function makeSheet(sheetName, sheetState) {
+        return {
+            getLastRow() {
+                return Number(sheetState.lastRow || 0);
+            },
+            getLastColumn() {
+                return Number(sheetState.lastColumn || 0);
+            },
+            getRange(row, column, numRows, numColumns) {
+                return {
+                    getValues() {
+                        const headers = sheetState.headers || [];
+                        const padded = Array.from({ length: numColumns }, (_, index) => headers[index] || '');
+                        return [padded];
+                    },
+                    setValues(values) {
+                        mutations.push({ type: 'setValues', sheet: sheetName, row, column, numRows, numColumns, values });
+                        sheetState.headers = [...values[0]];
+                        sheetState.lastColumn = values[0].length;
+                        sheetState.lastRow = Math.max(Number(sheetState.lastRow || 0), 1);
+                    },
+                };
+            },
+            setFrozenRows(rows) {
+                mutations.push({ type: 'setFrozenRows', sheet: sheetName, rows });
+            },
+        };
+    }
+
+    Object.keys(initialState || {}).forEach((sheetName) => {
+        sheets[sheetName] = makeSheet(sheetName, Object.assign({}, initialState[sheetName]));
+    });
+
+    return {
+        mutations,
+        getSheetByName(sheetName) {
+            return sheets[sheetName] || null;
+        },
+        insertSheet(sheetName) {
+            if (sheets[sheetName]) throw new Error(`Sheet already exists: ${sheetName}`);
+            mutations.push({ type: 'insertSheet', sheet: sheetName });
+            sheets[sheetName] = makeSheet(sheetName, { headers: [], lastRow: 0, lastColumn: 0 });
+            return sheets[sheetName];
+        },
+    };
+}
+
 function stateWithAllSheets(headersForSheet) {
     const { getV54Schema } = loadPlanningFunctions();
     const schema = getV54Schema();
@@ -77,6 +145,8 @@ failed += test('planSetupV54_exists', () => {
     assert.ok(source.includes('function getV54Schema()'));
     assert.ok(source.includes('function isBlankHeaderRow_(headers)'));
     assert.ok(source.includes('function hasExistingDataRows_(sheetState)'));
+    assert.ok(source.includes('function readV54SetupState_(ss, schema)'));
+    assert.ok(source.includes('function applySetupV54()'));
 });
 
 failed += test('planSetupV54_does_not_call_mutating_sheet_apis', () => {
@@ -113,6 +183,12 @@ failed += test('planSetupV54_schema_contains_key_decisions', () => {
     assert.ok(body.includes("Lancamentos_V54: ['id_lancamento', 'data', 'competencia', 'tipo_evento', 'id_categoria', 'valor', 'id_fonte', 'pessoa', 'escopo', 'id_cartao', 'id_fatura', 'id_compra', 'id_parcela', 'afeta_dre', 'afeta_acerto', 'afeta_patrimonio', 'visibilidade'"));
     assert.ok(body.includes("Dividas: ['id_divida', 'nome', 'credor'"));
     assert.ok(body.includes("Fechamentos_Mensais: ['competencia', 'status', 'receitas_operacionais'"));
+});
+
+failed += test('planSetupV54_schema_matches_local_v54_headers_exactly', () => {
+    const { getV54Schema } = loadPlanningFunctions();
+    const appScriptSchema = JSON.parse(JSON.stringify(getV54Schema()));
+    assert.deepStrictEqual(appScriptSchema, V54_HEADERS);
 });
 
 failed += test('planSetupV54_reports_create_sheet_for_empty_state', () => {
@@ -191,6 +267,23 @@ failed += test('planSetupV54_blocks_extra_headers', () => {
     assert.strictEqual(plan.ok, false);
     assert.strictEqual(actions.Rendas.action, 'BLOCKED_EXTRA_HEADERS');
     assert.deepStrictEqual(actions.Rendas.extraHeaders, ['campo_extra']);
+    assert.strictEqual(actions.Rendas.extraColumnCount, 1);
+});
+
+failed += test('planSetupV54_blocks_extra_blank_header_column_with_data_below', () => {
+    const { planSetupV54ForState } = loadPlanningFunctions();
+    const state = stateWithAllSheets((_, headers) => [...headers]);
+    state.Rendas.headers = [...state.Rendas.headers, ''];
+    state.Rendas.lastColumn = state.Rendas.headers.length;
+    state.Rendas.lastRow = 2;
+
+    const plan = planSetupV54ForState(state);
+    const actions = actionsBySheet(plan);
+    assert.strictEqual(plan.ok, false);
+    assert.strictEqual(actions.Rendas.action, 'BLOCKED_EXTRA_HEADERS');
+    assert.deepStrictEqual(actions.Rendas.extraHeaders, []);
+    assert.strictEqual(actions.Rendas.extraColumnCount, 1);
+    assert.strictEqual(actions.Rendas.lastColumn, state.Rendas.lastColumn);
 });
 
 failed += test('planSetupV54_ignores_v53_sheets_in_state', () => {
@@ -210,7 +303,7 @@ failed += test('planSetupV54_ignores_v53_sheets_in_state', () => {
 });
 
 failed += test('planSetupV54_reads_full_existing_header_width', () => {
-    const body = extractFunction('planSetupV54');
+    const body = extractFunction('readV54SetupState_');
     assert.ok(body.includes('Math.max(schema[sheetName].length, lastColumn)'));
     assert.ok(body.includes('lastRow'));
     assert.ok(body.includes('lastColumn'));
@@ -222,6 +315,93 @@ failed += test('planSetupV54_no_longer_proposes_update_headers', () => {
     assert.ok(body.includes('BLOCKED_HEADER_MISMATCH'));
     assert.ok(body.includes('BLOCKED_EXTRA_HEADERS'));
     assert.ok(body.includes('BLOCKED_EXISTING_DATA'));
+});
+
+failed += test('applySetupV54_uses_lock_and_aborts_blocked_actions', () => {
+    const schema = V54_HEADERS;
+    const state = Object.keys(schema).reduce((acc, sheetName) => {
+        acc[sheetName] = {
+            headers: [...schema[sheetName]],
+            lastRow: 1,
+            lastColumn: schema[sheetName].length,
+        };
+        return acc;
+    }, {});
+    state.Cartoes = {
+        headers: ['id_cartao', 'schema_manual'],
+        lastRow: 2,
+        lastColumn: 2,
+    };
+
+    const fakeSpreadsheet = makeFakeSpreadsheet(state);
+    const locks = [];
+    const { applySetupV54 } = loadApplyFunctions({
+        CONFIG: { SPREADSHEET_ID: 'TEST' },
+        _loadSecrets() {},
+        SpreadsheetApp: { openById: () => fakeSpreadsheet },
+        withScriptLock(label, fn) {
+            locks.push(label);
+            return fn();
+        },
+    });
+
+    const result = applySetupV54();
+    assert.deepStrictEqual(locks, ['applySetupV54']);
+    assert.strictEqual(result.ok, false);
+    assert.strictEqual(result.applied, false);
+    assert.strictEqual(result.blockedActions[0].action, 'BLOCKED_EXISTING_DATA');
+    assert.deepStrictEqual(fakeSpreadsheet.mutations, []);
+});
+
+failed += test('applySetupV54_creates_only_missing_v54_sheets_with_headers', () => {
+    const fakeSpreadsheet = makeFakeSpreadsheet({});
+    const { getV54Schema, applySetupV54 } = loadApplyFunctions({
+        CONFIG: { SPREADSHEET_ID: 'TEST' },
+        _loadSecrets() {},
+        SpreadsheetApp: { openById: () => fakeSpreadsheet },
+        withScriptLock(label, fn) {
+            assert.strictEqual(label, 'applySetupV54');
+            return fn();
+        },
+    });
+
+    const schema = getV54Schema();
+    const result = applySetupV54();
+    assert.strictEqual(result.ok, true);
+    assert.strictEqual(result.applied, true);
+    assert.strictEqual(result.appliedActions.length, Object.keys(schema).length);
+    assert.strictEqual(fakeSpreadsheet.mutations.filter((mutation) => mutation.type === 'insertSheet').length, 14);
+    assert.strictEqual(fakeSpreadsheet.mutations.filter((mutation) => mutation.type === 'setValues').length, 14);
+    assert.strictEqual(fakeSpreadsheet.mutations.filter((mutation) => mutation.type === 'setFrozenRows').length, 14);
+    assert.ok(fakeSpreadsheet.mutations.every((mutation) => !['Config', 'Lancamentos', 'Dashboard', 'Investimentos', 'Parcelas'].includes(mutation.sheet)));
+});
+
+failed += test('applySetupV54_static_surface_is_additive_and_non_formula', () => {
+    const body = [
+        extractFunction('applySetupV54'),
+        extractFunction('writeV54Headers_'),
+    ].join('\n');
+
+    assert.ok(body.includes("withScriptLock('applySetupV54'"));
+    assert.ok(body.includes("action.action === 'CREATE_SHEET'"));
+    assert.ok(body.includes("action.action === 'INITIALIZE_HEADERS'"));
+    assert.ok(body.includes("action.action.indexOf('BLOCKED_') === 0"));
+    assert.ok(body.includes('.insertSheet('));
+    assert.ok(body.includes('.setValues('));
+
+    [
+        '.deleteSheet(',
+        '.setValue(',
+        '.setFormula(',
+        '.clearContent(',
+        '.clear(',
+        '.deleteRows(',
+        '.deleteColumns(',
+        '.appendRow(',
+        '.copyTo(',
+    ].forEach((forbidden) => {
+        assert.strictEqual(body.includes(forbidden), false, `Forbidden call found: ${forbidden}`);
+    });
 });
 
 if (failed > 0) {

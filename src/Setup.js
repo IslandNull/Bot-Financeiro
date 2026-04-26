@@ -99,18 +99,22 @@ function planSetupV54ForState(state) {
         const currentHeaders = sheetState.headers || [];
         const comparableHeaders = currentHeaders.slice(0, expectedHeaders.length);
         const expectedWidthMatches = expectedHeaders.every((header, index) => header === comparableHeaders[index]);
+        const lastColumn = Number(sheetState.lastColumn || currentHeaders.length || 0);
+        const extraColumnCount = Math.max(lastColumn, currentHeaders.length) - expectedHeaders.length;
         const extraHeaders = currentHeaders
             .slice(expectedHeaders.length)
             .filter((header) => String(header || '').trim());
         const hasDataRows = hasExistingDataRows_(sheetState);
 
-        if (extraHeaders.length > 0) {
+        if (extraColumnCount > 0 || extraHeaders.length > 0) {
             actions.push({
                 action: 'BLOCKED_EXTRA_HEADERS',
                 sheet: sheetName,
                 currentHeaders,
                 expectedHeaders,
                 extraHeaders,
+                extraColumnCount: Math.max(extraColumnCount, 0),
+                lastColumn,
             });
             return;
         }
@@ -170,6 +174,14 @@ function planSetupV54() {
     _loadSecrets();
     const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
     const schema = getV54Schema();
+    const state = readV54SetupState_(ss, schema);
+
+    const plan = planSetupV54ForState(state);
+    console.log(JSON.stringify(plan, null, 2));
+    return plan;
+}
+
+function readV54SetupState_(ss, schema) {
     const state = {};
 
     Object.keys(schema).forEach((sheetName) => {
@@ -185,9 +197,64 @@ function planSetupV54() {
         };
     });
 
-    const plan = planSetupV54ForState(state);
-    console.log(JSON.stringify(plan, null, 2));
-    return plan;
+    return state;
+}
+
+function writeV54Headers_(sheet, headers) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.setFrozenRows(1);
+}
+
+function applySetupV54() {
+    return withScriptLock('applySetupV54', () => {
+        _loadSecrets();
+        const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+        const schema = getV54Schema();
+        const state = readV54SetupState_(ss, schema);
+        const plan = planSetupV54ForState(state);
+        const blockedActions = plan.actions.filter((action) => action.action.indexOf('BLOCKED_') === 0);
+
+        if (blockedActions.length > 0) {
+            const blockedResult = {
+                ok: false,
+                dryRun: false,
+                applied: false,
+                actions: plan.actions,
+                summary: plan.summary,
+                blockedActions,
+            };
+            console.log(JSON.stringify(blockedResult, null, 2));
+            return blockedResult;
+        }
+
+        const appliedActions = [];
+        plan.actions.forEach((action) => {
+            if (action.action === 'CREATE_SHEET') {
+                const sheet = ss.insertSheet(action.sheet);
+                writeV54Headers_(sheet, action.headers);
+                appliedActions.push({ action: action.action, sheet: action.sheet });
+                return;
+            }
+
+            if (action.action === 'INITIALIZE_HEADERS') {
+                const sheet = ss.getSheetByName(action.sheet);
+                if (!sheet) throw new Error(`V54 sheet disappeared before initialization: ${action.sheet}`);
+                writeV54Headers_(sheet, action.headers);
+                appliedActions.push({ action: action.action, sheet: action.sheet });
+            }
+        });
+
+        const result = {
+            ok: true,
+            dryRun: false,
+            applied: true,
+            actions: plan.actions,
+            summary: plan.summary,
+            appliedActions,
+        };
+        console.log(JSON.stringify(result, null, 2));
+        return result;
+    });
 }
 
 function deleteWebhook() {

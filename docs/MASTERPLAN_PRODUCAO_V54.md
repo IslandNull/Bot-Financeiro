@@ -56,7 +56,8 @@ Last local Phase 2 setup-planner hardening: 2026-04-26
 - VERIFIED: Phase 0.5 security/write-lock gate is coded locally and covered by `cmd /c npm run test:security-locks`.
 - VERIFIED: Phase 1 local domain fixtures now cover invoice payment reconciliation, emergency reserve exclusion for home-earmarked assets, net worth, amortization readiness gates, monthly closing draft fields, and shared-view privacy sanitization.
 - VERIFIED: Phase 2 setup dry-run planner was hardened locally to return explicit safe/blocked states instead of `UPDATE_HEADERS`.
-- VERIFIED: `cmd /c npm run test:v54:setup` covers empty state, perfect state, blank existing sheets, header mismatch, existing data, extra headers, V53 sheet preservation, and absence of `UPDATE_HEADERS`.
+- VERIFIED: `cmd /c npm run test:v54:setup` covers exact Apps Script/local schema parity, empty state, perfect state, blank existing sheets, header mismatch, existing data, extra headers, extra blank header columns with data below, V53 sheet preservation, and absence of `UPDATE_HEADERS`.
+- VERIFIED: `applySetupV54()` exists locally as a manual additive function covered by fake-spreadsheet tests. It has not been pushed or executed against the real spreadsheet.
 
 ### 2.1 Pre-Implementation Blockers Found On 2026-04-26
 
@@ -545,10 +546,11 @@ Phase 1 - Non-mutating design:
 
 Phase 2 - Sheet preparation:
 
-- VERIFIED: Harden `planSetupV54ForState()` before apply: safe actions are `OK`, `CREATE_SHEET`, and `INITIALIZE_HEADERS`; blocked actions are `BLOCKED_HEADER_MISMATCH`, `BLOCKED_EXTRA_HEADERS`, and `BLOCKED_EXISTING_DATA`.
-- TODO: Create V54 sheets in a controlled setup function that is idempotent and does not destroy V53 data.
-- TODO: Avoid running dangerous legacy setup functions blindly.
+- VERIFIED: Harden `planSetupV54ForState()` before apply: safe actions are `OK`, `CREATE_SHEET`, and `INITIALIZE_HEADERS`; blocked actions are `BLOCKED_HEADER_MISMATCH`, `BLOCKED_EXTRA_HEADERS`, and `BLOCKED_EXISTING_DATA`. The planner also blocks extra real columns beyond schema width even when the extra header cell is blank.
+- VERIFIED: Create local `applySetupV54()` as a controlled additive setup function that does not destroy V53 data, does not write formulas, and aborts on any `BLOCKED_*` action.
 - TODO: Snapshot spreadsheet before mutation with `npm run sync`.
+- TODO: Review `planSetupV54()` output in Apps Script before executing `applySetupV54()` against the real spreadsheet.
+- TODO: Avoid running dangerous legacy setup functions blindly.
 
 Phase 3 - Data migration:
 
@@ -575,7 +577,8 @@ Non-mutating tests:
 - VERIFIED: Lock static test proving write paths use `withScriptLock()` or equivalent.
 - TODO: Snapshot structure test for required V54 sheets and headers.
 - TODO: Formula syntax test using `setFormula()` with English functions and semicolon separators.
-- VERIFIED: V54 setup dry-run planner test blocks header mismatch, extra headers, existing data with divergent headers, and confirms V53 sheets are ignored.
+- VERIFIED: V54 setup dry-run planner test blocks header mismatch, extra headers, extra blank header columns with data below, existing data with divergent headers, and confirms V53 sheets are ignored.
+- VERIFIED: V54 setup apply tests prove the local apply aborts blocked plans, creates only missing V54 sheets with headers, avoids formulas, and is explicitly blocked over GET.
 - VERIFIED: DRE exclusion test proving investments, reserve transfers, and invoice payments do not affect operational DRE.
 - VERIFIED: Card cycle test for each configured card:
   - Nubank Gustavo close 30 due 7.

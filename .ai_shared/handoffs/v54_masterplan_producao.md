@@ -2,7 +2,7 @@
 
 Date: 2026-04-25
 Branch: feat/v54-production-readiness
-Status: planning only. Do not implement before creating and reviewing `docs/MASTERPLAN_PRODUCAO_V54.md`.
+Status: Phase 2 local preparation. Do not mutate the production spreadsheet without explicit approval.
 
 ## Startup For Next Agent
 
@@ -36,7 +36,12 @@ Use truth labels from `AGENTS.md`: VERIFIED, UNVERIFIED, ASSUMPTION, TODO.
 - The protected Aporte write test passed on version 23, writing and cleaning:
   - `Despesa | INV-APORTE | R$ 12,34`
   - `Receita | INV-39 | R$ 12,34`
-- Workspace is dirty with V53 test/sync/schema changes. Do not discard them.
+- Current branch is `feat/v54-production-readiness`.
+- V54 security/write-lock hardening is coded locally and covered by `cmd /c npm run test:security-locks`.
+- V54 setup planner is dry-run only and returns explicit safe/blocked actions: `OK`, `CREATE_SHEET`, `INITIALIZE_HEADERS`, `BLOCKED_HEADER_MISMATCH`, `BLOCKED_EXTRA_HEADERS`, and `BLOCKED_EXISTING_DATA`.
+- `cmd /c npm run test:v54:setup` verifies exact Apps Script/local schema parity and blocks extra real columns beyond schema width, including blank extra header cells with data below.
+- `applySetupV54()` exists locally as a manual additive setup function. It is protected by `withScriptLock`, aborts on `BLOCKED_*`, writes only headers for missing/blank V54 sheets, and is blocklisted over GET.
+- `applySetupV54()` has not been pushed with `clasp` and has not been executed against the real spreadsheet.
 
 ## Known Technical Risks
 
@@ -213,7 +218,7 @@ Recommendations must consider:
 
 ## V54 Planning Deliverable
 
-Next agent should create `docs/MASTERPLAN_PRODUCAO_V54.md` first, before implementation.
+Next agent should continue Phase 2 from `docs/MASTERPLAN_PRODUCAO_V54.md`, after reading the current `ACTIVE_CONTEXT.md` and `DECISIONS.md`.
 
 Required sections:
 - Goals and non-goals
