@@ -1,6 +1,6 @@
 # ACTIVE_CONTEXT.md
 
-Last updated: 2026-04-25
+Last updated: 2026-04-26
 Branch: feat/v52-upgrade
 
 ## Verified facts
@@ -22,6 +22,18 @@ Branch: feat/v52-upgrade
 - `.ai_shared/handoffs/v54_masterplan_producao.md` was created with the full production-planning handoff.
 - Codex skills selected from ComposioHQ/awesome-codex-skills were installed under `C:/Users/Luana/.codex/skills` and registered in `.ai_shared/registry.json`: `create-plan`, `spreadsheet-formula-helper`, `invoice-organizer`, `content-research-writer`, and `changelog-generator`.
 - Shared wrappers for the installed Codex skills were added under `.ai_shared/skills/`.
+- V54 read-only orchestration review was executed with three agents on 2026-04-26: architecture, risk/tests, and implementation slicing.
+- Architecture review found blockers: stale masterplan git-state wording, duplicated card authority between `Config_Fontes` and `Cartoes`, missing `id_parcela`/canonical installment key, and incomplete invoice-cycle rules.
+- Risk review found production blockers: unauthenticated/spoofable `doPost` payload trust, mutating GET maintenance endpoints behind query-string `SYNC_SECRET`, high-blast-radius setup/repair functions, missing `LockService` on writes, and Telegram/Val.town still unverified.
+- V54 pure domain tests were added locally in `scripts/test-v54-domain.js` and `scripts/lib/v54-domain.js`, with npm script `test:v54:domain`.
+- V54 local schema spec was added in `scripts/lib/v54-schema.js` and `scripts/test-v54-schema.js`, with npm script `test:v54:schema`.
+- V54 schema decision: `Config_Fontes` stores source identity (`id_fonte`, name, type, owner, active), while `Cartoes` stores card-specific fields and references `id_fonte`; `Parcelas_Agenda` has stable `id_parcela`.
+- V54 dry-run setup planner was added in `src/Setup.js`: `getV54Schema()`, `planSetupV54ForState(state)`, and `planSetupV54()`. The planner reports missing sheets/header changes but must not mutate the spreadsheet.
+- `cmd /c npm run test:v54:domain` passed on 2026-04-26.
+- `cmd /c npm run test:v54:schema` passed on 2026-04-26.
+- `cmd /c npm run test:v54:setup` passed on 2026-04-26, including static checks that `planSetupV54` does not call mutating sheet APIs.
+- `cmd /c npm run test:v53` passed on 2026-04-26 without `--mutate`.
+- Direct PowerShell `npm run ...` is blocked by ExecutionPolicy in this environment; use `cmd /c npm ...` or `npm.cmd`.
 
 ## Unverified claims
 - Double-entry `handleEntry` works end-to-end through Telegram integration.
@@ -29,10 +41,9 @@ Branch: feat/v52-upgrade
 - V54 schema exists in the spreadsheet. It does not; it is only planned.
 
 ## Current task
-Prepare a context reset and next-agent handoff for V54 production planning. Do not implement V54 yet. Codex skill installation for the next phase is complete, but a Codex restart/new session is required before the newly installed skills are auto-discovered.
+Execute V54 safely in small phases. Current completed phase: read-only multi-agent review plus first local pure-domain V54 test suite. Do not mutate production spreadsheet yet.
 
 ## Next safe action
-1. Start a new context/window and tell the next agent: "Continue based on active context and `.ai_shared/handoffs/v54_masterplan_producao.md`."
-2. The next agent must create `docs/MASTERPLAN_PRODUCAO_V54.md` first, before code or spreadsheet mutations.
-3. The masterplan must cover income/rateio, emergency reserve, future home forecast, card invoices/installments, operational DRE vs patrimony, bot recommendations, migration, tests, rollback, and acceptance criteria.
-4. Before any implementation, review and approve the masterplan.
+1. Run and keep passing `cmd /c npm run test:v54:domain`, `cmd /c npm run test:v54:schema`, and `cmd /c npm run test:v53`.
+2. Next implementation slice should be security hardening for `doPost`/mutating maintenance endpoints or V54 formula builders, before any production mutation.
+3. Do not run `clasp push`, setup functions, mutating tests, Telegram production tests, or spreadsheet mutation until local schema/domain tests and security blockers are addressed.

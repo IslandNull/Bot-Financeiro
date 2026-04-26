@@ -28,6 +28,84 @@ function setWebhook() {
     console.log('Webhook response:', result.getContentText());
 }
 
+// ============================================================
+// SETUP V54 - DRY-RUN ONLY
+// ============================================================
+function getV54Schema() {
+    return {
+        Config_Categorias: ['id_categoria', 'nome', 'grupo', 'tipo_movimento', 'classe_dre', 'escopo', 'comportamento_orcamento', 'afeta_acerto', 'afeta_dre', 'ativo'],
+        Config_Fontes: ['id_fonte', 'nome', 'tipo', 'titular', 'ativo'],
+        Rendas: ['id_renda', 'pessoa', 'tipo', 'valor', 'recorrente', 'dia_recebimento', 'uso_restrito', 'afeta_rateio', 'afeta_dre', 'obs'],
+        Cartoes: ['id_cartao', 'id_fonte', 'nome', 'titular', 'fechamento_dia', 'vencimento_dia', 'limite', 'ativo'],
+        Faturas: ['id_fatura', 'id_cartao', 'competencia', 'data_fechamento', 'data_vencimento', 'valor_previsto', 'valor_fechado', 'valor_pago', 'fonte_pagamento', 'status'],
+        Compras_Parceladas: ['id_compra', 'data_compra', 'id_cartao', 'descricao', 'id_categoria', 'valor_total', 'parcelas_total', 'responsavel', 'escopo', 'status'],
+        Parcelas_Agenda: ['id_parcela', 'id_compra', 'numero_parcela', 'competencia', 'valor_parcela', 'id_fatura', 'status', 'id_lancamento'],
+        Orcamento_Futuro_Casa: ['item', 'valor_previsto', 'data_inicio_prevista', 'ativo_no_dre'],
+        Lancamentos_V54: ['id_lancamento', 'data', 'competencia', 'tipo_evento', 'id_categoria', 'valor', 'id_fonte', 'pessoa', 'escopo', 'id_cartao', 'id_fatura', 'id_compra', 'id_parcela', 'afeta_dre', 'afeta_acerto', 'descricao', 'created_at'],
+        Patrimonio_Ativos: ['id_ativo', 'nome', 'tipo_ativo', 'instituicao', 'saldo_inicial', 'saldo_atual', 'data_referencia', 'destinacao', 'conta_reserva_emergencia', 'ativo'],
+        Acertos_Casal: ['competencia', 'pessoa', 'quota_esperada', 'valor_pago_casal', 'diferenca', 'status', 'observacao'],
+    };
+}
+
+function planSetupV54ForState(state) {
+    const schema = getV54Schema();
+    const existing = state || {};
+    const actions = [];
+
+    Object.keys(schema).forEach((sheetName) => {
+        const expectedHeaders = schema[sheetName];
+        const sheetState = existing[sheetName];
+
+        if (!sheetState) {
+            actions.push({
+                action: 'CREATE_SHEET',
+                sheet: sheetName,
+                headers: expectedHeaders,
+            });
+            return;
+        }
+
+        const currentHeaders = sheetState.headers || [];
+        const matches = expectedHeaders.length === currentHeaders.length
+            && expectedHeaders.every((header, index) => header === currentHeaders[index]);
+
+        if (!matches) {
+            actions.push({
+                action: 'UPDATE_HEADERS',
+                sheet: sheetName,
+                currentHeaders,
+                expectedHeaders,
+            });
+        }
+    });
+
+    return {
+        ok: actions.length === 0,
+        dryRun: true,
+        actions,
+    };
+}
+
+function planSetupV54() {
+    _loadSecrets();
+    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const schema = getV54Schema();
+    const state = {};
+
+    Object.keys(schema).forEach((sheetName) => {
+        const sheet = ss.getSheetByName(sheetName);
+        if (!sheet) return;
+        const width = schema[sheetName].length;
+        state[sheetName] = {
+            headers: sheet.getRange(1, 1, 1, width).getValues()[0],
+        };
+    });
+
+    const plan = planSetupV54ForState(state);
+    console.log(JSON.stringify(plan, null, 2));
+    return plan;
+}
+
 function deleteWebhook() {
     _loadSecrets();
     UrlFetchApp.fetch(`https://api.telegram.org/bot${CONFIG.TELEGRAM_TOKEN}/deleteWebhook`);

@@ -84,3 +84,53 @@ Use a shared household model with personal autonomy. Benefits (`Alelo`, `VA`) ar
 
 Reason:
 This matches the user's stated household philosophy and avoids double-counting card expenses or overstating emergency reserves.
+
+## D009 - V54 Local Tests Before Spreadsheet Mutation
+Status: Accepted
+Date: 2026-04-26
+
+Decision:
+Implement V54 domain and schema rules as local Node.js tests before any Apps Script setup, Google Sheets mutation, deploy, or Telegram production test. Use `cmd /c npm run test:v54:domain` in this Windows environment because direct PowerShell `npm.ps1` is blocked by ExecutionPolicy.
+
+Reason:
+Multi-agent review found high production risk in webhook authentication, mutating maintenance endpoints, setup blast radius, missing write locks, and incomplete card/installment semantics. Local deterministic tests let the financial model be validated before touching the production spreadsheet.
+
+## D010 - Initial V54 Invoice Cycle Assumption
+Status: Proposed
+Date: 2026-04-26
+
+Decision:
+For initial local tests, a purchase belongs to the invoice whose closing date is the first closing date on or after the purchase date. A purchase on the closing day belongs to that closing cycle. A configured closing day that does not exist in a month is clamped to the month's last day. The due date is in the month after the closing date and is also clamped if needed.
+
+Reason:
+This provides deterministic behavior for Nubank Gustavo day 30, Mercado Pago Gustavo day 5, and Nubank Luana day 1 while keeping edge cases testable before spreadsheet implementation.
+
+## D011 - V54 Card Source Authority
+Status: Accepted
+Date: 2026-04-26
+
+Decision:
+Use `Config_Fontes` as the canonical source identity table with `id_fonte`, `nome`, `tipo`, `titular`, and `ativo`. Store card-specific fields only in `Cartoes`, which references `id_fonte` and owns `fechamento_dia`, `vencimento_dia`, and `limite`.
+
+Reason:
+The read-only architecture review found that keeping closing day, due day, and limit in both `Config_Fontes` and `Cartoes` would create duplicated authority and migration risk. Separating source identity from card-specific behavior keeps formulas, migrations, and reconciliation deterministic.
+
+## D012 - V54 Installment Key
+Status: Accepted
+Date: 2026-04-26
+
+Decision:
+Use stable `id_parcela` in `Parcelas_Agenda` and reference it from `Lancamentos_V54.id_parcela`.
+
+Reason:
+The masterplan referenced `id_parcela` from launches but did not define it in the installment schedule. A stable key is required for reconciliation, rollback, cancellation, and preventing duplicate expense recognition.
+
+## D013 - V54 Setup Starts As Dry-Run
+Status: Accepted
+Date: 2026-04-26
+
+Decision:
+Start V54 setup with `planSetupV54()` dry-run only. It can inspect existing sheets and headers and return planned `CREATE_SHEET`/`UPDATE_HEADERS` actions, but must not call mutating spreadsheet APIs.
+
+Reason:
+Existing setup/repair functions have high blast radius. A dry-run planner provides a reviewable migration plan before any sheet creation, header rewrite, formula injection, or data migration.

@@ -29,9 +29,9 @@ Branch context: feat/v52-upgrade
 
 ## 2. Current Verified State
 
-- VERIFIED: Repository startup protocol was run on 2026-04-25: `git status`, `git branch --show-current`, `cat package.json`, and `ls`.
+- VERIFIED: Repository startup protocol was run on 2026-04-26: `git status --short`, `git branch --show-current`, `cat package.json`, and `ls`/`Get-ChildItem`.
 - VERIFIED: Current branch is `feat/v52-upgrade`.
-- VERIFIED: Workspace is dirty with V53-related local changes and untracked V54 handoff files. These must not be discarded.
+- VERIFIED: On 2026-04-26, `git status --short` showed only `.emdash.json` as untracked before V54 domain-test edits.
 - VERIFIED: `.ai_shared/ACTIVE_CONTEXT.md` states that V53 schema implementation is coded locally and V54 is not implemented.
 - VERIFIED: `.ai_shared/SPREADSHEET_STATE.md` was generated on 2026-04-25 18:36:14 and starts with `# Spreadsheet State`.
 - VERIFIED: Current verified sheet structure includes:
@@ -42,8 +42,19 @@ Branch context: feat/v52-upgrade
 - VERIFIED: Formula standard is `range.setFormula()` with English function names and semicolon separators.
 - VERIFIED: Temp-cell `copyTo()` caused `#REF!` and must not be used for formulas.
 - VERIFIED: `npm run test:v53` exists, and `npm run test:v53 -- --mutate` was previously verified through the active context as passed against deployment version 23.
+- VERIFIED: Architecture/risk/fatiamento reviews executed on 2026-04-26 in read-only mode found V54 pre-implementation blockers documented below.
 - UNVERIFIED: Real Telegram/Val.town webhook routing exercises the same production behavior end-to-end.
 - UNVERIFIED: V54 schema exists in the spreadsheet. It does not exist according to active context and schema docs.
+
+### 2.1 Pre-Implementation Blockers Found On 2026-04-26
+
+- VERIFIED: `doPost` currently trusts Telegram `chat.id` from the request payload and does not verify a non-spoofable webhook secret before write paths. This must be fixed before claiming production safety.
+- VERIFIED: Current GET maintenance endpoints protected by `SYNC_SECRET` can execute mutating actions. V54 must separate read-only sync from maintenance/mutating actions and keep deny-by-default behavior.
+- VERIFIED: Existing setup/repair functions have high spreadsheet blast radius. V54 setup must be additive, idempotent, versioned, and preferably dry-run first.
+- VERIFIED: Current write paths do not use `LockService`; V54 write paths and mutating tests must use locking to avoid concurrent row races.
+- TODO: Define a canonical card/source model before implementation. `Config_Fontes` and `Cartoes` must not duplicate authority for closing day, due day, and limit.
+- TODO: Add a stable `id_parcela` to `Parcelas_Agenda` or formally use `id_compra + numero_parcela` as the only key. `Lancamentos_V54` must reference the chosen key.
+- TODO: Specify deterministic invoice-cycle rules before migrating installments, including purchase on closing day, closing day 30 in February, purchases after closing, payment partials, refunds, and closed versus expected invoice values.
 
 ## 3. Household Financial Model
 
@@ -114,9 +125,6 @@ TODO columns:
 - `nome`
 - `tipo`
 - `titular`
-- `fechamento_dia`
-- `vencimento_dia`
-- `limite`
 - `ativo`
 
 Source types:
@@ -168,6 +176,7 @@ Rules:
 
 - TODO: Store positive values and use `tipo_evento`/category behavior to determine DRE and balance effects.
 - TODO: Avoid duplicated expense recognition by linking card purchases/installments to invoices and settlements.
+- TODO: `id_parcela` references `Parcelas_Agenda.id_parcela`.
 
 ### Patrimonio_Ativos
 
@@ -219,6 +228,7 @@ VERIFIED from handoff planned cards:
 TODO `Cartoes` columns:
 
 - `id_cartao`
+- `id_fonte`
 - `nome`
 - `titular`
 - `fechamento_dia`
@@ -264,6 +274,7 @@ TODO `Compras_Parceladas` columns:
 
 TODO `Parcelas_Agenda` columns:
 
+- `id_parcela`
 - `id_compra`
 - `numero_parcela`
 - `competencia`

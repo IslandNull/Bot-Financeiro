@@ -124,9 +124,6 @@ Proposed columns:
 - `nome`
 - `tipo` (`conta`, `cartao`, `beneficio`, `dinheiro`, `investimento`)
 - `titular`
-- `fechamento_dia`
-- `vencimento_dia`
-- `limite`
 - `ativo`
 
 Known planned cards:
@@ -159,6 +156,7 @@ Known planned monthly income:
 
 Proposed columns:
 - `id_cartao`
+- `id_fonte`
 - `nome`
 - `titular`
 - `fechamento_dia`
@@ -200,6 +198,7 @@ Proposed columns:
 #### Parcelas_Agenda
 
 Proposed columns:
+- `id_parcela`
 - `id_compra`
 - `numero_parcela`
 - `competencia`
