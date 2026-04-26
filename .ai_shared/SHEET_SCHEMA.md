@@ -4,8 +4,8 @@ This file is the shared schema reference for Google Sheets. Agents must verify t
 
 ## Status
 
-- Current verified production candidate: `V53`.
-- Next planned architecture: `V54` masterplan, not implemented yet.
+- Current verified production flow: `V53`.
+- Current verified V54 state: skeleton sheets and headers created in the real spreadsheet on 2026-04-26; seed data, formulas, dropdowns, write paths, and migrations are not implemented yet.
 - Formula standard is defined in `.ai_shared/FORMULA_STANDARD.md`.
 
 ## Formula Standard
@@ -97,9 +97,14 @@ Current verified structure:
 Known limitation:
 - This is not production-grade. It does not model invoice cycle, due date, future installment schedule, invoice payment, reconciliation, or card limits.
 
-## V54 - Planned Production Schema
+## V54 - Verified Skeleton Schema
 
-V54 is a planned redesign. Do not assume these sheets exist until implemented and verified.
+V54 is the planned production redesign. As of the snapshot generated at `2026-04-26 15:27:14`, the real spreadsheet contains all 14 V54 sheets with header rows matching `scripts/lib/v54-schema.js`.
+
+Verified scope:
+- Sheet creation and row-1 headers exist.
+- No V54 seed data, formulas, dropdowns, write-path integration, or migration is verified yet.
+- V53 sheets remain the active production flow until V54 writes and reports are implemented in later phases.
 
 ### Required New/Redesigned Sheets
 
@@ -368,12 +373,13 @@ These must be forecast-only until the home is received.
 - Delivery target: at most one snack/week up to `100` each.
 - Higher-end restaurant target: up to `200` per month.
 
-## Required Production Audits
+## Remaining Production Work
 
-Before implementing V54:
-- Create `docs/MASTERPLAN_PRODUCAO_V54.md`.
+Before using V54 as the active production flow:
 - Audit current V53 formulas numerically with fixtures.
 - Decide how to represent investments without inflating operational DRE.
 - Design card invoice cycle calculation before migrating installments.
 - Define couple settlement formula based on proportional income and benefit usage.
 - Update tests before changing production sheets.
+- Implement and verify seed/config writes for V54 categories, sources, cards, incomes, debts, and assets.
+- Implement V54 write paths, reports, and controlled migration without deleting or rewriting V53 history.

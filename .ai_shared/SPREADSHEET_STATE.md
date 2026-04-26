@@ -1,6 +1,6 @@
 # Spreadsheet State
 
-Generated at: 2026-04-26 15:15:27
+Generated at: 2026-04-26 15:27:14
 
 ## Sheet: Dashboard
 
@@ -57,6 +57,104 @@ Generated at: 2026-04-26 15:15:27
 - `F97` (✅ OK): `=SUMIFS('Lançamentos'!D:D; 'Lançamentos'!B:B; "Despesa"; 'Lançamentos'!C:C; XLOOKUP(B97; Config!B:B; Config!A:A); 'Lançamentos'!A:A; ">=" & Config!$C$7)`
 - `G97` (✅ OK): `=E97 - F97`
 
+
+## Sheet: Config_Categorias
+
+**Headers:**
+- id_categoria | nome | grupo | tipo_movimento | classe_dre | escopo | comportamento_orcamento | afeta_acerto | afeta_dre | visibilidade_padrao | ativo
+
+**Size:** 11 columns x 1 rows
+
+## Sheet: Config_Fontes
+
+**Headers:**
+- id_fonte | nome | tipo | titular | ativo
+
+**Size:** 5 columns x 1 rows
+
+## Sheet: Rendas
+
+**Headers:**
+- id_renda | pessoa | tipo | valor | recorrente | dia_recebimento | uso_restrito | afeta_rateio | afeta_dre | obs
+
+**Size:** 10 columns x 1 rows
+
+## Sheet: Cartoes
+
+**Headers:**
+- id_cartao | id_fonte | nome | titular | fechamento_dia | vencimento_dia | limite | ativo
+
+**Size:** 8 columns x 1 rows
+
+## Sheet: Faturas
+
+**Headers:**
+- id_fatura | id_cartao | competencia | data_fechamento | data_vencimento | valor_previsto | valor_fechado | valor_pago | fonte_pagamento | status
+
+**Size:** 10 columns x 1 rows
+
+## Sheet: Pagamentos_Fatura
+
+**Headers:**
+- id_pagamento | id_fatura | data_pagamento | valor_pago | id_fonte | pessoa | escopo | afeta_dre | afeta_acerto | afeta_patrimonio | status | observacao | created_at
+
+**Size:** 13 columns x 1 rows
+
+## Sheet: Compras_Parceladas
+
+**Headers:**
+- id_compra | data_compra | id_cartao | descricao | id_categoria | valor_total | parcelas_total | responsavel | escopo | visibilidade | status
+
+**Size:** 11 columns x 1 rows
+
+## Sheet: Parcelas_Agenda
+
+**Headers:**
+- id_parcela | id_compra | numero_parcela | competencia | valor_parcela | id_fatura | status | id_lancamento
+
+**Size:** 8 columns x 1 rows
+
+## Sheet: Orcamento_Futuro_Casa
+
+**Headers:**
+- item | valor_previsto | data_inicio_prevista | ativo_no_dre
+
+**Size:** 4 columns x 1 rows
+
+## Sheet: Lancamentos_V54
+
+**Headers:**
+- id_lancamento | data | competencia | tipo_evento | id_categoria | valor | id_fonte | pessoa | escopo | id_cartao | id_fatura | id_compra | id_parcela | afeta_dre | afeta_acerto | afeta_patrimonio | visibilidade | descricao | created_at
+
+**Size:** 19 columns x 1 rows
+
+## Sheet: Patrimonio_Ativos
+
+**Headers:**
+- id_ativo | nome | tipo_ativo | instituicao | saldo_inicial | saldo_atual | data_referencia | destinacao | conta_reserva_emergencia | ativo
+
+**Size:** 10 columns x 1 rows
+
+## Sheet: Dividas
+
+**Headers:**
+- id_divida | nome | credor | tipo | pessoa | escopo | saldo_devedor | parcela_atual | parcelas_total | valor_parcela | taxa_juros | sistema_amortizacao | data_inicio | data_atualizacao | estrategia | status | observacao
+
+**Size:** 17 columns x 1 rows
+
+## Sheet: Acertos_Casal
+
+**Headers:**
+- competencia | pessoa | quota_esperada | valor_pago_casal | diferenca | status | observacao
+
+**Size:** 7 columns x 1 rows
+
+## Sheet: Fechamentos_Mensais
+
+**Headers:**
+- competencia | status | receitas_operacionais | despesas_operacionais | saldo_operacional | faturas_60d | parcelas_futuras | taxa_poupanca | reserva_total | patrimonio_liquido | acerto_status | decisao_1 | decisao_2 | decisao_3 | created_at | closed_at
+
+**Size:** 16 columns x 1 rows
 
 ## Sheet: Investimentos
 
