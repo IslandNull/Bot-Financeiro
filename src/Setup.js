@@ -45,6 +45,87 @@ function addWebhookSecretParam_(url, secret) {
     return `${url}${separator}webhook_secret=${encodeURIComponent(secret)}`;
 }
 
+function maskSecret_(value) {
+    const text = String(value || '');
+    if (!text) return '';
+    if (text.length <= 8) return '***';
+    return `${text.slice(0, 3)}***${text.slice(-3)}`;
+}
+
+function redactUrlSecret_(url) {
+    return String(url || '').replace(/([?&](?:webhook_secret|telegram_secret)=)[^&]*/g, '$1REDACTED');
+}
+
+function countAuthorizedUsers_() {
+    return Object.keys(CONFIG.AUTHORIZED || {}).length;
+}
+
+function diagnoseWebhookSecurity() {
+    _loadSecrets();
+
+    const serviceUrl = ScriptApp.getService().getUrl();
+    const valTownBaseUrl = CONFIG.VALTOWN_WEBHOOK_URL || 'https://islandd.val.run/';
+    const hasWebhookSecret = Boolean(CONFIG.WEBHOOK_SECRET);
+    const appsScriptWebhookUrl = serviceUrl && hasWebhookSecret
+        ? addWebhookSecretParam_(serviceUrl, CONFIG.WEBHOOK_SECRET)
+        : '';
+    const valTownWebhookUrl = hasWebhookSecret
+        ? addWebhookSecretParam_(valTownBaseUrl, CONFIG.WEBHOOK_SECRET)
+        : '';
+
+    const report = {
+        ok: Boolean(
+            CONFIG.TELEGRAM_TOKEN &&
+            CONFIG.SPREADSHEET_ID &&
+            CONFIG.SYNC_SECRET &&
+            hasWebhookSecret &&
+            serviceUrl &&
+            countAuthorizedUsers_() > 0
+        ),
+        checks: {
+            telegramTokenConfigured: Boolean(CONFIG.TELEGRAM_TOKEN),
+            spreadsheetIdConfigured: Boolean(CONFIG.SPREADSHEET_ID),
+            syncSecretConfigured: Boolean(CONFIG.SYNC_SECRET),
+            webhookSecretConfigured: hasWebhookSecret,
+            authorizedUserCount: countAuthorizedUsers_(),
+            webAppUrlAvailable: Boolean(serviceUrl),
+            valTownWebhookUrlConfigured: Boolean(CONFIG.VALTOWN_WEBHOOK_URL),
+        },
+        previews: {
+            webhookSecretPreview: maskSecret_(CONFIG.WEBHOOK_SECRET),
+            appsScriptWebhookUrl: redactUrlSecret_(appsScriptWebhookUrl),
+            valTownWebhookUrl: redactUrlSecret_(valTownWebhookUrl),
+        },
+        nextManualChecks: [
+            'Run getTelegramWebhookInfo() and confirm the configured URL points to Val.town or the intended Web App.',
+            'If needed, run apontarWebhookProValTown() to register the Val.town URL with Telegram secret_token.',
+            'Send negative tests before real Telegram writes: no secret, invalid secret, valid secret with unauthorized chat.',
+        ],
+    };
+
+    console.log(JSON.stringify(report, null, 2));
+    return report;
+}
+
+function getTelegramWebhookInfo() {
+    _loadSecrets();
+    if (!CONFIG.TELEGRAM_TOKEN) {
+        throw new Error('TELEGRAM_TOKEN must be configured in Script Properties before reading webhook info.');
+    }
+
+    const response = UrlFetchApp.fetch(
+        `https://api.telegram.org/bot${CONFIG.TELEGRAM_TOKEN}/getWebhookInfo`,
+        { muteHttpExceptions: true }
+    );
+    const payload = JSON.parse(response.getContentText());
+    if (payload && payload.result && payload.result.url) {
+        payload.result.url = redactUrlSecret_(payload.result.url);
+    }
+
+    console.log(JSON.stringify(payload, null, 2));
+    return payload;
+}
+
 // ============================================================
 // SETUP V54 - DRY-RUN ONLY
 // ============================================================

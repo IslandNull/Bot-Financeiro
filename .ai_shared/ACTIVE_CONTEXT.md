@@ -77,12 +77,18 @@ Branch: feat/v54-production-readiness
 - Post-review blockers were addressed on 2026-04-26: `docs/MASTERPLAN_PRODUCAO_V54.md` was updated to the post-setup state and `scripts/test-v54-snapshot.js` was added with npm script `test:v54:snapshot`.
 - `cmd /c npm run test:v54:snapshot` passed on 2026-04-26 and verifies `.ai_shared/SPREADSHEET_STATE.md` contains all 14 V54 sheets with headers exactly matching `scripts/lib/v54-schema.js`.
 - `node --check scripts\test-v54-snapshot.js`, `cmd /c npm run test:security-locks`, `cmd /c npm run test:v54:domain`, `cmd /c npm run test:v54:schema`, `cmd /c npm run test:v54:setup`, and `cmd /c npm run test:v53` passed on 2026-04-26 after adding the V54 snapshot test.
+- Webhook security diagnostics were added on 2026-04-26: `diagnoseWebhookSecurity()` reports required Script Properties/deployment readiness without writing data or printing raw secrets, and `getTelegramWebhookInfo()` reads Telegram webhook info with secret query parameters redacted.
+- `cmd /c npm run push` (`clasp push`) succeeded on 2026-04-26 after adding webhook diagnostics and pushed the Apps Script files to the project.
+- `cmd /c npx clasp deployments` still shows an `@HEAD` deployment plus version `@23 - Bot Telegram V2`; production route/version activation remains UNVERIFIED until manually checked.
+- `node --check src\Setup.js`, `node --check scripts\test-security-locks.js`, `cmd /c npm run test:security-locks`, `cmd /c npm run test:v54:setup`, `cmd /c npm run test:v54:domain`, `cmd /c npm run test:v54:schema`, `cmd /c npm run test:v54:snapshot`, and `cmd /c npm run test:v53` passed on 2026-04-26 after adding webhook diagnostics.
 
 ## Unverified claims
 - Double-entry `handleEntry` works end-to-end through Telegram integration.
 - A real Telegram/Val.town webhook message exercises the same behavior in production routing.
 - `WEBHOOK_SECRET` is configured in the deployed Apps Script project properties.
 - Val.town proxy currently forwards the agreed `webhook_secret`/body secret contract to Apps Script.
+- `diagnoseWebhookSecurity()` has been executed in the Apps Script editor. It has not; the function was pushed but still needs manual execution and log review.
+- `getTelegramWebhookInfo()` has been executed in the Apps Script editor. It has not; the function was pushed but still needs manual execution and log review.
 - The security + locks slice is active in the deployed Telegram Web App route. The code was pushed to the Apps Script project on 2026-04-26, but the versioned Web App deployment still needs explicit verification before claiming production routing uses it.
 - A replacement protected POST maintenance path for mutating actions exists. Current local code blocks mutating GET instead.
 - V54 Phase 1 domain helpers are integrated with Apps Script write paths. They are local Node.js planning/test helpers only.
@@ -93,7 +99,7 @@ Execute V54 safely in small phases. Current phase: Phase 2 additive sheet setup 
 
 ## Next safe action
 1. Run and keep passing `cmd /c npm run test:security-locks`, `cmd /c npm run test:v54:domain`, `cmd /c npm run test:v54:schema`, `cmd /c npm run test:v54:snapshot`, `cmd /c npm run test:v54:setup`, and `cmd /c npm run test:v53`.
-2. Configure `WEBHOOK_SECRET` in Apps Script and verify/update the Val.town proxy contract before Telegram production testing.
-3. Decide whether mutating maintenance actions need a new protected POST path; current local code blocks them over GET.
-4. Implement the next V54 slice without touching V53 production flows: likely seed/config loaders for categories, sources, cards, incomes, debts, and assets, with tests before any real data writes.
-5. Do not run mutating Telegram production tests, V54 seed writes, or migration writes until explicitly approved after reviewing the planned payloads.
+2. In the Apps Script editor, run `diagnoseWebhookSecurity()` and review the redacted JSON before any Telegram production test.
+3. In the Apps Script editor, run `getTelegramWebhookInfo()` and confirm the current Telegram webhook target without exposing secrets.
+4. If diagnostics show missing or stale webhook config, configure `WEBHOOK_SECRET`/Val.town and only then consider running `apontarWebhookProValTown()`.
+5. Do not run mutating Telegram production tests, V54 seed writes, or migration writes until explicitly approved after reviewing diagnostics and planned payloads.

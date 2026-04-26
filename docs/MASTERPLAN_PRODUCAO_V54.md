@@ -537,6 +537,8 @@ Phase 0.5 - Security and write-safety gate:
 - VERIFIED: Separate read-only sync from mutating maintenance actions; deny unknown actions by default.
 - VERIFIED: Add `withScriptLock()` around current V53 write paths.
 - VERIFIED: Add local/static tests proving the security and lock wrappers exist before `clasp push`.
+- VERIFIED: Add redacted read-only webhook diagnostics: `diagnoseWebhookSecurity()` and `getTelegramWebhookInfo()`.
+- TODO: Execute the webhook diagnostics in the Apps Script editor and review results before Telegram production testing.
 
 Phase 1 - Non-mutating design:
 
@@ -577,6 +579,7 @@ Non-mutating tests:
 
 - VERIFIED: Security static test proving webhook/proxy auth is enforced before command/write routing.
 - VERIFIED: Lock static test proving write paths use `withScriptLock()` or equivalent.
+- VERIFIED: Redacted webhook diagnostic test proving diagnostics do not mutate Telegram webhook configuration, send Telegram messages, or write sheets.
 - VERIFIED: Snapshot structure test for required V54 sheets and headers: `cmd /c npm run test:v54:snapshot`.
 - TODO: Formula syntax test using `setFormula()` with English functions and semicolon separators.
 - VERIFIED: V54 setup dry-run planner test blocks header mismatch, extra headers, extra blank header columns with data below, existing data with divergent headers, and confirms V53 sheets are ignored.
@@ -635,6 +638,7 @@ V54 can be considered ready for production only when all applicable criteria are
 - TODO: `docs/MASTERPLAN_PRODUCAO_V54.md` reviewed and approved.
 - VERIFIED: V54 skeleton schema exists in spreadsheet and is verified by exported snapshot.
 - TODO: Webhook/proxy authentication, mutating maintenance endpoint separation, and `LockService` write protection are verified before production mutation.
+- TODO: `diagnoseWebhookSecurity()` and `getTelegramWebhookInfo()` logs are reviewed and show the expected deployment/webhook state without exposing secrets.
 - TODO: Tests verify operational DRE excludes investments, reserve transfers, asset movements, and invoice payments.
 - TODO: Card purchases/installments appear once in expense recognition and invoice payment appears only as settlement.
 - TODO: `Pagamentos_Fatura` supports at least full payment, partial payment, and reconciliation against `Faturas`.

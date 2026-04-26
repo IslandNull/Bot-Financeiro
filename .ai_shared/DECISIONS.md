@@ -232,3 +232,20 @@ Rejected:
 - Running V54 setup from a GET maintenance endpoint.
 - Rewriting divergent existing V54 headers automatically.
 - Migrating data, writing formulas, or touching V53 sheets during the initial V54 sheet skeleton creation.
+
+## D020 - Webhook Security Validation Is Read-Only And Redacted
+Status: Accepted
+Date: 2026-04-26
+
+Decision:
+Before Telegram production testing, validate webhook readiness with manual Apps Script diagnostics that do not write to the spreadsheet, do not send Telegram messages, and do not mutate Telegram webhook configuration.
+
+`diagnoseWebhookSecurity()` reports whether required Script Properties and deployment URLs are present, but redacts `webhook_secret` and only prints a masked secret preview. `getTelegramWebhookInfo()` may call Telegram `getWebhookInfo` as a read-only Bot API check and must redact any secret query parameter in the returned URL.
+
+Reason:
+The next risk is environment drift: secure code can still fail if `WEBHOOK_SECRET`, authorized users, deployment URL, or Val.town forwarding are not configured correctly. Redacted read-only diagnostics give a safe gate before any real Telegram write path or production message test.
+
+Rejected:
+- Printing full webhook secrets or Telegram tokens in logs.
+- Validating Telegram production readiness by sending real bot messages before negative auth checks.
+- Mutating webhook configuration as part of diagnostics.

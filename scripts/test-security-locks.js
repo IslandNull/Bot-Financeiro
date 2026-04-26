@@ -126,6 +126,26 @@ failed += test('webhook_setup_registers_secret_token_and_secret_param', () => {
     assert.ok(setup.includes('CONFIG.VALTOWN_WEBHOOK_URL'));
 });
 
+failed += test('webhook_diagnostics_are_read_only_and_redacted', () => {
+    const diagnoseBody = extractFunction(setup, 'diagnoseWebhookSecurity');
+    assert.ok(setup.includes('function maskSecret_('));
+    assert.ok(setup.includes('function redactUrlSecret_('));
+    assert.ok(diagnoseBody.includes('webhookSecretConfigured'));
+    assert.ok(diagnoseBody.includes('redactUrlSecret_('));
+    assert.strictEqual(diagnoseBody.includes('UrlFetchApp.fetch'), false, 'diagnoseWebhookSecurity must not call external APIs');
+    assert.strictEqual(diagnoseBody.includes('setWebhook'), false, 'diagnoseWebhookSecurity must not mutate Telegram webhook');
+    assert.strictEqual(diagnoseBody.includes('insertSheet'), false, 'diagnoseWebhookSecurity must not mutate sheets');
+    assert.strictEqual(diagnoseBody.includes('setValues'), false, 'diagnoseWebhookSecurity must not mutate sheets');
+});
+
+failed += test('telegram_webhook_info_reader_is_read_only_and_redacted', () => {
+    const body = extractFunction(setup, 'getTelegramWebhookInfo');
+    assert.ok(body.includes('/getWebhookInfo'));
+    assert.ok(body.includes('redactUrlSecret_(payload.result.url)'));
+    assert.strictEqual(body.includes('/setWebhook'), false, 'getTelegramWebhookInfo must not mutate Telegram webhook');
+    assert.strictEqual(body.includes('sendMessage'), false, 'getTelegramWebhookInfo must not send Telegram messages');
+});
+
 failed += test('npm_script_registered', () => {
     assert.strictEqual(packageJson.scripts['test:security-locks'], 'node scripts/test-security-locks.js');
 });
