@@ -1,6 +1,6 @@
 # Spreadsheet State
 
-Generated at: 2026-04-26 15:55:22
+Generated at: 2026-04-26 16:24:28
 
 ## Sheet: Dashboard
 
@@ -63,28 +63,28 @@ Generated at: 2026-04-26 15:55:22
 **Headers:**
 - id_categoria | nome | grupo | tipo_movimento | classe_dre | escopo | comportamento_orcamento | afeta_acerto | afeta_dre | visibilidade_padrao | ativo
 
-**Size:** 11 columns x 1 rows
+**Size:** 11 columns x 24 rows
 
 ## Sheet: Config_Fontes
 
 **Headers:**
 - id_fonte | nome | tipo | titular | ativo
 
-**Size:** 5 columns x 1 rows
+**Size:** 5 columns x 10 rows
 
 ## Sheet: Rendas
 
 **Headers:**
 - id_renda | pessoa | tipo | valor | recorrente | dia_recebimento | uso_restrito | afeta_rateio | afeta_dre | obs
 
-**Size:** 10 columns x 1 rows
+**Size:** 10 columns x 6 rows
 
 ## Sheet: Cartoes
 
 **Headers:**
 - id_cartao | id_fonte | nome | titular | fechamento_dia | vencimento_dia | limite | ativo
 
-**Size:** 8 columns x 1 rows
+**Size:** 8 columns x 4 rows
 
 ## Sheet: Faturas
 
@@ -119,7 +119,7 @@ Generated at: 2026-04-26 15:55:22
 **Headers:**
 - item | valor_previsto | data_inicio_prevista | ativo_no_dre
 
-**Size:** 4 columns x 1 rows
+**Size:** 4 columns x 6 rows
 
 ## Sheet: Lancamentos_V54
 
@@ -133,14 +133,14 @@ Generated at: 2026-04-26 15:55:22
 **Headers:**
 - id_ativo | nome | tipo_ativo | instituicao | saldo_inicial | saldo_atual | data_referencia | destinacao | conta_reserva_emergencia | ativo
 
-**Size:** 10 columns x 1 rows
+**Size:** 10 columns x 3 rows
 
 ## Sheet: Dividas
 
 **Headers:**
 - id_divida | nome | credor | tipo | pessoa | escopo | saldo_devedor | parcela_atual | parcelas_total | valor_parcela | taxa_juros | sistema_amortizacao | data_inicio | data_atualizacao | estrategia | status | observacao
 
-**Size:** 17 columns x 1 rows
+**Size:** 17 columns x 3 rows
 
 ## Sheet: Acertos_Casal
 

@@ -27,7 +27,7 @@ Last real V54 sheet setup: 2026-04-26
 ### Non-Goals
 
 - VERIFIED: Do not activate V54 as the production flow before this plan and the staged gates are reviewed.
-- VERIFIED: Only additive V54 skeleton sheet setup has been applied so far; do not run seed, migration, or V54 writes without a reviewed dry-run.
+- VERIFIED: Additive V54 skeleton sheet setup and clean seed data have been applied. Do not run migration or V54 writes without a reviewed dry-run and proper locking.
 - TODO: Do not treat invoice payment as expense.
 - TODO: Do not count the existing home-item earmarked balance as emergency reserve.
 - VERIFIED: Do not migrate V53 history by default. V54 is a clean start; only manually approved opening data should be seeded.
@@ -53,7 +53,7 @@ Last real V54 sheet setup: 2026-04-26
 - VERIFIED: Architecture/risk/fatiamento reviews executed on 2026-04-26 in read-only mode found V54 pre-implementation blockers documented below.
 - VERIFIED: `.ai_shared/ANALISE_A_SER_CONSIDERADA.MD` was reviewed on 2026-04-26 and its findings were consolidated into this masterplan.
 - VERIFIED: Real Telegram/Val.town positive routing was tested on 2026-04-26: `/saldo` returned real spreadsheet data, a controlled `R$ 1,00` `Restaurante casal` launch was written, `/hoje` showed it, `/desfazer` removed it, and a final `/hoje` showed no launch for the day.
-- VERIFIED: V54 skeleton schema exists in the real spreadsheet. The exported snapshot generated on 2026-04-26 15:27:14 contains all 14 V54 sheets with row-1 headers matching `scripts/lib/v54-schema.js`.
+- VERIFIED: V54 skeleton schema and clean seed data exist in the real spreadsheet. The exported snapshot verified on 2026-04-26 contains all 14 V54 sheets with headers and seed rows.
 - VERIFIED: Phase 0.5 security/write-lock gate is coded locally and covered by `cmd /c npm run test:security-locks`.
 - VERIFIED: Phase 1 local domain fixtures now cover invoice payment reconciliation, emergency reserve exclusion for home-earmarked assets, net worth, amortization readiness gates, monthly closing draft fields, and shared-view privacy sanitization.
 - VERIFIED: Phase 2 setup dry-run planner was hardened locally to return explicit safe/blocked states instead of `UPDATE_HEADERS`.

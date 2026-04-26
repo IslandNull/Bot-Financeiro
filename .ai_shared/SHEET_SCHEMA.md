@@ -5,7 +5,7 @@ This file is the shared schema reference for Google Sheets. Agents must verify t
 ## Status
 
 - Current verified production flow: `V53`.
-- Current verified V54 state: skeleton sheets and headers created in the real spreadsheet on 2026-04-26; seed data, formulas, dropdowns, write paths, and migrations are not implemented yet.
+- Current verified V54 state: skeleton sheets, headers, and clean seed data created in the real spreadsheet on 2026-04-26; formulas, dropdowns, transaction write paths, and migrations are not implemented yet.
 - Migration strategy: V54 is now a clean start. Do not migrate V53 history by default; only manually approved seed/opening data should be written to V54.
 - Formula standard is defined in `.ai_shared/FORMULA_STANDARD.md`.
 
@@ -382,5 +382,5 @@ Before using V54 as the active production flow:
 - Design card invoice cycle calculation before enabling V54 card/installment writes.
 - Define couple settlement formula based on proportional income and benefit usage.
 - Update tests before changing production sheets.
-- Implement and verify seed/config writes for V54 categories, sources, cards, incomes, debts, and assets.
+- VERIFIED: Implement and verify seed/config writes for V54 categories, sources, cards, incomes, debts, and assets.
 - Implement V54 write paths and reports without deleting or rewriting V53 sheets until V54 is production-ready.
