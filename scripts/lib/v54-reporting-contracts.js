@@ -6,6 +6,8 @@ function cloneList(items) {
     return (items || []).map((item) => ({ ...item }));
 }
 
+const OPERATIONAL_DRE_EVENT_TYPES = new Set(['receita', 'despesa']);
+
 function isActive(record) {
     if (!record) return false;
     if (record.ativo === false) return false;
@@ -17,9 +19,13 @@ function summarizeOperationalDreFromLancamentos(lancamentos) {
     return cloneList(lancamentos).reduce((summary, entry) => {
         if (entry.afeta_dre !== true) return summary;
 
+        const tipoEvento = String(entry.tipo_evento || '').toLowerCase();
+        if (!OPERATIONAL_DRE_EVENT_TYPES.has(tipoEvento)) return summary;
+
         const value = roundMoney(entry.valor);
-        if (entry.tipo_evento === 'receita') summary.receitas_operacionais = roundMoney(summary.receitas_operacionais + value);
-        if (entry.tipo_evento === 'despesa') summary.despesas_operacionais = roundMoney(summary.despesas_operacionais + value);
+        if (tipoEvento === 'receita') summary.receitas_operacionais = roundMoney(summary.receitas_operacionais + value);
+        if (tipoEvento === 'despesa') summary.despesas_operacionais = roundMoney(summary.despesas_operacionais + value);
+        summary.included_ids.push(entry.id_lancamento || '');
         summary.saldo_operacional = roundMoney(summary.receitas_operacionais - summary.despesas_operacionais);
         return summary;
     }, {
@@ -32,7 +38,10 @@ function summarizeOperationalDreFromLancamentos(lancamentos) {
 
 function summarizeReserveAssets(assets) {
     return cloneList(assets).reduce((summary, asset) => {
-        if (!isActive(asset)) return summary;
+        if (!isActive(asset)) {
+            summary.inactive_assets.push(asset.id_ativo || asset.nome || '');
+            return summary;
+        }
 
         const value = roundMoney(asset.saldo_atual);
         const destinacao = String(asset.destinacao || '').toLowerCase();
@@ -52,6 +61,7 @@ function summarizeReserveAssets(assets) {
         other_assets_total: 0,
         reserve_assets: [],
         home_earmarked_assets: [],
+        inactive_assets: [],
     });
 }
 
@@ -93,6 +103,7 @@ function draftCoupleSettlement({ lancamentos = [], incomes = {} } = {}) {
     const entries = cloneList(lancamentos).filter((entry) => (
         entry.afeta_acerto === true &&
         entry.escopo === 'Casal' &&
+        String(entry.tipo_evento || '').toLowerCase() !== 'receita' &&
         (entry.pessoa === 'Gustavo' || entry.pessoa === 'Luana')
     ));
     const people = ['Gustavo', 'Luana'];

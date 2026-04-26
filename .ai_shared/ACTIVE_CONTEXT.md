@@ -111,6 +111,8 @@ Branch: feat/v54-production-readiness
 - `cmd /c npm run test:v54:actions` passed on 2026-04-26 with fake-spreadsheet coverage. `recordEntryV54` is not wired into `doPost`, routing, Telegram, `Parser.js`, or the existing V53 `Actions.js`.
 - V54 Phase 4A local reporting contracts are coded locally: `scripts/lib/v54-reporting-contracts.js` defines deterministic helpers for operational DRE, emergency reserve, net worth, debts, couple settlement, shared detailed privacy filtering, and monthly closing draft shape.
 - `cmd /c npm run test:v54:reporting` passed on 2026-04-26. Reporting helpers remain local-only and are not wired into Telegram, routing, Apps Script views, formulas, OpenAI, or spreadsheet mutation paths.
+- V54 Phase 4A-hardening reporting edge cases are coded locally: operational DRE now records included IDs for supported `receita`/`despesa` rows, ignores unsupported event types even when `afeta_dre=true`, reserve summaries classify inactive assets without counting them, net worth ignores inactive assets/debts, couple settlement excludes `receita`, and shared summary visibility redacts `descricao`, `id_fonte`, and `id_cartao`.
+- `node --check scripts\lib\v54-reporting-contracts.js`, `node --check scripts\test-v54-reporting-contracts.js`, `cmd /c npm run test:v54:reporting`, `cmd /c npm run test:v54:contract`, `cmd /c npm run test:v54:parser`, `cmd /c npm run test:v54:lancamentos-mapper`, `cmd /c npm run test:v54:actions`, `cmd /c npm run test:routing-mode`, `cmd /c npm run test:security-locks`, `cmd /c npm run test:v54:setup`, `cmd /c npm run test:v54:seed`, `cmd /c npm run test:v54:snapshot`, `cmd /c npm run test:v54:schema`, and `cmd /c npm run test:v53` passed on 2026-04-26 after Phase 4A-hardening local changes.
 
 ## Unverified claims
 - Negative webhook security behavior is not yet production-tested: POST without secret, POST with invalid secret, and valid secret with unauthorized chat should not write anything.
@@ -121,10 +123,10 @@ Branch: feat/v54-production-readiness
 - V53 sheets are safe to remove or rename. They are not: current production code still depends on them until V54 write paths replace V53.
 
 ## Current task
-Execute V54 safely in small phases. Current phase: V54 Phase 4A local reporting contracts define deterministic monthly decision foundations without production wiring. The next implementation gate is review/push of this commit; after that, plan the next reporting/card/fatura slice separately.
+Execute V54 safely in small phases. Current phase: V54 Phase 4A-hardening reporting traceability and edge cases are local-only and verified by tests. The next gate is review/push of the hardening commit; after that, plan the next reporting/card/fatura slice separately.
 
 ## Next safe action
-1. Finish verification and commit Phase 4A local reporting contracts if all required local tests pass.
-2. Do not start real V54 spreadsheet writes or report wiring until the reporting contract commit is reviewed.
+1. Review/push the Phase 4A-hardening reporting commit after local tests pass.
+2. Do not start real V54 spreadsheet writes or report wiring until the reporting hardening commit is reviewed.
 3. Keep `Parser.js`, `Actions.js`, `Commands.js`, `Views.js`, `doPost`, and V53 routing unchanged unless a later phase explicitly authorizes integration.
 4. Do not write to the spreadsheet, run `clasp push`, deploy, seed, setup, migration, or Telegram mutation during local reporting-contract work.
