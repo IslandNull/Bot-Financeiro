@@ -55,6 +55,8 @@ As seguintes ações são candidatas a refatoração, mas devem ser divididas em
 - **Fase 2A — Definir Contrato V54:** Estabelecer a interface estrita (`ParsedEntryV54`) exigida pelo novo write path.
 - **Fase 2B — ParserV54:** Fazer o parser resolver os IDs canônicos utilizando os dicionários `Config_Categorias` e `Config_Fontes`.
 
+**Phase 2B status:** DONE. The local ParserV54 adapter builds prompts from canonical context, parses JSON/fenced JSON, and validates candidates through `ParsedEntryV54`; it is not wired into production routing.
+
 ### Fase 3: Transaction Write Paths V54 (MVP)
 - **Fase 3A — Write Path Simples:** Implementar `ActionsV54.js` MVP (`recordEntryV54` para Lançamentos Simples, Receitas e Transferências), gerando as 19 colunas corretas. Testes fake-spreadsheet obrigatórios.
 

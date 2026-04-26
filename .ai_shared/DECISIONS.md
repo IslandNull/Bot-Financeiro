@@ -294,3 +294,20 @@ Rejected:
 - Allowing unknown fields for forward compatibility.
 - Accepting ambiguous Brazilian comma money strings before an explicit parser normalization layer exists.
 - Wiring the contract into `doPost`, `Parser.js`, or `Actions.js` during Phase 2A.
+
+## D024 - ParserV54 Adapter Stays Local Until Production Wiring Gate
+Status: Accepted
+Date: 2026-04-26
+
+Decision:
+Implement the first ParserV54 work as a local contract adapter in `scripts/lib`, not as a productive Apps Script parser. The adapter builds system/user prompts from canonical context, parses one JSON object response, accepts JSON enclosed in a markdown `json` fence, rejects invalid JSON and array output with structured errors, and validates candidates through `validateParsedEntryV54()`.
+
+The prompt contract instructs future LLM output to use dot-decimal numeric values, ISO dates, strict enum values, real booleans, and only canonical IDs from provided dictionaries. It must not include secrets, production write-path instructions, or spreadsheet mutation instructions.
+
+Reason:
+ParserV54 needs to be designed against the strict ParsedEntryV54 contract before touching Telegram or V53 production routing. Handling fenced JSON is pragmatic for LLM output, but the adapter still fails closed through the contract for unknown fields, comma money strings, missing required fields, and invalid event rules.
+
+Rejected:
+- Importing or calling OpenAI in local ParserV54 tests.
+- Importing Apps Script globals in the local parser adapter.
+- Wiring ParserV54 into `doPost`, `Parser.js`, `Actions.js`, or V54 write paths during Phase 2B.
