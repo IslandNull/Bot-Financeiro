@@ -1,6 +1,6 @@
 # Spreadsheet State
 
-Generated at: 2026-04-25 18:36:14
+Generated at: 2026-04-26 15:15:27
 
 ## Sheet: Dashboard
 
@@ -93,7 +93,7 @@ Generated at: 2026-04-25 18:36:14
 **Headers:**
 - LANÇAMENTOS — DIA A DIA | (empty) | (empty) | (empty) | (empty) | (empty) | (empty) | (empty)
 
-**Size:** 8 columns x 10 rows
+**Size:** 8 columns x 6 rows
 
 **Structural Rows:**
 - `A5:H5` row 5: Data | TIPO | ID | VALOR | FONTE | DESCRIÇÃO | PAGADOR | COMPETÊNCIA
