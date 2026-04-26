@@ -347,3 +347,21 @@ Rejected:
 - Supporting card/fatura/installment/debt/reconciliation events in the simple write-path phase.
 - Calling real `SpreadsheetApp` from local tests.
 - Modifying V53 production files to make V54 tests pass.
+
+## D027 - V54 Reporting Contracts Stay Local And Deterministic
+Status: Accepted
+Date: 2026-04-26
+
+Decision:
+Define the first V54 reporting layer as a local pure Node.js contract in `scripts/lib/v54-reporting-contracts.js`, with tests in `scripts/test-v54-reporting-contracts.js` and npm script `test:v54:reporting`.
+
+The helpers calculate operational DRE only from `Lancamentos_V54`-like rows with `afeta_dre=true`, keep reserve totals limited to assets flagged `conta_reserva_emergencia=true`, keep home-earmarked assets visible outside reserve, draft net worth as assets minus debts, expose debt reporting limitations when principal/interest split is unknown, draft couple settlement from `afeta_acerto=true` and `escopo=Casal`, filter private entries from shared detailed views, and produce `Fechamentos_Mensais`-shaped draft objects with deterministic placeholders instead of LLM recommendations.
+
+Reason:
+Monthly decision foundations need deterministic facts before any spreadsheet formulas, Apps Script views, Telegram responses, or LLM phrasing are wired. Keeping this layer local catches DRE leakage, reserve overstatement, privacy leakage, fake precision in debts, and closing-shape drift without mutating the real spreadsheet.
+
+Rejected:
+- Wiring reporting helpers into Telegram, routing, Apps Script views, or spreadsheet formulas during this phase.
+- Calling OpenAI or generating recommendations from an LLM in reporting contracts.
+- Counting home-item earmarked assets as emergency reserve.
+- Pretending a principal/interest split exists for Caixa/Vasco-like debts when fixture data does not provide it.

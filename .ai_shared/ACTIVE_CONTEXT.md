@@ -109,6 +109,8 @@ Branch: feat/v54-production-readiness
 - `cmd /c npm run test:v54:lancamentos-mapper` passed on 2026-04-26. The mapper remains local-only and is not wired into `doPost`, `Parser.js`, `Actions.js`, Telegram, Apps Script globals, OpenAI calls, or spreadsheet mutation paths.
 - V54 Phase 3A Actions MVP is coded locally: `src/ActionsV54.js` exposes `recordEntryV54(parsedEntry, options)` for simple events (`despesa`, `receita`, `transferencia`, `aporte`) with injectable spreadsheet provider, lock wrapper, `now()`, and `makeId()`.
 - `cmd /c npm run test:v54:actions` passed on 2026-04-26 with fake-spreadsheet coverage. `recordEntryV54` is not wired into `doPost`, routing, Telegram, `Parser.js`, or the existing V53 `Actions.js`.
+- V54 Phase 4A local reporting contracts are coded locally: `scripts/lib/v54-reporting-contracts.js` defines deterministic helpers for operational DRE, emergency reserve, net worth, debts, couple settlement, shared detailed privacy filtering, and monthly closing draft shape.
+- `cmd /c npm run test:v54:reporting` passed on 2026-04-26. Reporting helpers remain local-only and are not wired into Telegram, routing, Apps Script views, formulas, OpenAI, or spreadsheet mutation paths.
 
 ## Unverified claims
 - Negative webhook security behavior is not yet production-tested: POST without secret, POST with invalid secret, and valid secret with unauthorized chat should not write anything.
@@ -119,10 +121,10 @@ Branch: feat/v54-production-readiness
 - V53 sheets are safe to remove or rename. They are not: current production code still depends on them until V54 write paths replace V53.
 
 ## Current task
-Execute V54 safely in small phases. Current phase: V54 refactoring Phase 3A implements the fake-spreadsheet-only `ActionsV54` MVP for simple events. The next implementation gate is review/push of this commit; after that, plan the protected V54 mutation test or shadow-mode wiring separately.
+Execute V54 safely in small phases. Current phase: V54 Phase 4A local reporting contracts define deterministic monthly decision foundations without production wiring. The next implementation gate is review/push of this commit; after that, plan the next reporting/card/fatura slice separately.
 
 ## Next safe action
-1. Finish verification and commit Phase 3A if all required local tests pass.
-2. Do not start real V54 spreadsheet writes until the `ActionsV54` MVP commit is reviewed.
+1. Finish verification and commit Phase 4A local reporting contracts if all required local tests pass.
+2. Do not start real V54 spreadsheet writes or report wiring until the reporting contract commit is reviewed.
 3. Keep `Parser.js`, `Actions.js`, `Commands.js`, `Views.js`, `doPost`, and V53 routing unchanged unless a later phase explicitly authorizes integration.
-4. Do not write to the spreadsheet, run `clasp push`, deploy, seed, setup, migration, or Telegram mutation during fake-only action work.
+4. Do not write to the spreadsheet, run `clasp push`, deploy, seed, setup, migration, or Telegram mutation during local reporting-contract work.

@@ -7,6 +7,7 @@ Last consolidated analysis: 2026-04-26
 Last local Phase 1 domain expansion: 2026-04-26
 Last local Phase 2 setup-planner hardening: 2026-04-26
 Last real V54 sheet setup: 2026-04-26
+Last local Phase 4A reporting contracts: 2026-04-26
 
 ## 1. Goals And Non-Goals
 
@@ -56,6 +57,7 @@ Last real V54 sheet setup: 2026-04-26
 - VERIFIED: V54 skeleton schema and clean seed data exist in the real spreadsheet. The exported snapshot verified on 2026-04-26 contains all 14 V54 sheets with headers and seed rows.
 - VERIFIED: Phase 0.5 security/write-lock gate is coded locally and covered by `cmd /c npm run test:security-locks`.
 - VERIFIED: Phase 1 local domain fixtures now cover invoice payment reconciliation, emergency reserve exclusion for home-earmarked assets, net worth, amortization readiness gates, monthly closing draft fields, and shared-view privacy sanitization.
+- VERIFIED: Phase 4A local reporting contracts cover V54 operational DRE, reserve/home earmark separation, net worth, debt limitation reporting, couple settlement, shared-detail privacy filtering, and `Fechamentos_Mensais` draft shape without production wiring.
 - VERIFIED: Phase 2 setup dry-run planner was hardened locally to return explicit safe/blocked states instead of `UPDATE_HEADERS`.
 - VERIFIED: `cmd /c npm run test:v54:setup` covers exact Apps Script/local schema parity, empty state, perfect state, blank existing sheets, header mismatch, existing data, extra headers, extra blank header columns with data below, V53 sheet preservation, and absence of `UPDATE_HEADERS`.
 - VERIFIED: `applySetupV54()` was pushed to the Apps Script project, executed manually from the Apps Script editor on 2026-04-26, and applied 14 `CREATE_SHEET` actions with `summary.blocked: 0`.
@@ -567,7 +569,9 @@ Phase 3 - Clean V54 bootstrap:
 
 Phase 4 - Reporting:
 
-- TODO: Build operational DRE, patrimony/investments, debts, card invoice, invoice payment, reserve, future home forecast, monthly closing, and couple settlement views.
+- VERIFIED: Build local deterministic reporting contracts for operational DRE, emergency reserve, home earmarks, net worth, debts, couple settlement, shared-detail privacy filtering, and monthly closing draft shape.
+- TODO: Wire approved reporting contracts into Apps Script views/sheets only after a separate reviewed phase.
+- TODO: Build card invoice, invoice payment, future home forecast, and production report views.
 - TODO: Verify formulas with snapshot and tests.
 
 Phase 5 - Bot behavior:
@@ -600,6 +604,7 @@ Non-mutating tests:
 - VERIFIED: Debt/amortization rule test proving recommendations require known reserve, invoices, and debt data.
 - VERIFIED: Monthly closing test covering DRE, faturas 60d, reserve, net worth, settlement, and three decisions.
 - VERIFIED: Privacy test proving `visibilidade = privada` is not exposed in shared detail reports.
+- VERIFIED: Local reporting contract test: `cmd /c npm run test:v54:reporting`.
 
 Mutating protected tests:
 

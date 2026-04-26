@@ -61,13 +61,16 @@ As seguintes ações são candidatas a refatoração, mas devem ser divididas em
 - **Fase 3A-prep — Mapper local de `Lancamentos_V54`:** DONE. `scripts/lib/v54-lancamentos-mapper.js` maps validated `ParsedEntryV54` objects to canonical 19-column `Lancamentos_V54` row payloads with injected ID/timestamp dependencies. This is local-only and not wired into production.
 - **Fase 3A — Write Path Simples:** DONE locally. `src/ActionsV54.js` implements `recordEntryV54` for simple V54 events (`despesa`, `receita`, `transferencia`, `aporte`) with fake-spreadsheet tests only. It is not wired into Telegram/routing and does not implement cards, invoices, installments, debts, reconciliation, or reporting.
 
-### Fase 4: Complexidade Financeira (Cartões e Faturas)
+### Fase 4: Reporting e Complexidade Financeira
+**Phase 4A status:** DONE locally. `scripts/lib/v54-reporting-contracts.js` defines deterministic reporting helpers for operational DRE, reserve/home earmarks, net worth, debts, couple settlement, shared-detail privacy filtering, and monthly closing draft shape. This is local-only and not wired into Telegram, routing, Apps Script views, formulas, OpenAI, or spreadsheet mutation.
+
 *Desenvolver o motor progressivamente:*
-- **Fase 4A:** Compra no cartão à vista (`Lancamentos_V54` vinculado ao `id_cartao`).
-- **Fase 4B:** Compra parcelada (`Compras_Parceladas` + `Parcelas_Agenda`).
-- **Fase 4C:** Geração/Associação de `Faturas`.
-- **Fase 4D:** Pagamento de fatura (`Pagamentos_Fatura`, gerando contrapartida sem afetar DRE).
-- **Fase 4E:** Reconciliação parcial/total.
+- **Fase 4A-reporting — Contratos locais de relatório:** DONE locally.
+- **Fase 4B:** Compra no cartão à vista (`Lancamentos_V54` vinculado ao `id_cartao`).
+- **Fase 4C:** Compra parcelada (`Compras_Parceladas` + `Parcelas_Agenda`).
+- **Fase 4D:** Geração/Associação de `Faturas`.
+- **Fase 4E:** Pagamento de fatura (`Pagamentos_Fatura`, gerando contrapartida sem afetar DRE).
+- **Fase 4F:** Reconciliação parcial/total.
 
 ### Fase 5: Shadow Mode e Cutover
 - **Fase 5A — Shadow Mode:** Roteamento `V54_SHADOW`. V53 escreve os dados reais, V54 opera simulações controladas para garantir paridade.
