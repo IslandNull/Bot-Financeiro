@@ -93,21 +93,21 @@ Branch: feat/v54-production-readiness
 - `applySeedV54` was added to `isBlockedMutatingGetAction_` in `src/Main.js` to block mutating GET calls.
 - `cmd /c npm run test:v54:seed` was added and tests passed locally, checking payload structure and fake-spreadsheet setup mechanics.
 - All pre-existing test suites passed successfully after these additions.
+- V54 seed data was pushed to Apps Script and successfully applied to the production spreadsheet via manual execution of `applySeedV54` on 2026-04-26.
+- `cmd /c npm run sync` and subsequent tests (`test:v54:snapshot`, `test:v53`) confirmed the real spreadsheet is stable and contains the new seed rows without corrupting V53 formulas.
 
 ## Unverified claims
 - Negative webhook security behavior is not yet production-tested: POST without secret, POST with invalid secret, and valid secret with unauthorized chat should not write anything.
 - The exact versioned deployment mechanics behind the Telegram route remain not fully characterized beyond the successful positive Telegram/Val.town production test.
 - A replacement protected POST maintenance path for mutating actions exists. Current local code blocks mutating GET instead.
 - V54 Phase 1 domain helpers are integrated with Apps Script write paths. They are local Node.js planning/test helpers only.
-- V54 sheets contain production seed data, formulas, dropdowns, or migrated transactions. Only sheet creation and header rows are verified.
+- V54 sheets contain migrated transactions. Currently, they only contain seed data.
 - V53 sheets are safe to remove or rename. They are not: current production code still depends on them until V54 write paths replace V53.
 
 ## Current task
-Execute V54 safely in small phases. Current phase: V54 seed/config is implemented locally as a dry-run-first, idempotent slice. Next gate is pushing this slice, validating the dry-run against the real spreadsheet, and applying the clean seed.
+Execute V54 safely in small phases. Current phase: V54 clean seed data has been applied and validated on production. The physical structure and canonical metadata (categories, sources, cards, debts, initial asset balances) are now established. The next gate is wiring up the new V54 structure to receive transactional writes via the webhook, ensuring security and proper locking.
 
 ## Next safe action
-1. Review the seed payload with the user.
-2. Execute the deployment (`cmd /c npm run push`).
-3. Run `planSeedV54()` manually from the Apps Script editor to review the dry-run output against the real spreadsheet.
-4. Execute `applySeedV54()` manually after dry-run approval.
-5. If broader Telegram production use is planned before writing transaction histories, add negative webhook tests for missing secret, invalid secret, and unauthorized chat.
+1. If broader Telegram production use is planned before wiring up V54 transaction paths, implement and run negative webhook security tests (missing secret, invalid secret, unauthorized chat) to ensure the endpoint fails securely.
+2. If negative tests are not an immediate priority, begin designing the transaction parser and write paths for `Lancamentos_V54` utilizing `withScriptLock`.
+3. Before replacing V53 write paths, ensure automated tests for V54 transaction writes exist and pass.
