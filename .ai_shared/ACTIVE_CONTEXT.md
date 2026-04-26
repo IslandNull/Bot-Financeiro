@@ -68,25 +68,25 @@ Branch: feat/v54-production-readiness
 - `cmd /c npm run push` (`clasp push`) succeeded on 2026-04-26 after explicit approval and pushed 8 Apps Script files: `Actions.js`, `appsscript.json`, `Commands.js`, `Main.js`, `Parser.js`, `Setup.js`, `Tests.js`, and `Views.js`.
 - `cmd /c npx clasp deployments` confirmed two deployments: an `@HEAD` deployment and version `@23 - Bot Telegram V2`.
 - `cmd /c npx clasp run planSetupV54` could not execute from this environment because clasp reported missing Apps Script API execution credentials (`Could not read API credentials. Are you logged in locally?`). `planSetupV54()` was not executed through clasp.
+- `planSetupV54()` was executed manually from the Apps Script editor on 2026-04-26 and returned `ok: true`, `dryRun: true`, `summary.createSheet: 14`, `summary.initializeHeaders: 0`, and `summary.blocked: 0`. The dry-run actions were 14 `CREATE_SHEET` actions for the planned V54 sheets.
 
 ## Unverified claims
 - Double-entry `handleEntry` works end-to-end through Telegram integration.
 - A real Telegram/Val.town webhook message exercises the same behavior in production routing.
-- V54 schema exists in the spreadsheet. It does not; it is only planned.
+- V54 schema exists in the spreadsheet. It does not yet; the dry-run only planned 14 `CREATE_SHEET` actions and `applySetupV54()` has not been executed.
 - `WEBHOOK_SECRET` is configured in the deployed Apps Script project properties.
 - Val.town proxy currently forwards the agreed `webhook_secret`/body secret contract to Apps Script.
 - The security + locks slice is active in the deployed Telegram Web App route. The code was pushed to the Apps Script project on 2026-04-26, but the versioned Web App deployment still needs explicit verification before claiming production routing uses it.
 - A replacement protected POST maintenance path for mutating actions exists. Current local code blocks mutating GET instead.
 - V54 Phase 1 domain helpers are integrated with Apps Script write paths. They are local Node.js planning/test helpers only.
-- `planSetupV54()` has been executed in Apps Script after the 2026-04-26 push. It has not; `clasp run` failed locally due execution credentials.
 - `applySetupV54()` has been executed in Apps Script. It has not; no spreadsheet mutation was run for this slice.
 
 ## Current task
-Execute V54 safely in small phases. Current phase: Phase 2 additive setup code has been pushed to the Apps Script project, local tests pass, and the pre-mutation spreadsheet snapshot has been refreshed. `planSetupV54()` still needs to be run from the Apps Script editor or through a future authenticated execution path. Do not mutate production spreadsheet yet.
+Execute V54 safely in small phases. Current phase: Phase 2 additive setup code has been pushed to the Apps Script project, local tests pass, the pre-mutation spreadsheet snapshot has been refreshed, and `planSetupV54()` returned a clean dry-run from the Apps Script editor. Next gate is manual execution of `applySetupV54()` from the Apps Script editor, followed immediately by snapshot sync and tests.
 
 ## Next safe action
 1. Run and keep passing `cmd /c npm run test:security-locks`, `cmd /c npm run test:v54:domain`, `cmd /c npm run test:v54:schema`, `cmd /c npm run test:v54:setup`, and `cmd /c npm run test:v53`.
-2. Run `planSetupV54()` from the Apps Script editor and review the logged dry-run result before considering `applySetupV54()`.
+2. Run `applySetupV54()` from the Apps Script editor only after confirming the latest dry-run still has `blocked: 0`.
 3. Configure `WEBHOOK_SECRET` in Apps Script and verify/update the Val.town proxy contract before Telegram production testing.
 4. Decide whether mutating maintenance actions need a new protected POST path; current local code blocks them over GET.
 5. Do not run `applySetupV54()`, mutating tests, Telegram production tests, or spreadsheet mutation until explicitly approved after reviewing the dry-run.
