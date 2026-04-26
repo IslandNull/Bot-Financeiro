@@ -4,12 +4,15 @@ const V54_SHEETS = {
     RENDAS: 'Rendas',
     CARTOES: 'Cartoes',
     FATURAS: 'Faturas',
+    PAGAMENTOS_FATURA: 'Pagamentos_Fatura',
     COMPRAS_PARCELADAS: 'Compras_Parceladas',
     PARCELAS_AGENDA: 'Parcelas_Agenda',
     ORCAMENTO_FUTURO_CASA: 'Orcamento_Futuro_Casa',
     LANCAMENTOS_V54: 'Lancamentos_V54',
     PATRIMONIO_ATIVOS: 'Patrimonio_Ativos',
+    DIVIDAS: 'Dividas',
     ACERTOS_CASAL: 'Acertos_Casal',
+    FECHAMENTOS_MENSAIS: 'Fechamentos_Mensais',
 };
 
 const V54_HEADERS = {
@@ -23,6 +26,7 @@ const V54_HEADERS = {
         'comportamento_orcamento',
         'afeta_acerto',
         'afeta_dre',
+        'visibilidade_padrao',
         'ativo',
     ],
     [V54_SHEETS.CONFIG_FONTES]: [
@@ -66,6 +70,21 @@ const V54_HEADERS = {
         'fonte_pagamento',
         'status',
     ],
+    [V54_SHEETS.PAGAMENTOS_FATURA]: [
+        'id_pagamento',
+        'id_fatura',
+        'data_pagamento',
+        'valor_pago',
+        'id_fonte',
+        'pessoa',
+        'escopo',
+        'afeta_dre',
+        'afeta_acerto',
+        'afeta_patrimonio',
+        'status',
+        'observacao',
+        'created_at',
+    ],
     [V54_SHEETS.COMPRAS_PARCELADAS]: [
         'id_compra',
         'data_compra',
@@ -76,6 +95,7 @@ const V54_HEADERS = {
         'parcelas_total',
         'responsavel',
         'escopo',
+        'visibilidade',
         'status',
     ],
     [V54_SHEETS.PARCELAS_AGENDA]: [
@@ -110,6 +130,8 @@ const V54_HEADERS = {
         'id_parcela',
         'afeta_dre',
         'afeta_acerto',
+        'afeta_patrimonio',
+        'visibilidade',
         'descricao',
         'created_at',
     ],
@@ -125,6 +147,25 @@ const V54_HEADERS = {
         'conta_reserva_emergencia',
         'ativo',
     ],
+    [V54_SHEETS.DIVIDAS]: [
+        'id_divida',
+        'nome',
+        'credor',
+        'tipo',
+        'pessoa',
+        'escopo',
+        'saldo_devedor',
+        'parcela_atual',
+        'parcelas_total',
+        'valor_parcela',
+        'taxa_juros',
+        'sistema_amortizacao',
+        'data_inicio',
+        'data_atualizacao',
+        'estrategia',
+        'status',
+        'observacao',
+    ],
     [V54_SHEETS.ACERTOS_CASAL]: [
         'competencia',
         'pessoa',
@@ -134,12 +175,31 @@ const V54_HEADERS = {
         'status',
         'observacao',
     ],
+    [V54_SHEETS.FECHAMENTOS_MENSAIS]: [
+        'competencia',
+        'status',
+        'receitas_operacionais',
+        'despesas_operacionais',
+        'saldo_operacional',
+        'faturas_60d',
+        'parcelas_futuras',
+        'taxa_poupanca',
+        'reserva_total',
+        'patrimonio_liquido',
+        'acerto_status',
+        'decisao_1',
+        'decisao_2',
+        'decisao_3',
+        'created_at',
+        'closed_at',
+    ],
 };
 
 const V54_ENUMS = {
     escopo: ['Casal', 'Gustavo', 'Luana', 'Fora orcamento'],
+    visibilidade: ['detalhada', 'resumo', 'privada'],
     tipo_fonte: ['conta', 'cartao', 'beneficio', 'dinheiro', 'investimento'],
-    classe_dre_excluded_from_operational: ['Investimento', 'Reserva', 'Fatura', 'Transferencia', 'Patrimonio'],
+    classe_dre_excluded_from_operational: ['Investimento', 'Reserva', 'Fatura', 'Transferencia', 'Patrimonio', 'Divida'],
 };
 
 function getV54SheetNames() {
@@ -181,6 +241,20 @@ function validateV54Schema() {
 
     if (!V54_HEADERS[V54_SHEETS.LANCAMENTOS_V54].includes('id_parcela')) {
         errors.push('Lancamentos_V54 must reference id_parcela');
+    }
+
+    ['afeta_dre', 'afeta_acerto', 'afeta_patrimonio', 'visibilidade'].forEach((field) => {
+        if (!V54_HEADERS[V54_SHEETS.LANCAMENTOS_V54].includes(field)) {
+            errors.push(`Lancamentos_V54 must include ${field}`);
+        }
+    });
+
+    ['Pagamentos_Fatura', 'Dividas', 'Fechamentos_Mensais'].forEach((sheetName) => {
+        if (!names.includes(sheetName)) errors.push(`V54 must include ${sheetName}`);
+    });
+
+    if (!V54_HEADERS[V54_SHEETS.COMPRAS_PARCELADAS].includes('visibilidade')) {
+        errors.push('Compras_Parceladas must include visibilidade');
     }
 
     return { ok: errors.length === 0, errors };

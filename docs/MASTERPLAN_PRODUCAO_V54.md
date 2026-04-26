@@ -3,6 +3,7 @@
 Date: 2026-04-25
 Status: TODO - planning document for review before implementation
 Branch context: feat/v52-upgrade
+Last consolidated analysis: 2026-04-26
 
 ## 1. Goals And Non-Goals
 
@@ -15,6 +16,8 @@ Branch context: feat/v52-upgrade
 - TODO: Model emergency reserve with explicit target bands and progress rules.
 - TODO: Keep future home costs as forecast-only until the home is active.
 - TODO: Model card purchases, installments, invoices, invoice payment, and reconciliation without duplicate expense recognition.
+- TODO: Model debts, monthly closing, and net worth before allowing amortization/investment recommendations.
+- TODO: Preserve privacy and personal autonomy with explicit visibility rules, not only payer/scope fields.
 - TODO: Enable rule-based bot recommendations for 13th salary, vacation pay, bonus, extra income, large surplus, large purchases, reserve, amortization, investment, and home item decisions.
 - TODO: Define migration, tests, rollback, and acceptance criteria before any code or spreadsheet mutation.
 
@@ -26,6 +29,7 @@ Branch context: feat/v52-upgrade
 - TODO: Do not count the existing home-item earmarked balance as emergency reserve.
 - TODO: Do not migrate fully paid historical installments unless explicitly requested later.
 - TODO: Do not claim Telegram/Val.town end-to-end production behavior is verified until tested.
+- TODO: Do not let generative AI make financial recommendations before deterministic safety rules have checked reserve, debts, invoices, and cash flow.
 
 ## 2. Current Verified State
 
@@ -43,6 +47,7 @@ Branch context: feat/v52-upgrade
 - VERIFIED: Temp-cell `copyTo()` caused `#REF!` and must not be used for formulas.
 - VERIFIED: `npm run test:v53` exists, and `npm run test:v53 -- --mutate` was previously verified through the active context as passed against deployment version 23.
 - VERIFIED: Architecture/risk/fatiamento reviews executed on 2026-04-26 in read-only mode found V54 pre-implementation blockers documented below.
+- VERIFIED: `.ai_shared/ANALISE_A_SER_CONSIDERADA.MD` was reviewed on 2026-04-26 and its findings were consolidated into this masterplan.
 - UNVERIFIED: Real Telegram/Val.town webhook routing exercises the same production behavior end-to-end.
 - UNVERIFIED: V54 schema exists in the spreadsheet. It does not exist according to active context and schema docs.
 
@@ -52,9 +57,26 @@ Branch context: feat/v52-upgrade
 - VERIFIED: Current GET maintenance endpoints protected by `SYNC_SECRET` can execute mutating actions. V54 must separate read-only sync from maintenance/mutating actions and keep deny-by-default behavior.
 - VERIFIED: Existing setup/repair functions have high spreadsheet blast radius. V54 setup must be additive, idempotent, versioned, and preferably dry-run first.
 - VERIFIED: Current write paths do not use `LockService`; V54 write paths and mutating tests must use locking to avoid concurrent row races.
-- TODO: Define a canonical card/source model before implementation. `Config_Fontes` and `Cartoes` must not duplicate authority for closing day, due day, and limit.
-- TODO: Add a stable `id_parcela` to `Parcelas_Agenda` or formally use `id_compra + numero_parcela` as the only key. `Lancamentos_V54` must reference the chosen key.
+- VERIFIED: V54 must treat payment of invoice as liability settlement, not a new operational expense.
+- VERIFIED: V54 must add `Pagamentos_Fatura`, `Dividas`, `Fechamentos_Mensais`, `afeta_patrimonio`, and `visibilidade` to avoid incomplete recommendations and privacy leakage.
+- VERIFIED: `Config_Fontes` and `Cartoes` must not duplicate authority for closing day, due day, and limit.
+- VERIFIED: `Parcelas_Agenda` uses stable `id_parcela`, and `Lancamentos_V54` references it.
 - TODO: Specify deterministic invoice-cycle rules before migrating installments, including purchase on closing day, closing day 30 in February, purchases after closing, payment partials, refunds, and closed versus expected invoice values.
+
+### 2.2 Consolidated External Analysis
+
+The 2026-04-26 analysis agrees with the V54 direction but changes the execution order.
+
+VERIFIED consolidated conclusions:
+
+- V54 is conceptually on the right path: DRE operational, patrimony, card invoices, installments, reserve, and couple settlement must be separated.
+- The next implementation step must not be another financial feature. It must be security and write-safety hardening.
+- The product must become a monthly decision system for Gustavo and Luana, not only a transaction recorder.
+- Credit card control is central in the Brazilian household context. Purchases/installments create the expense; invoice payment settles card liability.
+- Debt must be modeled explicitly before the bot recommends amortization. Caixa and Vasco cannot remain only operational categories.
+- Emergency reserve must be a protected purpose, not any available investment balance.
+- Personal expenses need visibility rules so the bot supports autonomy instead of creating surveillance or conflict.
+- Recommendations must start as deterministic rules. LLM phrasing can come later after reserve, debts, invoices, and cash flow are reliable.
 
 ## 3. Household Financial Model
 
@@ -109,6 +131,7 @@ TODO columns:
 - `comportamento_orcamento`
 - `afeta_acerto`
 - `afeta_dre`
+- `visibilidade_padrao`
 - `ativo`
 
 Rules:
@@ -116,6 +139,7 @@ Rules:
 - TODO: `classe_dre` must distinguish operational categories from investment, transfer, settlement, reserve, financing principal, and out-of-budget categories.
 - TODO: `afeta_dre` controls operational DRE inclusion.
 - TODO: `afeta_acerto` controls couple settlement inclusion.
+- TODO: `visibilidade_padrao` controls whether future transactions default to `detalhada`, `resumo`, or `privada`.
 
 ### Config_Fontes
 
@@ -169,6 +193,8 @@ TODO columns:
 - `id_parcela`
 - `afeta_dre`
 - `afeta_acerto`
+- `afeta_patrimonio`
+- `visibilidade`
 - `descricao`
 - `created_at`
 
@@ -177,6 +203,8 @@ Rules:
 - TODO: Store positive values and use `tipo_evento`/category behavior to determine DRE and balance effects.
 - TODO: Avoid duplicated expense recognition by linking card purchases/installments to invoices and settlements.
 - TODO: `id_parcela` references `Parcelas_Agenda.id_parcela`.
+- TODO: `afeta_patrimonio` marks events that change asset/liability tracking, even when they do not affect operational DRE.
+- TODO: `visibilidade` must support personal autonomy: `detalhada`, `resumo`, or `privada`.
 
 ### Patrimonio_Ativos
 
@@ -214,6 +242,59 @@ TODO columns:
 Rules:
 
 - TODO: Generate settlement view from V54 launches rather than manually maintaining opaque totals.
+
+### Dividas
+
+TODO columns:
+
+- `id_divida`
+- `nome`
+- `credor`
+- `tipo`
+- `pessoa`
+- `escopo`
+- `saldo_devedor`
+- `parcela_atual`
+- `parcelas_total`
+- `valor_parcela`
+- `taxa_juros`
+- `sistema_amortizacao`
+- `data_inicio`
+- `data_atualizacao`
+- `estrategia`
+- `status`
+- `observacao`
+
+Rules:
+
+- TODO: Caixa and Vasco must be modeled as debts with balance, term, payment, and strategy before amortization recommendations.
+- TODO: If interest/principal split is unavailable, reports must label the limitation instead of pretending precision.
+
+### Fechamentos_Mensais
+
+TODO columns:
+
+- `competencia`
+- `status`
+- `receitas_operacionais`
+- `despesas_operacionais`
+- `saldo_operacional`
+- `faturas_60d`
+- `parcelas_futuras`
+- `taxa_poupanca`
+- `reserva_total`
+- `patrimonio_liquido`
+- `acerto_status`
+- `decisao_1`
+- `decisao_2`
+- `decisao_3`
+- `created_at`
+- `closed_at`
+
+Rules:
+
+- TODO: Monthly closing is the product heart. Daily logging feeds this table; decisions come from this table.
+- TODO: `/fechar_mes` must summarize facts first and recommendations second.
 
 ## 5. Card, Invoice, And Installment Model
 
@@ -256,6 +337,31 @@ Rules:
 - TODO: Invoice payment is settlement/baixa of liability, not an expense.
 - TODO: Expense recognition happens at purchase/installment competence, not at payment of invoice.
 - TODO: Reconciliation must compare expected invoice items against actual paid/closed invoice totals.
+- TODO: `valor_pago` and `fonte_pagamento` in `Faturas` are summary fields; payment-level truth lives in `Pagamentos_Fatura`.
+
+### Invoice Payments
+
+TODO `Pagamentos_Fatura` columns:
+
+- `id_pagamento`
+- `id_fatura`
+- `data_pagamento`
+- `valor_pago`
+- `id_fonte`
+- `pessoa`
+- `escopo`
+- `afeta_dre`
+- `afeta_acerto`
+- `afeta_patrimonio`
+- `status`
+- `observacao`
+- `created_at`
+
+Rules:
+
+- TODO: Payment of invoice must always have `afeta_dre = FALSE`.
+- TODO: Payment may affect couple settlement if one person pays a shared invoice.
+- TODO: Payment should update/reconcile liability and cash tracking without creating a duplicate expense.
 
 ### Purchases And Installments
 
@@ -270,6 +376,7 @@ TODO `Compras_Parceladas` columns:
 - `parcelas_total`
 - `responsavel`
 - `escopo`
+- `visibilidade`
 - `status`
 
 TODO `Parcelas_Agenda` columns:
@@ -412,13 +519,22 @@ Phase 0 - Approval:
 
 - TODO: Review and approve this masterplan.
 - TODO: Collect missing active installments.
-- TODO: Decide reserve dashboard location and recommendation implementation strategy.
+- TODO: Collect Caixa and Vasco debt details: current balance, installment value, remaining term, interest/rate if available, and amortization strategy.
+- TODO: Decide reserve dashboard location, monthly closing format, privacy defaults, and recommendation implementation strategy.
+
+Phase 0.5 - Security and write-safety gate:
+
+- TODO: Add webhook/proxy secret validation before any write path can run.
+- TODO: Separate read-only sync from mutating maintenance actions; deny unknown actions by default.
+- TODO: Add `withScriptLock()` around all write paths and mutating tests.
+- TODO: Add local/static tests proving the security and lock wrappers exist before `clasp push`.
 
 Phase 1 - Non-mutating design:
 
 - TODO: Add tests/spec fixtures for V54 calculations before changing production sheets.
 - TODO: Audit current V53 formulas numerically with controlled fixtures.
 - TODO: Define invoice cycle calculation for closing day and due day edge cases.
+- TODO: Expand schema tests for `Pagamentos_Fatura`, `Dividas`, `Fechamentos_Mensais`, `afeta_patrimonio`, and `visibilidade`.
 
 Phase 2 - Sheet preparation:
 
@@ -428,13 +544,13 @@ Phase 2 - Sheet preparation:
 
 Phase 3 - Data migration:
 
-- TODO: Migrate config categories, sources, cards, income, assets, and future home forecast.
+- TODO: Migrate config categories, sources, cards, income, assets, debts, privacy defaults, and future home forecast.
 - TODO: Migrate only open/future installments from user-provided list.
 - TODO: Keep V53 `Lancamentos` readable during transition.
 
 Phase 4 - Reporting:
 
-- TODO: Build operational DRE, patrimony/investments, card invoice, reserve, future home forecast, and couple settlement views.
+- TODO: Build operational DRE, patrimony/investments, debts, card invoice, invoice payment, reserve, future home forecast, monthly closing, and couple settlement views.
 - TODO: Verify formulas with snapshot and tests.
 
 Phase 5 - Bot behavior:
@@ -447,6 +563,8 @@ Phase 5 - Bot behavior:
 
 Non-mutating tests:
 
+- TODO: Security static test proving webhook/proxy auth is enforced before command/write routing.
+- TODO: Lock static test proving write paths use `withScriptLock()` or equivalent.
 - TODO: Snapshot structure test for required V54 sheets and headers.
 - TODO: Formula syntax test using `setFormula()` with English functions and semicolon separators.
 - TODO: DRE exclusion test proving investments, reserve transfers, and invoice payments do not affect operational DRE.
@@ -458,12 +576,16 @@ Non-mutating tests:
 - TODO: Rateio test using Gustavo `3400`, Luana `3500`, and benefit usage.
 - TODO: Reserve target test for below `15000`, between `15000` and `30000`, and above `30000`.
 - TODO: Future home forecast test proving inactive forecast does not enter current DRE.
+- TODO: Debt/amortization rule test proving recommendations require known reserve, invoices, and debt data.
+- TODO: Monthly closing test covering DRE, faturas 60d, reserve, net worth, settlement, and three decisions.
+- TODO: Privacy test proving `visibilidade = privada` is not exposed in shared detail reports.
 
 Mutating protected tests:
 
 - TODO: Add V54 protected Web App test similar to `test:v53 -- --mutate`, with deterministic low-value fixtures and automatic cleanup.
 - TODO: Test card purchase writes expense recognition once.
 - TODO: Test invoice payment writes settlement without duplicate expense.
+- TODO: Test partial invoice payment and reconciliation.
 - TODO: Test reserve contribution updates reserve/patrimony without operational DRE inflation.
 
 End-to-end tests:
@@ -498,8 +620,13 @@ V54 can be considered ready for production only when all applicable criteria are
 
 - TODO: `docs/MASTERPLAN_PRODUCAO_V54.md` reviewed and approved.
 - TODO: V54 schema exists in spreadsheet and is verified by exported snapshot.
+- TODO: Webhook/proxy authentication, mutating maintenance endpoint separation, and `LockService` write protection are verified before production mutation.
 - TODO: Tests verify operational DRE excludes investments, reserve transfers, asset movements, and invoice payments.
 - TODO: Card purchases/installments appear once in expense recognition and invoice payment appears only as settlement.
+- TODO: `Pagamentos_Fatura` supports at least full payment, partial payment, and reconciliation against `Faturas`.
+- TODO: `Dividas` includes Caixa and Vasco with enough fields to block unsafe amortization recommendations.
+- TODO: `Fechamentos_Mensais` produces monthly DRE, faturas 60d, reserve, net worth, settlement status, and three decisions.
+- TODO: Privacy rules prevent private personal purchases from appearing in shared detailed reports.
 - TODO: Active installment migration is verified against user-provided list.
 - TODO: Emergency reserve dashboard starts at `0` and does not count the `16635` home-item earmark.
 - TODO: Future home costs total `900` and remain forecast-only until activated.
@@ -518,3 +645,5 @@ V54 can be considered ready for production only when all applicable criteria are
 - TODO: Whether recommendation output should be rule-based only in V54, or rule-based with optional LLM phrasing.
 - TODO: Whether financing principal/interest split can be imported or approximated.
 - TODO: Whether benefits should reduce grocery budget before or after cash rateio in the monthly acerto view.
+- TODO: Exact privacy defaults for personal spending categories.
+- TODO: Whether invoice payment should affect `afeta_patrimonio` as liability/cash movement while remaining net-worth neutral.

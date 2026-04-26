@@ -28,12 +28,15 @@ failed += test('all_required_v54_sheets_are_declared', () => {
         'Rendas',
         'Cartoes',
         'Faturas',
+        'Pagamentos_Fatura',
         'Compras_Parceladas',
         'Parcelas_Agenda',
         'Orcamento_Futuro_Casa',
         'Lancamentos_V54',
         'Patrimonio_Ativos',
+        'Dividas',
         'Acertos_Casal',
+        'Fechamentos_Mensais',
     ]);
 });
 
@@ -61,6 +64,19 @@ failed += test('cartoes_owns_card_specific_fields_and_references_fonte', () => {
 failed += test('parcelas_agenda_has_stable_key_referenced_by_lancamentos', () => {
     assert.strictEqual(V54_HEADERS[V54_SHEETS.PARCELAS_AGENDA].includes('id_parcela'), true);
     assert.strictEqual(V54_HEADERS[V54_SHEETS.LANCAMENTOS_V54].includes('id_parcela'), true);
+});
+
+failed += test('analysis_consolidation_schema_decisions_are_present', () => {
+    assert.ok(getV54Headers(V54_SHEETS.PAGAMENTOS_FATURA).includes('id_pagamento'));
+    assert.ok(getV54Headers(V54_SHEETS.PAGAMENTOS_FATURA).includes('afeta_patrimonio'));
+    assert.ok(getV54Headers(V54_SHEETS.DIVIDAS).includes('saldo_devedor'));
+    assert.ok(getV54Headers(V54_SHEETS.DIVIDAS).includes('estrategia'));
+    assert.ok(getV54Headers(V54_SHEETS.FECHAMENTOS_MENSAIS).includes('taxa_poupanca'));
+    assert.ok(getV54Headers(V54_SHEETS.FECHAMENTOS_MENSAIS).includes('patrimonio_liquido'));
+    assert.ok(getV54Headers(V54_SHEETS.CONFIG_CATEGORIAS).includes('visibilidade_padrao'));
+    assert.ok(getV54Headers(V54_SHEETS.COMPRAS_PARCELADAS).includes('visibilidade'));
+    assert.ok(getV54Headers(V54_SHEETS.LANCAMENTOS_V54).includes('afeta_patrimonio'));
+    assert.ok(getV54Headers(V54_SHEETS.LANCAMENTOS_V54).includes('visibilidade'));
 });
 
 failed += test('schema_has_no_duplicate_headers_or_known_conflicts', () => {

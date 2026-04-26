@@ -134,3 +134,23 @@ Start V54 setup with `planSetupV54()` dry-run only. It can inspect existing shee
 
 Reason:
 Existing setup/repair functions have high blast radius. A dry-run planner provides a reviewable migration plan before any sheet creation, header rewrite, formula injection, or data migration.
+
+## D014 - V54 Consolidated Analysis Execution Order
+Status: Accepted
+Date: 2026-04-26
+
+Decision:
+Consolidate `.ai_shared/ANALISE_A_SER_CONSIDERADA.MD` into the V54 masterplan and treat security plus write-safety as the next mandatory implementation gate. Before new financial features or production sheet mutation, harden webhook/proxy authentication, separate or block mutating GET maintenance actions, and add `LockService` around write paths.
+
+Reason:
+The external analysis and follow-up read-only reviews confirmed that V54 is directionally correct but not ready for production mutation. The highest-impact verified risks are spoofable webhook payload trust, mutating GET endpoints protected by query-string secret, setup/repair blast radius, and concurrent writes using `getLastRow() + 1`.
+
+## D015 - V54 Expanded Financial Schema
+Status: Accepted
+Date: 2026-04-26
+
+Decision:
+Expand the planned V54 schema with `Pagamentos_Fatura`, `Dividas`, and `Fechamentos_Mensais`. Add `afeta_patrimonio` and `visibilidade` to `Lancamentos_V54`, add `visibilidade` to `Compras_Parceladas`, and add `visibilidade_padrao` to `Config_Categorias`.
+
+Reason:
+Invoice payment needs its own entity to support partial payments, reconciliation, and no duplicate DRE expense. Caixa and Vasco need explicit debt records before amortization advice is meaningful. Monthly closing is the decision layer for the couple. Visibility rules are required so personal spending can remain autonomous and not become surveillance in shared reports.

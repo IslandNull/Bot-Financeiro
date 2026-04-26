@@ -115,6 +115,7 @@ Proposed columns:
 - `comportamento_orcamento` (`mensal`, `provisao`, `meta`, `fora_orcamento`)
 - `afeta_acerto`
 - `afeta_dre`
+- `visibilidade_padrao` (`detalhada`, `resumo`, `privada`)
 - `ativo`
 
 #### Config_Fontes
@@ -180,6 +181,27 @@ Proposed columns:
 
 Rule:
 - Paying an invoice is not an expense. It is a payment/settlement of card liability. The expense is the purchase or installment.
+- `valor_pago` and `fonte_pagamento` are summary fields; payment-level detail lives in `Pagamentos_Fatura`.
+
+#### Pagamentos_Fatura
+
+Proposed columns:
+- `id_pagamento`
+- `id_fatura`
+- `data_pagamento`
+- `valor_pago`
+- `id_fonte`
+- `pessoa`
+- `escopo`
+- `afeta_dre`
+- `afeta_acerto`
+- `afeta_patrimonio`
+- `status`
+- `observacao`
+- `created_at`
+
+Rule:
+- Invoice payments must have `afeta_dre = FALSE`; they settle liability and must not duplicate the original purchase/installment expense.
 
 #### Compras_Parceladas
 
@@ -193,6 +215,7 @@ Proposed columns:
 - `parcelas_total`
 - `responsavel`
 - `escopo`
+- `visibilidade`
 - `status`
 
 #### Parcelas_Agenda
@@ -209,6 +232,108 @@ Proposed columns:
 
 Rule:
 - Existing active installments should be migrated only for future/open installments, not fully paid history.
+
+#### Lancamentos_V54
+
+Proposed columns:
+- `id_lancamento`
+- `data`
+- `competencia`
+- `tipo_evento`
+- `id_categoria`
+- `valor`
+- `id_fonte`
+- `pessoa`
+- `escopo`
+- `id_cartao`
+- `id_fatura`
+- `id_compra`
+- `id_parcela`
+- `afeta_dre`
+- `afeta_acerto`
+- `afeta_patrimonio`
+- `visibilidade`
+- `descricao`
+- `created_at`
+
+Rule:
+- `afeta_patrimonio` is required for assets, liabilities, reserve, amortization, and card settlement tracking.
+- `visibilidade` is required so personal spending can be private or summarized without exposing detail.
+
+#### Patrimonio_Ativos
+
+Proposed columns:
+- `id_ativo`
+- `nome`
+- `tipo_ativo`
+- `instituicao`
+- `saldo_inicial`
+- `saldo_atual`
+- `data_referencia`
+- `destinacao`
+- `conta_reserva_emergencia`
+- `ativo`
+
+Rule:
+- The current `16635` earmarked for home items must use `destinacao = Casa` and must not count as emergency reserve.
+
+#### Dividas
+
+Proposed columns:
+- `id_divida`
+- `nome`
+- `credor`
+- `tipo`
+- `pessoa`
+- `escopo`
+- `saldo_devedor`
+- `parcela_atual`
+- `parcelas_total`
+- `valor_parcela`
+- `taxa_juros`
+- `sistema_amortizacao`
+- `data_inicio`
+- `data_atualizacao`
+- `estrategia`
+- `status`
+- `observacao`
+
+Rule:
+- Caixa and Vasco should be modeled here before any amortization recommendation is allowed.
+
+#### Acertos_Casal
+
+Proposed columns:
+- `competencia`
+- `pessoa`
+- `quota_esperada`
+- `valor_pago_casal`
+- `diferenca`
+- `status`
+- `observacao`
+
+#### Fechamentos_Mensais
+
+Proposed columns:
+- `competencia`
+- `status`
+- `receitas_operacionais`
+- `despesas_operacionais`
+- `saldo_operacional`
+- `faturas_60d`
+- `parcelas_futuras`
+- `taxa_poupanca`
+- `reserva_total`
+- `patrimonio_liquido`
+- `acerto_status`
+- `decisao_1`
+- `decisao_2`
+- `decisao_3`
+- `created_at`
+- `closed_at`
+
+Rule:
+- Monthly closing is the decision layer: it must summarize facts first, then store the three recommended decisions for the next month.
 
 #### Orcamento_Futuro_Casa
 

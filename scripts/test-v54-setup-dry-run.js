@@ -67,9 +67,14 @@ failed += test('planSetupV54_does_not_call_mutating_sheet_apis', () => {
 
 failed += test('planSetupV54_schema_contains_key_decisions', () => {
     const body = extractFunction('getV54Schema');
+    assert.ok(body.includes("Config_Categorias: ['id_categoria', 'nome', 'grupo', 'tipo_movimento', 'classe_dre', 'escopo', 'comportamento_orcamento', 'afeta_acerto', 'afeta_dre', 'visibilidade_padrao', 'ativo']"));
     assert.ok(body.includes("Config_Fontes: ['id_fonte', 'nome', 'tipo', 'titular', 'ativo']"));
     assert.ok(body.includes("Cartoes: ['id_cartao', 'id_fonte', 'nome', 'titular', 'fechamento_dia', 'vencimento_dia', 'limite', 'ativo']"));
+    assert.ok(body.includes("Pagamentos_Fatura: ['id_pagamento', 'id_fatura'"));
     assert.ok(body.includes("Parcelas_Agenda: ['id_parcela', 'id_compra'"));
+    assert.ok(body.includes("Lancamentos_V54: ['id_lancamento', 'data', 'competencia', 'tipo_evento', 'id_categoria', 'valor', 'id_fonte', 'pessoa', 'escopo', 'id_cartao', 'id_fatura', 'id_compra', 'id_parcela', 'afeta_dre', 'afeta_acerto', 'afeta_patrimonio', 'visibilidade'"));
+    assert.ok(body.includes("Dividas: ['id_divida', 'nome', 'credor'"));
+    assert.ok(body.includes("Fechamentos_Mensais: ['competencia', 'status', 'receitas_operacionais'"));
 });
 
 if (failed > 0) {

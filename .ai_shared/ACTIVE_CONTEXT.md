@@ -29,6 +29,9 @@ Branch: feat/v52-upgrade
 - V54 local schema spec was added in `scripts/lib/v54-schema.js` and `scripts/test-v54-schema.js`, with npm script `test:v54:schema`.
 - V54 schema decision: `Config_Fontes` stores source identity (`id_fonte`, name, type, owner, active), while `Cartoes` stores card-specific fields and references `id_fonte`; `Parcelas_Agenda` has stable `id_parcela`.
 - V54 dry-run setup planner was added in `src/Setup.js`: `getV54Schema()`, `planSetupV54ForState(state)`, and `planSetupV54()`. The planner reports missing sheets/header changes but must not mutate the spreadsheet.
+- `.ai_shared/ANALISE_A_SER_CONSIDERADA.MD` was reviewed and consolidated into `docs/MASTERPLAN_PRODUCAO_V54.md` on 2026-04-26.
+- Consolidated V54 analysis decision: before any production mutation or new financial feature, implement security hardening and `LockService` write protection.
+- Consolidated V54 schema decisions: add `Pagamentos_Fatura`, `Dividas`, `Fechamentos_Mensais`, `afeta_patrimonio`, and `visibilidade`; invoice payments must not affect operational DRE; debts must be modeled before amortization recommendations.
 - `cmd /c npm run test:v54:domain` passed on 2026-04-26.
 - `cmd /c npm run test:v54:schema` passed on 2026-04-26.
 - `cmd /c npm run test:v54:setup` passed on 2026-04-26, including static checks that `planSetupV54` does not call mutating sheet APIs.
@@ -41,9 +44,9 @@ Branch: feat/v52-upgrade
 - V54 schema exists in the spreadsheet. It does not; it is only planned.
 
 ## Current task
-Execute V54 safely in small phases. Current completed phase: read-only multi-agent review plus first local pure-domain V54 test suite. Do not mutate production spreadsheet yet.
+Execute V54 safely in small phases. Current completed phase: read-only multi-agent review, first local pure-domain V54 test suite, and consolidation of the external analysis into the masterplan/schema spec. Do not mutate production spreadsheet yet.
 
 ## Next safe action
-1. Run and keep passing `cmd /c npm run test:v54:domain`, `cmd /c npm run test:v54:schema`, and `cmd /c npm run test:v53`.
-2. Next implementation slice should be security hardening for `doPost`/mutating maintenance endpoints or V54 formula builders, before any production mutation.
+1. Run and keep passing `cmd /c npm run test:v54:domain`, `cmd /c npm run test:v54:schema`, `cmd /c npm run test:v54:setup`, and `cmd /c npm run test:v53`.
+2. Next implementation slice should be security hardening for `doPost`/mutating maintenance endpoints plus `LockService` write protection, before formula builders or any production mutation.
 3. Do not run `clasp push`, setup functions, mutating tests, Telegram production tests, or spreadsheet mutation until local schema/domain tests and security blockers are addressed.
