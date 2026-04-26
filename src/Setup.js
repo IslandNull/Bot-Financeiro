@@ -338,6 +338,299 @@ function applySetupV54() {
     });
 }
 
+// ============================================================
+// SEED V54 - CLEAN START, DRY-RUN FIRST
+// ============================================================
+function getV54SeedData() {
+    return {
+        Config_Categorias: [
+            { id_categoria: 'OPEX_MERCADO_RANCHO', nome: 'Mercado rancho', grupo: 'Casa', tipo_movimento: 'Despesa', classe_dre: 'Operacional', escopo: 'Casal', comportamento_orcamento: 'recorrente', afeta_acerto: true, afeta_dre: true, visibilidade_padrao: 'detalhada', ativo: true },
+            { id_categoria: 'OPEX_MERCADO_SEMANA', nome: 'Mercado semana', grupo: 'Casa', tipo_movimento: 'Despesa', classe_dre: 'Operacional', escopo: 'Casal', comportamento_orcamento: 'variavel', afeta_acerto: true, afeta_dre: true, visibilidade_padrao: 'detalhada', ativo: true },
+            { id_categoria: 'OPEX_DELIVERY_CASAL', nome: 'Delivery casal', grupo: 'Lazer', tipo_movimento: 'Despesa', classe_dre: 'Operacional', escopo: 'Casal', comportamento_orcamento: 'limite_semanal', afeta_acerto: true, afeta_dre: true, visibilidade_padrao: 'detalhada', ativo: true },
+            { id_categoria: 'OPEX_RESTAURANTE_CASAL', nome: 'Restaurante casal', grupo: 'Lazer', tipo_movimento: 'Despesa', classe_dre: 'Operacional', escopo: 'Casal', comportamento_orcamento: 'limite_mensal', afeta_acerto: true, afeta_dre: true, visibilidade_padrao: 'detalhada', ativo: true },
+            { id_categoria: 'OPEX_LUZ', nome: 'Luz', grupo: 'Casa futura', tipo_movimento: 'Despesa', classe_dre: 'Operacional', escopo: 'Casal', comportamento_orcamento: 'forecast', afeta_acerto: true, afeta_dre: true, visibilidade_padrao: 'resumo', ativo: true },
+            { id_categoria: 'OPEX_AGUA', nome: 'Agua', grupo: 'Casa futura', tipo_movimento: 'Despesa', classe_dre: 'Operacional', escopo: 'Casal', comportamento_orcamento: 'forecast', afeta_acerto: true, afeta_dre: true, visibilidade_padrao: 'resumo', ativo: true },
+            { id_categoria: 'OPEX_INTERNET', nome: 'Internet', grupo: 'Casa futura', tipo_movimento: 'Despesa', classe_dre: 'Operacional', escopo: 'Casal', comportamento_orcamento: 'forecast', afeta_acerto: true, afeta_dre: true, visibilidade_padrao: 'resumo', ativo: true },
+            { id_categoria: 'OPEX_CELULARES', nome: 'Celulares', grupo: 'Casa futura', tipo_movimento: 'Despesa', classe_dre: 'Operacional', escopo: 'Casal', comportamento_orcamento: 'forecast', afeta_acerto: true, afeta_dre: true, visibilidade_padrao: 'resumo', ativo: true },
+            { id_categoria: 'OPEX_CONDOMINIO', nome: 'Condominio', grupo: 'Casa futura', tipo_movimento: 'Despesa', classe_dre: 'Operacional', escopo: 'Casal', comportamento_orcamento: 'forecast', afeta_acerto: true, afeta_dre: true, visibilidade_padrao: 'resumo', ativo: true },
+            { id_categoria: 'OPEX_COMBUSTIVEL_MOTO', nome: 'Combustivel moto', grupo: 'Transporte', tipo_movimento: 'Despesa', classe_dre: 'Operacional', escopo: 'Gustavo', comportamento_orcamento: 'recorrente', afeta_acerto: false, afeta_dre: true, visibilidade_padrao: 'detalhada', ativo: true },
+            { id_categoria: 'OPEX_MANUTENCAO_MOTO', nome: 'Manutencao moto', grupo: 'Transporte', tipo_movimento: 'Despesa', classe_dre: 'Operacional', escopo: 'Gustavo', comportamento_orcamento: 'provisao', afeta_acerto: false, afeta_dre: true, visibilidade_padrao: 'detalhada', ativo: true },
+            { id_categoria: 'OPEX_ROUPAS', nome: 'Roupas', grupo: 'Pessoal', tipo_movimento: 'Despesa', classe_dre: 'Operacional', escopo: 'Casal', comportamento_orcamento: 'pessoal_proporcional', afeta_acerto: true, afeta_dre: true, visibilidade_padrao: 'resumo', ativo: true },
+            { id_categoria: 'OPEX_CUIDADO_PESSOAL', nome: 'Cuidado pessoal', grupo: 'Pessoal', tipo_movimento: 'Despesa', classe_dre: 'Operacional', escopo: 'Casal', comportamento_orcamento: 'pessoal_proporcional', afeta_acerto: true, afeta_dre: true, visibilidade_padrao: 'resumo', ativo: true },
+            { id_categoria: 'OPEX_SAUDE_COPARTICIPACAO', nome: 'Coparticipacao medica', grupo: 'Saude', tipo_movimento: 'Despesa', classe_dre: 'Operacional', escopo: 'Casal', comportamento_orcamento: 'pessoal_proporcional', afeta_acerto: true, afeta_dre: true, visibilidade_padrao: 'resumo', ativo: true },
+            { id_categoria: 'OPEX_LANCHES_TRABALHO', nome: 'Lanches trabalho', grupo: 'Pessoal', tipo_movimento: 'Despesa', classe_dre: 'Operacional', escopo: 'Casal', comportamento_orcamento: 'pessoal_proporcional', afeta_acerto: true, afeta_dre: true, visibilidade_padrao: 'resumo', ativo: true },
+            { id_categoria: 'OPEX_FARMACIA', nome: 'Farmacia', grupo: 'Saude', tipo_movimento: 'Despesa', classe_dre: 'Operacional', escopo: 'Casal', comportamento_orcamento: 'variavel', afeta_acerto: true, afeta_dre: true, visibilidade_padrao: 'resumo', ativo: true },
+            { id_categoria: 'DEBT_FINANCIAMENTO_CAIXA', nome: 'Financiamento Caixa', grupo: 'Dividas', tipo_movimento: 'Despesa', classe_dre: 'Divida', escopo: 'Casal', comportamento_orcamento: 'obrigacao', afeta_acerto: true, afeta_dre: false, visibilidade_padrao: 'resumo', ativo: true },
+            { id_categoria: 'DEBT_VASCO', nome: 'Vasco', grupo: 'Dividas', tipo_movimento: 'Despesa', classe_dre: 'Divida', escopo: 'Casal', comportamento_orcamento: 'obrigacao', afeta_acerto: true, afeta_dre: false, visibilidade_padrao: 'resumo', ativo: true },
+            { id_categoria: 'INV_APORTE', nome: 'Aporte investimento', grupo: 'Patrimonio', tipo_movimento: 'Transferencia', classe_dre: 'Investimento', escopo: 'Casal', comportamento_orcamento: 'prioridade_pre_pessoal', afeta_acerto: true, afeta_dre: false, visibilidade_padrao: 'resumo', ativo: true },
+            { id_categoria: 'RESERVA_EMERGENCIA', nome: 'Reserva emergencia', grupo: 'Patrimonio', tipo_movimento: 'Transferencia', classe_dre: 'Reserva', escopo: 'Casal', comportamento_orcamento: 'prioridade_pre_pessoal', afeta_acerto: true, afeta_dre: false, visibilidade_padrao: 'resumo', ativo: true },
+            { id_categoria: 'REC_SALARIO', nome: 'Salario', grupo: 'Receitas', tipo_movimento: 'Receita', classe_dre: 'Operacional', escopo: 'Casal', comportamento_orcamento: 'recorrente', afeta_acerto: true, afeta_dre: true, visibilidade_padrao: 'resumo', ativo: true },
+            { id_categoria: 'REC_BENEFICIO', nome: 'Beneficio VA/VR', grupo: 'Receitas', tipo_movimento: 'Receita', classe_dre: 'Operacional', escopo: 'Casal', comportamento_orcamento: 'uso_restrito', afeta_acerto: false, afeta_dre: true, visibilidade_padrao: 'resumo', ativo: true },
+            { id_categoria: 'REC_EVENTO', nome: 'Renda evento', grupo: 'Receitas', tipo_movimento: 'Receita', classe_dre: 'Operacional', escopo: 'Casal', comportamento_orcamento: 'evento_recomendacao', afeta_acerto: true, afeta_dre: true, visibilidade_padrao: 'resumo', ativo: true },
+        ],
+        Config_Fontes: [
+            { id_fonte: 'FONTE_CONTA_GU', nome: 'Conta Gustavo', tipo: 'conta', titular: 'Gustavo', ativo: true },
+            { id_fonte: 'FONTE_CONTA_LU', nome: 'Conta Luana', tipo: 'conta', titular: 'Luana', ativo: true },
+            { id_fonte: 'FONTE_NUBANK_GU', nome: 'Nubank Gu', tipo: 'cartao', titular: 'Gustavo', ativo: true },
+            { id_fonte: 'FONTE_MP_GU', nome: 'Mercado Pago Gu', tipo: 'cartao', titular: 'Gustavo', ativo: true },
+            { id_fonte: 'FONTE_NUBANK_LU', nome: 'Nubank Lu', tipo: 'cartao', titular: 'Luana', ativo: true },
+            { id_fonte: 'FONTE_ALELO_GU', nome: 'Alelo Gustavo', tipo: 'beneficio', titular: 'Gustavo', ativo: true },
+            { id_fonte: 'FONTE_VA_LU', nome: 'VA Luana', tipo: 'beneficio', titular: 'Luana', ativo: true },
+            { id_fonte: 'FONTE_MP_COFRE_CASA', nome: 'Mercado Pago Cofrinho Casa', tipo: 'investimento', titular: 'Casal', ativo: true },
+            { id_fonte: 'FONTE_NUBANK_CAIXINHA_CASA', nome: 'Nubank Caixinha Casa', tipo: 'investimento', titular: 'Casal', ativo: true },
+        ],
+        Rendas: [
+            { id_renda: 'REN_GU_SALARIO_LIQUIDO', pessoa: 'Gustavo', tipo: 'salario_liquido', valor: 3400, recorrente: true, dia_recebimento: 5, uso_restrito: false, afeta_rateio: true, afeta_dre: true, obs: 'Recebe no 5o dia do mes; se nao for util, dia util anterior.' },
+            { id_renda: 'REN_LU_SALARIO_LIQUIDO', pessoa: 'Luana', tipo: 'salario_liquido', valor: 3500, recorrente: true, dia_recebimento: 5, uso_restrito: false, afeta_rateio: true, afeta_dre: true, obs: 'Recebe no 5o dia do mes.' },
+            { id_renda: 'REN_GU_ALELO', pessoa: 'Gustavo', tipo: 'beneficio_va_vr', valor: 1500, recorrente: true, dia_recebimento: 5, uso_restrito: true, afeta_rateio: false, afeta_dre: true, obs: 'Alelo cambiavel pelo app; uso 100% casal, majoritariamente mercado.' },
+            { id_renda: 'REN_LU_VA', pessoa: 'Luana', tipo: 'beneficio_va', valor: 300, recorrente: true, dia_recebimento: 5, uso_restrito: true, afeta_rateio: false, afeta_dre: true, obs: 'VA Luana; uso 100% casal.' },
+            { id_renda: 'REN_GU_AUX_COMBUSTIVEL', pessoa: 'Gustavo', tipo: 'auxilio_combustivel', valor: 1200, recorrente: true, dia_recebimento: 5, uso_restrito: false, afeta_rateio: true, afeta_dre: true, obs: 'Tratado como salario normal; gasto moto esperado 150-160/mes e manutencao periodica separada.' },
+        ],
+        Cartoes: [
+            { id_cartao: 'CARD_NUBANK_GU', id_fonte: 'FONTE_NUBANK_GU', nome: 'Nubank Gustavo', titular: 'Gustavo', fechamento_dia: 30, vencimento_dia: 7, limite: 10550, ativo: true },
+            { id_cartao: 'CARD_MP_GU', id_fonte: 'FONTE_MP_GU', nome: 'Mercado Pago Gustavo', titular: 'Gustavo', fechamento_dia: 5, vencimento_dia: 10, limite: 10000, ativo: true },
+            { id_cartao: 'CARD_NUBANK_LU', id_fonte: 'FONTE_NUBANK_LU', nome: 'Nubank Luana', titular: 'Luana', fechamento_dia: 1, vencimento_dia: 8, limite: 10000, ativo: true },
+        ],
+        Patrimonio_Ativos: [
+            { id_ativo: 'ATIVO_MP_COFRINHO_CASA', nome: 'Mercado Pago Cofrinho Casa', tipo_ativo: 'cofrinho_cdi', instituicao: 'Mercado Pago', saldo_inicial: 11469, saldo_atual: 11469, data_referencia: '2026-04-26', destinacao: 'Itens da casa', conta_reserva_emergencia: false, ativo: true },
+            { id_ativo: 'ATIVO_NUBANK_CAIXINHA_CASA', nome: 'Nubank Caixinha Casa', tipo_ativo: 'caixinha_cdi', instituicao: 'Nubank', saldo_inicial: 5166, saldo_atual: 5166, data_referencia: '2026-04-26', destinacao: 'Itens da casa', conta_reserva_emergencia: false, ativo: true },
+        ],
+        Dividas: [
+            { id_divida: 'DIV_CAIXA_IMOVEL', nome: 'Financiamento Caixa Casa', credor: 'Caixa', tipo: 'financiamento_imobiliario', pessoa: 'Casal', escopo: 'Casal', saldo_devedor: 254156.57, parcela_atual: 1, parcelas_total: 419, valor_parcela: 1906.20, taxa_juros: '', sistema_amortizacao: '', data_inicio: '', data_atualizacao: '2026-04-26', estrategia: 'manter_e_revisar_amortizacao', status: 'ativa', observacao: '419 meses restantes informados em 2026-04-26; total original e taxa ainda nao confirmados.' },
+            { id_divida: 'DIV_VASCO', nome: 'Vasco', credor: 'Vasco', tipo: 'financiamento_clube', pessoa: 'Casal', escopo: 'Casal', saldo_devedor: 55175.41, parcela_atual: 10, parcelas_total: 74, valor_parcela: 862.12, taxa_juros: '', sistema_amortizacao: '', data_inicio: '', data_atualizacao: '2026-04-26', estrategia: 'acompanhar_antes_de_amortizar', status: 'ativa', observacao: '9 de 74 parcelas pagas em 2026-04-26.' },
+        ],
+        Orcamento_Futuro_Casa: [
+            { item: 'Luz', valor_previsto: 200, data_inicio_prevista: '2026-06-01', ativo_no_dre: false },
+            { item: 'Agua', valor_previsto: 100, data_inicio_prevista: '2026-06-01', ativo_no_dre: false },
+            { item: 'Internet', valor_previsto: 120, data_inicio_prevista: '2026-06-01', ativo_no_dre: false },
+            { item: 'Celulares', valor_previsto: 80, data_inicio_prevista: '2026-06-01', ativo_no_dre: false },
+            { item: 'Condominio', valor_previsto: 400, data_inicio_prevista: '2026-06-01', ativo_no_dre: false },
+        ],
+    };
+}
+
+function getV54SeedKeyFields_() {
+    return {
+        Config_Categorias: 'id_categoria',
+        Config_Fontes: 'id_fonte',
+        Rendas: 'id_renda',
+        Cartoes: 'id_cartao',
+        Patrimonio_Ativos: 'id_ativo',
+        Dividas: 'id_divida',
+        Orcamento_Futuro_Casa: 'item',
+    };
+}
+
+function normalizeV54SeedValue_(value) {
+    if (value === null || value === undefined) return '';
+    if (Object.prototype.toString.call(value) === '[object Date]') {
+        return Utilities.formatDate(value, CONFIG.TIMEZONE, 'yyyy-MM-dd');
+    }
+    if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+    if (typeof value === 'number') return String(Number(value));
+    return String(value).trim();
+}
+
+function v54SeedRowsEqual_(headers, expectedRow, currentRow) {
+    return headers.every((header) => normalizeV54SeedValue_(expectedRow[header]) === normalizeV54SeedValue_(currentRow[header]));
+}
+
+function v54SeedRowToValues_(headers, row) {
+    return headers.map((header) => row[header] === undefined ? '' : row[header]);
+}
+
+function v54SeedValuesToRow_(headers, values) {
+    return headers.reduce((acc, header, index) => {
+        acc[header] = values[index];
+        return acc;
+    }, {});
+}
+
+function planSeedV54ForState(state) {
+    const schema = getV54Schema();
+    const seedData = getV54SeedData();
+    const keyFields = getV54SeedKeyFields_();
+    const existing = state || {};
+    const actions = [];
+    let unmanagedRows = 0;
+
+    Object.keys(seedData).forEach((sheetName) => {
+        const expectedHeaders = schema[sheetName];
+        const sheetState = existing[sheetName];
+        const seedRows = seedData[sheetName];
+        const keyField = keyFields[sheetName];
+
+        if (!expectedHeaders || !keyField) {
+            actions.push({ action: 'BLOCKED_SEED_CONFLICT', sheet: sheetName, reason: 'Seed target is not part of the V54 schema.' });
+            return;
+        }
+
+        if (!sheetState) {
+            actions.push({ action: 'BLOCKED_MISSING_SHEET', sheet: sheetName, expectedHeaders });
+            return;
+        }
+
+        const currentHeaders = sheetState.headers || [];
+        const comparableHeaders = currentHeaders.slice(0, expectedHeaders.length);
+        const headersMatch = expectedHeaders.every((header, index) => header === comparableHeaders[index]);
+        const lastColumn = Number(sheetState.lastColumn || currentHeaders.length || 0);
+        const extraHeaders = currentHeaders.slice(expectedHeaders.length).filter((header) => String(header || '').trim());
+
+        if (lastColumn > expectedHeaders.length || extraHeaders.length > 0) {
+            actions.push({ action: 'BLOCKED_EXTRA_HEADERS', sheet: sheetName, currentHeaders, expectedHeaders, extraHeaders, lastColumn });
+            return;
+        }
+
+        if (!headersMatch) {
+            actions.push({ action: 'BLOCKED_HEADER_MISMATCH', sheet: sheetName, currentHeaders, expectedHeaders });
+            return;
+        }
+
+        const currentRows = sheetState.rows || [];
+        const rowsByKey = {};
+        currentRows.forEach((row) => {
+            const key = normalizeV54SeedValue_(row[keyField]);
+            if (!key) return;
+            rowsByKey[key] = row;
+        });
+
+        seedRows.forEach((seedRow) => {
+            const key = normalizeV54SeedValue_(seedRow[keyField]);
+            const currentRow = rowsByKey[key];
+            if (!currentRow) {
+                actions.push({ action: 'INSERT_SEED_ROW', sheet: sheetName, keyField, key, row: seedRow });
+                return;
+            }
+
+            if (v54SeedRowsEqual_(expectedHeaders, seedRow, currentRow)) {
+                actions.push({ action: 'OK', sheet: sheetName, keyField, key });
+                return;
+            }
+
+            actions.push({
+                action: 'BLOCKED_SEED_CONFLICT',
+                sheet: sheetName,
+                keyField,
+                key,
+                expectedRow: seedRow,
+                currentRow,
+            });
+        });
+
+        const seedKeys = seedRows.reduce((acc, row) => {
+            acc[normalizeV54SeedValue_(row[keyField])] = true;
+            return acc;
+        }, {});
+        unmanagedRows += currentRows.filter((row) => {
+            const key = normalizeV54SeedValue_(row[keyField]);
+            return key && !seedKeys[key];
+        }).length;
+    });
+
+    const blockedActions = actions.filter((action) => action.action.indexOf('BLOCKED_') === 0);
+
+    return {
+        ok: blockedActions.length === 0,
+        dryRun: true,
+        actions,
+        summary: {
+            ok: actions.filter((action) => action.action === 'OK').length,
+            insertSeedRow: actions.filter((action) => action.action === 'INSERT_SEED_ROW').length,
+            blocked: blockedActions.length,
+            unmanagedRows,
+        },
+    };
+}
+
+function readV54SeedState_(ss, schema, seedData) {
+    const state = {};
+
+    Object.keys(seedData).forEach((sheetName) => {
+        const sheet = ss.getSheetByName(sheetName);
+        if (!sheet) return;
+
+        const expectedHeaders = schema[sheetName];
+        const lastRow = sheet.getLastRow();
+        const lastColumn = sheet.getLastColumn();
+        const width = Math.max(expectedHeaders.length, lastColumn);
+        const headers = sheet.getRange(1, 1, 1, width).getValues()[0];
+        const dataRowCount = Math.max(lastRow - 1, 0);
+        const rows = dataRowCount > 0
+            ? sheet.getRange(2, 1, dataRowCount, expectedHeaders.length).getValues().map((values) => v54SeedValuesToRow_(expectedHeaders, values))
+            : [];
+
+        state[sheetName] = { lastRow, lastColumn, headers, rows };
+    });
+
+    return state;
+}
+
+function planSeedV54() {
+    _loadSecrets();
+    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const schema = getV54Schema();
+    const seedData = getV54SeedData();
+    const state = readV54SeedState_(ss, schema, seedData);
+    const plan = planSeedV54ForState(state);
+    console.log(JSON.stringify(plan, null, 2));
+    return plan;
+}
+
+function applySeedV54() {
+    return withScriptLock('applySeedV54', () => {
+        _loadSecrets();
+        const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+        const schema = getV54Schema();
+        const seedData = getV54SeedData();
+        const state = readV54SeedState_(ss, schema, seedData);
+        const plan = planSeedV54ForState(state);
+        const blockedActions = plan.actions.filter((action) => action.action.indexOf('BLOCKED_') === 0);
+
+        if (blockedActions.length > 0) {
+            const blockedResult = {
+                ok: false,
+                dryRun: false,
+                applied: false,
+                actions: plan.actions,
+                summary: plan.summary,
+                blockedActions,
+            };
+            console.log(JSON.stringify(blockedResult, null, 2));
+            return blockedResult;
+        }
+
+        const rowsBySheet = {};
+        plan.actions
+            .filter((action) => action.action === 'INSERT_SEED_ROW')
+            .forEach((action) => {
+                if (!rowsBySheet[action.sheet]) rowsBySheet[action.sheet] = [];
+                rowsBySheet[action.sheet].push(action.row);
+            });
+
+        const appliedActions = [];
+        Object.keys(rowsBySheet).forEach((sheetName) => {
+            const sheet = ss.getSheetByName(sheetName);
+            if (!sheet) throw new Error(`V54 seed sheet disappeared before apply: ${sheetName}`);
+            const headers = schema[sheetName];
+            const rows = rowsBySheet[sheetName].map((row) => v54SeedRowToValues_(headers, row));
+            const startRow = sheet.getLastRow() + 1;
+            sheet.getRange(startRow, 1, rows.length, headers.length).setValues(rows);
+            appliedActions.push({ action: 'INSERT_SEED_ROWS', sheet: sheetName, rows: rows.length });
+        });
+
+        const result = {
+            ok: true,
+            dryRun: false,
+            applied: true,
+            actions: plan.actions,
+            summary: plan.summary,
+            appliedActions,
+        };
+        console.log(JSON.stringify(result, null, 2));
+        return result;
+    });
+}
+
 function deleteWebhook() {
     _loadSecrets();
     UrlFetchApp.fetch(`https://api.telegram.org/bot${CONFIG.TELEGRAM_TOKEN}/deleteWebhook`);

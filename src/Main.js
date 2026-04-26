@@ -134,7 +134,7 @@ function isSyncAuthorized_(e) {
 }
 
 function isBlockedMutatingGetAction_(action) {
-    return ['forceFixAllFormulas', 'runV53AporteTest', 'applySetupV54'].indexOf(action) !== -1;
+    return ['forceFixAllFormulas', 'runV53AporteTest', 'applySetupV54', 'applySeedV54'].indexOf(action) !== -1;
 }
 
 function safeCompare_(candidate, expected) {

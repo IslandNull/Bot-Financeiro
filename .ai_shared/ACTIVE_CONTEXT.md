@@ -88,6 +88,11 @@ Branch: feat/v54-production-readiness
 - `cmd /c npm run sync` passed after the Telegram write/desfazer test and refreshed `.ai_shared/SPREADSHEET_STATE.md` with generation time `2026-04-26 15:55:22`; searching the snapshot did not find the test description or `R$ 1,00` test residue.
 - V54 sheet/schema audit concluded that the current sheet list is OK but visually confusing because V53 and V54 coexist. The apparent duplicates (`Config` vs `Config_Categorias`/`Config_Fontes`, `Parcelas` vs `Compras_Parceladas`/`Parcelas_Agenda`, `Lancamentos` vs `Lancamentos_V54`, `Investimentos` vs `Patrimonio_Ativos`) are expected during transition.
 - User confirmed V53 has no meaningful valid historical data to preserve. Decision D021 was accepted: V54 will be a clean start with reviewed seed/config data, not a default migration of V53 history. V53 remains temporary fallback until V54 write paths and reports are verified.
+- V54 seed data payload (`getV54SeedData()`) was implemented locally for `Config_Categorias`, `Config_Fontes`, `Rendas`, `Cartoes`, `Patrimonio_Ativos`, `Dividas`, and `Orcamento_Futuro_Casa` in `src/Setup.js`.
+- V54 seed mechanism (`planSeedV54ForState` and `applySeedV54`) is implemented as dry-run-first and non-migrating (clean start).
+- `applySeedV54` was added to `isBlockedMutatingGetAction_` in `src/Main.js` to block mutating GET calls.
+- `cmd /c npm run test:v54:seed` was added and tests passed locally, checking payload structure and fake-spreadsheet setup mechanics.
+- All pre-existing test suites passed successfully after these additions.
 
 ## Unverified claims
 - Negative webhook security behavior is not yet production-tested: POST without secret, POST with invalid secret, and valid secret with unauthorized chat should not write anything.
@@ -98,11 +103,11 @@ Branch: feat/v54-production-readiness
 - V53 sheets are safe to remove or rename. They are not: current production code still depends on them until V54 write paths replace V53.
 
 ## Current task
-Execute V54 safely in small phases. Current phase: Phase 2 additive sheet setup is applied and verified, Telegram/Val.town positive production routing is verified for read-only command, controlled write, and `desfazer`, and V54 is now defined as a clean start instead of a V53 history migration. Next gate is implementing V54 seed/config planning as a dry-run-first, idempotent, non-migrating slice; optional negative webhook tests can be added before broader production writes.
+Execute V54 safely in small phases. Current phase: V54 seed/config is implemented locally as a dry-run-first, idempotent slice. Next gate is pushing this slice, validating the dry-run against the real spreadsheet, and applying the clean seed.
 
 ## Next safe action
-1. Run and keep passing `cmd /c npm run test:security-locks`, `cmd /c npm run test:v54:domain`, `cmd /c npm run test:v54:schema`, `cmd /c npm run test:v54:snapshot`, `cmd /c npm run test:v54:setup`, and `cmd /c npm run test:v53`.
-2. Design V54 seed/config payloads for `Config_Categorias`, `Config_Fontes`, `Rendas`, `Cartoes`, `Patrimonio_Ativos`, `Dividas`, and `Orcamento_Futuro_Casa`.
-3. Implement seed as dry-run-first and fake-spreadsheet-tested; do not write real seed data until the payload is reviewed.
-4. Do not migrate V53 history by default; only manually chosen opening balances, debts, cards, income, categories, and future-home forecast should seed V54.
-5. If broader Telegram production use is planned before V54 seed, add negative webhook tests for missing secret, invalid secret, and unauthorized chat.
+1. Review the seed payload with the user.
+2. Execute the deployment (`cmd /c npm run push`).
+3. Run `planSeedV54()` manually from the Apps Script editor to review the dry-run output against the real spreadsheet.
+4. Execute `applySeedV54()` manually after dry-run approval.
+5. If broader Telegram production use is planned before writing transaction histories, add negative webhook tests for missing secret, invalid secret, and unauthorized chat.
