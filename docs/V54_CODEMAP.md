@@ -21,7 +21,8 @@ Existem duas gerações de código convivendo no mesmo runtime:
 | Arquivo | Papel | Status | Pode receber feature nova? | Observação |
 |---|---|---|---|---|
 | `src/Main.js` | Entry points (`doPost`, `doGet`), CONFIG, utilitários (`sendTelegram`, `formatBRL`, `withScriptLock`), routing mode enum | `SHARED_INFRA` | Não sem aprovação explícita | Roteia para V53 hoje. Futuro roteamento V54 será adicionado aqui. |
-| `src/ActionsV54.js` | Adapter Apps Script V54: `recordEntryV54`, validação, mapeamento, escrita fake-first em Lancamentos/Compras/Parcelas/Faturas | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Grande (1006 linhas). Contém duplicação temporária de headers e validação (limitação CommonJS). Não wired into `doPost` yet. |
+| `src/ActionsV54.js` | Adapter Apps Script V54: `recordEntryV54`, validação, mapeamento, escrita fake-first em Lancamentos/Compras/Parcelas/Faturas | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Contém duplicação temporária de headers e validação (limitação CommonJS). Não wired into `doPost` yet. |
+| `src/ActionsV54Idempotency.js` | Adapter Apps Script fake-first para idempotência em `recordEntryV54` via DI | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Consome planner local injetado, guarda grupos de mutação V54, sem `require()` e sem roteamento Telegram. |
 | `src/Actions.js` | Lógica de escrita legacy V53: `handleEntry`, `recordParsedEntry`, `desfazerUltimo`, `handleManter`, `handleParcela` | `V53_LEGACY` | **Não** | Deprecated. Fluxo de escrita do Telegram atual. |
 | `src/Commands.js` | Switch de comandos legacy V53: `handleCommand`, `helpText` | `V53_LEGACY` | **Não** | Deprecated. Chamado por `doPost`. |
 | `src/Parser.js` | Parser OpenAI legacy V53: `parseWithOpenAI`, `validateParse`, `getListsCached` | `V53_LEGACY` | **Não** | Deprecated. Chamado por `handleEntry`. |
@@ -85,6 +86,9 @@ Contratos locais Node.js (scripts/lib/):
 Adapter Apps Script:
   src/ActionsV54.js
     → recordEntryV54(parsedEntry, options)
+      → se `options.idempotency.enabled === true`, delega para `src/ActionsV54Idempotency.js`
+      → planner idempotente injetado decide antes de qualquer mutação V54
+      → aplica grupo de mutação somente após `INSERT_IDEMPOTENCY_LOG`
       → validateParsedEntryV54ForActions_()
       → mapParsedEntryToLancamentoV54_() (simples)
       → OU mapSingleCardPurchaseContract (compra_cartao, via DI)
@@ -123,4 +127,5 @@ Para que V54 processe tráfego real do Telegram, é preciso:
 | Sem bundler | Não é possível usar `require()` em Apps Script — forçando duplicação. | LATER (avaliar clasp + esbuild ou rollup) |
 | Sem `ParserV54` produtivo | V54 não pode processar mensagens do Telegram até existir um parser que chame LLM real. | Próxima fase de feature. |
 | Sem `ViewsV54` produtivo | V54 não pode responder no Telegram até existir. | Próxima fase de feature. |
-| `Idempotency_Log` ainda não integrado ao adapter Apps Script | Bloqueio para rotear Telegram para V54 — schema, contrato local e boundary local existem, mas `recordEntryV54` ainda não consome idempotência. | Próxima fase antes do roteamento. |
+| `ActionsV54.js` grande | Ainda concentra validação, mapeamento e escrita base. | NEXT (extrair helpers sem mudar comportamento) |
+| Política de recuperação de `processing` stale incompleta | Adapter bloqueia duplicidade e retorna TODO explícito quando há mutação presente sem log `completed`; ainda não recupera automaticamente. | NEXT antes do roteamento real. |

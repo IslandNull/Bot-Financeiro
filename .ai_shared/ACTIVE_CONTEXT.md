@@ -18,14 +18,15 @@ Branch: feat/v54-production-readiness
 - Phase 4H: Context Load Reduction. Deletados 19 arquivos/diretórios obsoletos (AI_WORKFLOW.md, HANDOFF_PROTOCOL.md, registry.json, skills/, tools/, handoffs/, archive/, IMPLEMENTATION_PLAN.md, superpowers/, docs/archive V52+pre-D031). Movido HISTORY.md para `docs/archive/HISTORY.md`. Reescrito V54_DOCS_INDEX.md com categorias rígidas. Redução de 36 para 17 arquivos de documentação.
 - Phase 4J: Masterplan stale decisions cleanup concluída; masterplan alinhado com D031-D041.
 - Phase 4K: `Idempotency_Log` modelado local/fake-first em `scripts/lib/v54-idempotency-contract.js`, com schema em `scripts/lib/v54-schema.js` e espelho em `src/Setup.js`. Contrato bloqueia retry técnico por chave/update e apenas avisa sobre payload/duplicidade semântica; ainda não está integrado ao write path.
-- Phase 4L: Boundary local/fake-first de write path idempotente criado em `scripts/lib/v54-idempotent-write-path.js`. Planeja `INSERT_IDEMPOTENCY_LOG` (`processing`), `INSERT_FINANCIAL_ENTRY` e `MARK_IDEMPOTENCY_COMPLETED`, com executor em memória para testes. Modela janelas de falha sem recuperação automática escondida. Ainda não está integrado ao `recordEntryV54`, `doPost` ou Telegram real.
+- Phase 4L: Boundary local/fake-first de write path idempotente criado em `scripts/lib/v54-idempotent-write-path.js`. Planeja `INSERT_IDEMPOTENCY_LOG` (`processing`), mutação de domínio injetada e `MARK_IDEMPOTENCY_COMPLETED`, com executor em memória para testes. Modela janelas de falha sem recuperação automática escondida.
+- Phase 4M: Adapter Apps Script fake-first de idempotência criado em `src/ActionsV54Idempotency.js` e ligado de forma opt-in em `recordEntryV54` por `options.idempotency.enabled`. Em testes locais, consome o boundary via dependency injection, guarda o grupo inteiro de mutação para eventos simples, `compra_cartao` e `compra_parcelada`, e mantém `doPost`/Telegram real inalterados.
 
 ## O que esta bloqueado / Risco Atual
 - **Seguranca:** O Telegram E2E path (do webhook real para o script atualizado) precisa de testes finais.
 - GET mutantes protegidos por token na URL devem ser extintos.
 
 ## Proximo passo seguro
-1. Criar adapter Apps Script fake-first para consumir o boundary de write path idempotente no `recordEntryV54`, ainda sem rotear trafego real do Telegram.
+1. Definir politica local/fake-first de recuperacao para logs `processing` stale antes de qualquer roteamento real V54.
 2. Implementar proximas fases locais/fake-first de `Pagamentos_Fatura` e reconciliacao somente apos regra aceita.
 3. **NAO executar** setup, seed, deploy, clasp, testes na planilha real, ou comandos Telegram sem aprovacao explicita.
 

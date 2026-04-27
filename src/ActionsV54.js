@@ -10,6 +10,7 @@ var V54_LANCAMENTOS_SHEET = 'Lancamentos_V54';
 var V54_COMPRAS_PARCELADAS_SHEET = 'Compras_Parceladas';
 var V54_PARCELAS_AGENDA_SHEET = 'Parcelas_Agenda';
 var V54_FATURAS_SHEET = 'Faturas';
+var V54_IDEMPOTENCY_LOG_SHEET = 'Idempotency_Log';
 var V54_ACTIONS_MVP_SUPPORTED_EVENTS = ['despesa', 'receita', 'transferencia', 'aporte', 'compra_cartao', 'compra_parcelada'];
 var V54_ACTIONS_UNSUPPORTED_EVENTS = ['pagamento_fatura', 'divida_pagamento', 'ajuste'];
 var V54_LANCAMENTOS_HEADERS = [
@@ -68,6 +69,20 @@ var V54_FATURAS_HEADERS = [
     'fonte_pagamento',
     'status',
 ];
+var V54_IDEMPOTENCY_LOG_HEADERS = [
+    'idempotency_key',
+    'source',
+    'telegram_update_id',
+    'telegram_message_id',
+    'chat_id',
+    'payload_hash',
+    'status',
+    'result_ref',
+    'created_at',
+    'updated_at',
+    'error_code',
+    'observacao',
+];
 
 var V54_ALLOWED_TIPO_EVENTO = [
     'despesa',
@@ -120,6 +135,10 @@ function recordEntryV54(parsedEntry, options) {
     }
 
     return deps.withLock('recordEntryV54', function() {
+        if (deps.idempotency && deps.idempotency.enabled === true) {
+            return recordEntryV54Idempotent_(input, deps);
+        }
+
         if (input.tipo_evento === 'compra_parcelada') {
             return writeInstallmentPurchaseRows_(input, deps);
         }
@@ -212,6 +231,18 @@ function normalizeActionsV54Deps_(options) {
             : null,
         planExpectedFaturasUpsert: typeof source.planExpectedFaturasUpsert === 'function'
             ? source.planExpectedFaturasUpsert
+            : null,
+        planV54IdempotentWrite: typeof source.planV54IdempotentWrite === 'function'
+            ? source.planV54IdempotentWrite
+            : null,
+        readIdempotencyRows: typeof source.readIdempotencyRows === 'function'
+            ? source.readIdempotencyRows
+            : null,
+        readExistingMutationRefs: typeof source.readExistingMutationRefs === 'function'
+            ? source.readExistingMutationRefs
+            : null,
+        idempotency: source.idempotency && typeof source.idempotency === 'object'
+            ? cloneV54PlainObject_(source.idempotency)
             : null,
         cards: cloneV54Cards_(source.cards),
     };

@@ -63,10 +63,12 @@ Organizado por prioridade. Última atualização: 2026-04-27.
   - ainda sem Telegram real
   - ainda sem alterar roteamento
   - bloquear duplicidade antes de qualquer append financeiro
-- [ ] **Criar adapter Apps Script fake-first para write path idempotente**
+- [x] **Criar adapter Apps Script fake-first para write path idempotente**
   - consumir o boundary local em `recordEntryV54`
   - ainda sem Telegram real
   - ainda sem alterar roteamento
+  - guarda grupos de mutação: eventos simples, `compra_cartao` + `Faturas`, `compra_parcelada` + `Parcelas_Agenda` + `Faturas`
+  - sem recuperação automática de `processing` stale
 
 ---
 
@@ -90,7 +92,7 @@ Organizado por prioridade. Última atualização: 2026-04-27.
 
 - [ ] **Definir política de recuperação de idempotência**
   - Janela A: log `processing` inserido, row financeiro ausente.
-  - Janela B: row financeiro inserido, log ainda não marcado `completed`.
+  - Janela B: grupo de mutação V54 aplicado, log ainda não marcado `completed`.
   - **Ação:** definir timeout/retry/mark-completed manual antes de qualquer tráfego real.
   - **Restrição:** não recuperar automaticamente sem regra aceita.
 

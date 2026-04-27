@@ -19,6 +19,7 @@ Mapeamento de entrypoints e estado de runtime da transição V53 -> V54.
   - Mapper: `scripts/lib/v54-lancamentos-mapper.js`
 - **V54 Apps Script Adapter (Fake-First / Mocked Sheets):**
   - Lógica de escrita: `src/ActionsV54.js` (Eventos simples, compra de cartão, agendamento de parcelas).
+  - Idempotência fake-first opt-in: `src/ActionsV54Idempotency.js`, consumindo planner injetado em testes locais.
   - Usa injeção de dependências para `spreadsheetApp`, `lockService`, etc., permitindo testes locais.
 - **V53 Legacy (deprecated/obsoleto):**
   - Módulos: `src/Actions.js`, `src/Commands.js`, `src/Parser.js`, `src/Views.js`, `src/SetupLegacy.js`.

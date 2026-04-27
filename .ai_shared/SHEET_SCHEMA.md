@@ -28,7 +28,7 @@ As of the snapshot generated at `2026-04-26 15:27:14`, the real spreadsheet cont
 Clean seed data was applied. Formulas, dropdowns, and full transaction write paths are in development.
 
 ### V54 Idempotent Write Path
-VERIFIED in local code on 2026-04-27: `scripts/lib/v54-idempotent-write-path.js` plans idempotency before financial inserts using `Idempotency_Log`. It is local/fake-first only and not verified against the real spreadsheet.
+VERIFIED in local code on 2026-04-27: `scripts/lib/v54-idempotent-write-path.js` plans idempotency before V54 domain mutations using `Idempotency_Log`. `src/ActionsV54Idempotency.js` consumes that boundary through dependency injection in local/fake tests and guards simple `Lancamentos_V54`, `compra_cartao` + `Faturas`, and `compra_parcelada` + `Parcelas_Agenda` + `Faturas` mutation groups. This remains local/fake-first only and is not verified against the real spreadsheet.
 
 ## 3. V53 Legacy Sheets (Reference Only)
 The sheets `Dashboard`, `Investimentos`, `Parcelas`, `Lançamentos`, `Orçamento Mensal`, `Compras da Casa`, `Metas de Poupança`, and `Config` belong to the V53 era.
