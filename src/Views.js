@@ -1,3 +1,6 @@
+// LEGACY V53 PROTOTYPE.
+// Do not add new features here.
+// V54 MVP work must happen in ActionsV54 / future ParserV54 / ViewsV54.
 // ============================================================
 // VIEWS — funções somente-leitura que produzem texto pra responder
 // comandos do Telegram. Não escrevem na planilha. Lê Dashboard,

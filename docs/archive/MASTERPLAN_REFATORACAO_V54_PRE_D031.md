@@ -1,3 +1,7 @@
+# ARCHIVED - superseded by D031
+
+This plan assumed V53 was active production/fallback. That premise is no longer valid. Use docs/MASTERPLAN_PRODUCAO_V54.md instead.
+
 # Masterplan de Refatoração Segura — Bot Financeiro V54
 
 ## 1. Visão Geral e Veredito Executivo

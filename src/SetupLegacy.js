@@ -1,3 +1,6 @@
+// LEGACY V53 PROTOTYPE.
+// Do not add new features here.
+// V54 MVP work must happen in ActionsV54 / future ParserV54 / ViewsV54.
 // ============================================================
 // SETUP LEGACY — Funções obsoletas de manutenção e migração (V52/V53).
 // Mantidas para referência, testes de rollback e fail-safe.

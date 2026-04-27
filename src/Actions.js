@@ -1,3 +1,6 @@
+// LEGACY V53 PROTOTYPE.
+// Do not add new features here.
+// V54 MVP work must happen in ActionsV54 / future ParserV54 / ViewsV54.
 // ============================================================
 // ACTIONS — funções que ESCREVEM na planilha (handleEntry, desfazerUltimo,
 // handleManter, handleParcela) + helpers de saldo (getCategorySaldo,

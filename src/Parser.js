@@ -1,3 +1,6 @@
+// LEGACY V53 PROTOTYPE.
+// Do not add new features here.
+// V54 MVP work must happen in ActionsV54 / future ParserV54 / ViewsV54.
 // ============================================================
 // PARSER — interface com OpenAI (parseWithOpenAI, buildSystemPrompt),
 // validação pós-parse (validateParse) e leitura cacheada das listas

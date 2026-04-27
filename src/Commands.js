@@ -1,3 +1,6 @@
+// LEGACY V53 PROTOTYPE.
+// Do not add new features here.
+// V54 MVP work must happen in ActionsV54 / future ParserV54 / ViewsV54.
 // ============================================================
 // COMMANDS — switch principal de comandos do Telegram (handleCommand)
 // e mensagem de ajuda (helpText). As funções de View/Action vivem em

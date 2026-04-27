@@ -9,7 +9,7 @@
     "logs": "clasp logs",
     "open": "clasp open",
     "sync": "node scripts/sync-state.js",
-    "test:v53": "node scripts/test-v53.js",
+    "test:legacy:v53": "node scripts/test-v53.js",
     "test:v54:domain": "node scripts/test-v54-domain.js",
     "test:v54:schema": "node scripts/test-v54-schema.js",
     "test:v54:seed": "node scripts/test-v54-seed.js",

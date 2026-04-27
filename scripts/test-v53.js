@@ -1,3 +1,7 @@
+// LEGACY V53 PROTOTYPE.
+// Do not add new features here.
+// V54 MVP work must happen in ActionsV54 / future ParserV54 / ViewsV54.
+
 const fs = require('fs');
 const path = require('path');
 
