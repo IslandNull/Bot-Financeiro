@@ -204,6 +204,35 @@ failed += test('uneven_split_100_over_3_is_deterministic_and_sums', () => {
     assert.deepStrictEqual(splitCentsDeterministically(100, 3).cents, [3334, 3333, 3333]);
 });
 
+failed += test('valor_parcela_absent_uses_current_deterministic_split', () => {
+    const result = assertOk(map(baseEntry({
+        valor: 100,
+        parcelamento: { parcelas_total: 3 },
+    })));
+
+    assert.deepStrictEqual(result.parcelas.rowObjects.map((row) => row.valor_parcela), [33.34, 33.33, 33.33]);
+});
+
+failed += test('valor_parcela_matching_split_is_accepted', () => {
+    const result = assertOk(map(baseEntry({
+        valor: 1200,
+        parcelamento: { parcelas_total: 3, valor_parcela: 400 },
+    })));
+
+    assert.deepStrictEqual(result.parcelas.rowObjects.map((row) => row.valor_parcela), [400, 400, 400]);
+});
+
+failed += test('valor_parcela_inconsistent_returns_structured_error_and_no_rows', () => {
+    const result = map(baseEntry({
+        valor: 1200,
+        parcelamento: { parcelas_total: 3, valor_parcela: 399.99 },
+    }));
+
+    assertError(result, 'PARCEL_VALUE_MISMATCH', 'parcelamento.valor_parcela');
+    assert.strictEqual(result.compras.rowObjects.length, 0);
+    assert.strictEqual(result.parcelas.rowObjects.length, 0);
+});
+
 failed += test('deterministic_ids_can_be_dependency_injected', () => {
     const result = assertOk(map(baseEntry(), {
         makeCompraId: () => 'CP_CUSTOM',
@@ -218,7 +247,7 @@ failed += test('deterministic_ids_can_be_dependency_injected', () => {
     ]);
 });
 
-failed += test('default_ids_are_deterministic', () => {
+failed += test('default_id_compra_is_deterministic_for_identical_input', () => {
     const first = mapInstallmentScheduleContract(baseEntry());
     const second = mapInstallmentScheduleContract(baseEntry());
 
@@ -229,6 +258,41 @@ failed += test('default_ids_are_deterministic', () => {
         first.parcelas.rowObjects.map((row) => row.id_parcela),
         second.parcelas.rowObjects.map((row) => row.id_parcela),
     );
+});
+
+failed += test('duplicate_default_id_compra_behavior_is_explicit_for_same_day_card_description', () => {
+    const first = assertOk(mapInstallmentScheduleContract(baseEntry({
+        data: '2026-04-29',
+        id_cartao: 'CARD_NUBANK_GU',
+        descricao: 'Mercado Assai',
+    })));
+    const second = assertOk(mapInstallmentScheduleContract(baseEntry({
+        data: '2026-04-29',
+        id_cartao: 'CARD_NUBANK_GU',
+        descricao: 'Mercado Assai',
+    })));
+
+    assert.strictEqual(first.compras.rowObjects[0].id_compra, second.compras.rowObjects[0].id_compra);
+});
+
+failed += test('injected_makeCompraId_can_disambiguate_duplicate_purchases_for_future_fake_write_path', () => {
+    let sequence = 0;
+    const makeCompraId = (entry) => {
+        sequence += 1;
+        return `CP_UNIQUE_${entry.id_cartao}_${entry.data}_${String(sequence).padStart(2, '0')}`;
+    };
+    const first = assertOk(map(baseEntry({
+        data: '2026-04-29',
+        id_cartao: 'CARD_NUBANK_GU',
+        descricao: 'Mercado Assai',
+    }), { makeCompraId }));
+    const second = assertOk(map(baseEntry({
+        data: '2026-04-29',
+        id_cartao: 'CARD_NUBANK_GU',
+        descricao: 'Mercado Assai',
+    }), { makeCompraId }));
+
+    assert.notStrictEqual(first.compras.rowObjects[0].id_compra, second.compras.rowObjects[0].id_compra);
 });
 
 failed += test('unknown_card_returns_structured_error', () => {

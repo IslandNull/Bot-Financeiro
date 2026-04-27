@@ -124,6 +124,9 @@ Branch: feat/v54-production-readiness
 - V54 Phase 4C-prep local installment schedule contract is coded locally: `scripts/lib/v54-installment-schedule-contract.js` maps a validated `compra_parcelada` into one `Compras_Parceladas` row and N `Parcelas_Agenda` rows using existing card invoice cycle rules.
 - The installment schedule contract remains local-only and does not generate `Lancamentos_V54`, `Faturas`, `Pagamentos_Fatura`, Apps Script writes, Telegram routing, OpenAI calls, vendor calls, deploys, syncs, setup, seed, or migrations.
 - `node --check scripts\lib\v54-installment-schedule-contract.js`, `node --check scripts\test-v54-installment-schedule-contract.js`, `cmd /c npm run test:v54:installment-schedule`, `cmd /c npm run test:v54:card-cycle`, `cmd /c npm run test:v54:contract`, `cmd /c npm run test:v54:schema`, `cmd /c npm run test:v54:actions`, and `cmd /c npm run test:v53` passed on 2026-04-27 after Phase 4C-prep local changes.
+- V54 Phase 4C-prep-hardening local installment contract now rejects inconsistent `parcelamento.valor_parcela` with structured `PARCEL_VALUE_MISMATCH`; it accepts `valor_parcela` only when absent or when it matches the deterministic split for every parcel.
+- V54 Phase 4C-prep-hardening tests now document that default `id_compra` is deterministic and collides for identical same-day/card/description purchases; duplicate disambiguation for future production-like fake write paths must use injected `makeCompraId`.
+- `node --check scripts/lib/v54-installment-schedule-contract.js`, `node --check scripts/test-v54-installment-schedule-contract.js`, `cmd /c npm run test:v54:installment-schedule`, `cmd /c npm run test:v54:contract`, `cmd /c npm run test:v54:schema`, `cmd /c npm run test:v54:actions`, and `cmd /c npm run test:v53` passed on 2026-04-27 after Phase 4C-prep-hardening local changes.
 
 ## Unverified claims
 - Negative webhook security behavior is not yet production-tested: POST without secret, POST with invalid secret, and valid secret with unauthorized chat should not write anything.
@@ -134,10 +137,10 @@ Branch: feat/v54-production-readiness
 - V53 sheets are safe to remove or rename. They are not: current production code still depends on them until V54 write paths replace V53.
 
 ## Current task
-Execute V54 safely in small phases. Current phase: V54 Phase 4C-prep installment schedule contract is local-only row-payload planning for `compra_parcelada`; no real writes and no production routing.
+Execute V54 safely in small phases. Current phase: V54 Phase 4C-prep-hardening finalized local installment schedule ambiguity and ID behavior; no real writes and no production routing.
 
 ## Next safe action
-1. Review/push the Phase 4C-prep installment schedule contract commit after local tests pass.
+1. Review/push the Phase 4C-prep-hardening installment contract commit after local tests pass.
 2. Do not start Faturas writes, invoice payments, reconciliation, routing/Telegram wiring, deploy, or real spreadsheet mutation yet.
-3. Keep `Parser.js`, `Actions.js`, `Commands.js`, `Views.js`, `doPost`, and V53 routing unchanged unless a later phase explicitly authorizes integration.
-4. Keep using local fake-spreadsheet tests and deterministic contracts before any production mutation phase.
+3. Before Phase 4C fake write-path work, keep explicit injected unique ID generation for duplicate purchases and do not rely on default deterministic `id_compra`.
+4. Keep `Parser.js`, `Actions.js`, `Commands.js`, `Views.js`, `doPost`, and V53 routing unchanged unless a later phase explicitly authorizes integration.

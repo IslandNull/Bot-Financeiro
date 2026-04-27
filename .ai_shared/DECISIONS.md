@@ -387,3 +387,15 @@ Installment scheduling does not create `Lancamentos_V54`, `Faturas`, or `Pagamen
 
 Reason:
 Installments need a stable schedule before expense recognition, invoice-row creation, payments, reconciliation, or Telegram routing. Keeping this as a pure local contract reduces the risk of duplicate DRE recognition and lets future write paths consume deterministic `id_compra`, `id_parcela`, competence, and invoice references.
+
+## D030 - Installment Parcel Value Consistency And ID Strategy
+Status: Accepted
+Date: 2026-04-27
+
+Decision:
+In the local Phase 4C installment schedule contract, `valor_total` remains the authority for split calculation. `parcelamento.valor_parcela` is optional; when provided, it is accepted only if it exactly matches the deterministic split for every parcel, otherwise the contract fails with structured error `PARCEL_VALUE_MISMATCH` and returns no schedule rows.
+
+Default `id_compra` generation is deterministic and can collide for identical purchases on the same day/card/description. Future production-like fake write paths must inject `makeCompraId` unique generation and must not rely on the default deterministic ID for duplicate disambiguation.
+
+Reason:
+Deterministic split remains the single source of truth while ambiguity around parser-provided parcel value is removed. Explicitly documenting deterministic default ID collisions prevents accidental duplicate-key assumptions in future write phases.

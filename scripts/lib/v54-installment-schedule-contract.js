@@ -76,6 +76,8 @@ function mapInstallmentScheduleContract(input, options) {
 
     const splitResult = splitCentsDeterministically(entry.valor, entry.parcelamento.parcelas_total);
     if (!splitResult.ok) return makeFailure(splitResult.errors, parsed);
+    const parcelValueValidation = validateProvidedParcelValue(entry, splitResult);
+    if (!parcelValueValidation.ok) return makeFailure(parcelValueValidation.errors, parsed);
 
     const cyclesResult = buildParcelCycles(entry.data, cardResult.card, entry.parcelamento.parcelas_total);
     if (!cyclesResult.ok) return makeFailure(cyclesResult.errors, parsed);
@@ -137,6 +139,28 @@ function mapInstallmentScheduleContract(input, options) {
         cycles: parcelas.map((parcel) => parcel.cycle),
         compras,
         parcelas: parcelasRows,
+    };
+}
+
+function validateProvidedParcelValue(entry, splitResult) {
+    const providedParcelValue = entry && entry.parcelamento ? entry.parcelamento.valor_parcela : undefined;
+    if (providedParcelValue === undefined) return { ok: true, errors: [] };
+
+    const providedCents = moneyToCents(providedParcelValue);
+    const expectedCents = splitResult.cents;
+    const matchesAllParcels = expectedCents.every((centValue) => centValue === providedCents);
+    if (matchesAllParcels) return { ok: true, errors: [] };
+
+    const expectedValues = expectedCents.map((cents) => centsToMoney(cents));
+    return {
+        ok: false,
+        errors: [
+            makeError(
+                'PARCEL_VALUE_MISMATCH',
+                'parcelamento.valor_parcela',
+                `parcelamento.valor_parcela must match deterministic split: [${expectedValues.join(', ')}].`,
+            ),
+        ],
     };
 }
 
