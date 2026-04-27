@@ -25,7 +25,8 @@
     "test:v54:card-cycle": "node scripts/test-v54-card-invoice-cycle.js",
     "test:v54:setup": "node scripts/test-v54-setup-dry-run.js",
     "test:security-locks": "node scripts/test-security-locks.js",
-    "test:routing-mode": "node scripts/test-routing-mode.js"
+    "test:routing-mode": "node scripts/test-routing-mode.js",
+    "test:v54:architecture": "node scripts/test-v54-architecture-guardrails.js"
   },
   "devDependencies": {
     "@google/clasp": "^2.4.2"

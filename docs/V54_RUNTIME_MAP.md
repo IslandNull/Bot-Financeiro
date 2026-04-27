@@ -5,7 +5,7 @@ Mapeamento de entrypoints e estado de runtime da transição V53 -> V54.
 ## 1. Rotas Webhook / Apps Script
 - `doPost(e)` (em `src/Main.js`): Ponto de entrada do Telegram.
   - **Segurança:** Requer `WEBHOOK_SECRET` via query string ou body (Val.town).
-  - **Status V54:** Roteamento e ActionsV54 ainda não estão plugados ao fluxo Telegram principal. Todo o tráfego atual de Telegram, se existir, usaria V53 ou seria barrado pela falta de integração V54.
+  - **Status V54:** `doPost` atualmente roteia todo o tráfego exclusivamente para o fluxo legacy V53 (`handleCommand` / `handleEntry`). `ActionsV54.recordEntryV54` existe mas ainda **não é chamado** por `doPost` — V54 não está plugado ao roteamento Telegram.
 - `doGet(e)` (em `src/Main.js`): Ponto de entrada GET.
   - **Segurança:** Requer `SYNC_SECRET`.
   - **Uso atual:** `exportState` (exportação do SPREADSHEET_STATE.md).

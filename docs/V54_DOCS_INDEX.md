@@ -15,6 +15,8 @@ Todos os agentes devem usar esta estrutura para saber onde ler as regras.
 ## 2. ACTIVE_REFERENCE (Consulta Adicional)
 - `.ai_shared/SPREADSHEET_STATE.md`: Snapshot gerado da planilha. Não editar manualmente. Use apenas quando a tarefa exigir estado real da planilha.
 - `docs/V54_RUNTIME_MAP.md`: Mapeamento de entrypoints, limites entre legacy e V54.
+- `docs/V54_CODEMAP.md`: Mapa de arquivos, papéis, fluxos e dívidas técnicas. Orientação para humanos e agentes.
+- `docs/V54_CLEANUP_BACKLOG.md`: Backlog de limpeza priorizado (NOW/NEXT/LATER/DO NOT DO YET).
 - `.ai_shared/KNOWN_ISSUES.md`: Problemas e riscos ativos.
 - `.ai_shared/HISTORY.md`: Log de ações passadas (não é fonte de decisão futura).
 - `README.md`: Visão geral do projeto para humanos.
