@@ -19,7 +19,7 @@
     "test:v54:parser-openai": "node scripts/test-v54-parser-openai-adapter.js",
     "test:v54:parser-context": "node scripts/test-v54-parser-context-provider.js",
     "test:v54:runner": "node scripts/test-v54-runner-manual-shadow.js",
-    "test:v54:runner-gate": "node scripts/test-v54-runner-gate.js",
+    "test:v54:runner-gate": "node scripts/test-v54-runner-gate.js && node scripts/test-v54-real-manual-policy.js",
     "test:v54:handler": "node scripts/test-v54-handler-runtime.js",
     "test:v54:lancamentos-mapper": "node scripts/test-v54-lancamentos-mapper.js",
     "test:v54:card-purchase": "node scripts/test-v54-card-purchase-contract.js",

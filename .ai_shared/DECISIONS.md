@@ -576,3 +576,21 @@ Rejected:
 - Treating the gate as production readiness.
 - Allowing real manual execution without explicit `realRunApproved`.
 - Sending Telegram messages from the gate.
+
+## D045 - V54 Real Manual Policy Diagnostics
+Status: Accepted
+Date: 2026-04-27
+
+Decision:
+Future `real_manual` V54 execution must pass a reviewed policy diagnostics contract before the manual gate can call the runner. The policy requires `mode=real_manual`, `realRunApproved === true`, an operator identity/label, synthetic manual input instead of webhook-shaped input, `doPost` unchanged/V54 not routed, `doGet` not exposing the V54 gate, Telegram send disabled, prior dry-run or fake-shadow acknowledgement, snapshot/export acknowledgement, `Idempotency_Log` present, all required V54 sheets present, headers matching the V54 schema mirror, and parser context readable.
+
+The policy is fake-first and dependency-injected. Local tests use fake diagnostics, fake parser context, and fake sheets only. It is not a production readiness marker and does not authorize `doPost`, `doGet`, Telegram traffic, Telegram sends, real OpenAI calls, real SpreadsheetApp tests, setup, seed, deploy, or clasp execution.
+
+Reason:
+`real_manual` is more dangerous than fake/shadow because it can eventually run against real dependencies. A separate diagnostics contract keeps the checklist explicit and testable before any real mutation while preserving the current prohibition on route exposure and real service calls in tests.
+
+Rejected:
+- Treating `realRunApproved` alone as sufficient for `real_manual`.
+- Accepting webhook-shaped input for manual execution.
+- Running `real_manual` without prior fake/dry-run and snapshot acknowledgement.
+- Exposing the policy or gate through `doPost` or `doGet`.

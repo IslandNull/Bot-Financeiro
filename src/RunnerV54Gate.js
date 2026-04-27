@@ -17,6 +17,12 @@ function invokeV54ManualShadowGate(input, options) {
     var guard = validateRunnerV54GateInput_(input, deps);
     if (!guard.ok) return makeRunnerV54GateFailure_('gate_blocked', guard.mode, guard.errors);
 
+    if (guard.mode === 'real_manual') {
+        var policy = evaluateRunnerV54GateRealManualPolicy_(input, deps);
+        if (!policy.ok) return makeRunnerV54GateFailure_('gate_real_manual_policy_blocked', guard.mode, policy.errors);
+        guard.realManualPolicy = policy;
+    }
+
     if (!deps.runner) {
         return makeRunnerV54GateFailure_('gate_dependency_missing', guard.mode, [
             makeRunnerV54GateError_('RUNNER_V54_GATE_RUNNER_REQUIRED', 'runV54ManualShadow', 'Manual V54 gate requires an injected or global runner.'),
@@ -62,6 +68,12 @@ function normalizeRunnerV54GateDeps_(options) {
             ? source.runV54ManualShadow
             : (typeof runV54ManualShadow === 'function' ? runV54ManualShadow : null),
         defaultMode: source.defaultMode || V54_RUNNER_GATE_DEFAULT_MODE,
+        evaluateRealManualPolicy: typeof source.evaluateRealManualPolicy === 'function'
+            ? source.evaluateRealManualPolicy
+            : (typeof evaluateRunnerV54RealManualPolicy === 'function' ? evaluateRunnerV54RealManualPolicy : null),
+        realManualPolicyOptions: source.realManualPolicyOptions && typeof source.realManualPolicyOptions === 'object'
+            ? source.realManualPolicyOptions
+            : {},
     };
 }
 
@@ -123,13 +135,41 @@ function isRunnerV54GateWebEventLike_(input) {
 }
 
 function makeRunnerV54GateSummary_(guard) {
-    return {
+    var summary = {
         reviewed: true,
         manualOnly: true,
         doPostUnchanged: true,
         telegramSendDisabled: true,
         mode: guard.mode,
     };
+    if (guard.realManualPolicy) {
+        summary.realManualPolicy = sanitizeRunnerV54GateResult_(guard.realManualPolicy);
+    }
+    return summary;
+}
+
+function evaluateRunnerV54GateRealManualPolicy_(input, deps) {
+    if (!deps.evaluateRealManualPolicy) {
+        return {
+            ok: false,
+            errors: [makeRunnerV54GateError_('RUNNER_V54_GATE_REAL_MANUAL_POLICY_REQUIRED', 'evaluateRealManualPolicy', 'real_manual mode requires reviewed policy diagnostics.')],
+        };
+    }
+    try {
+        var result = deps.evaluateRealManualPolicy(input, deps.realManualPolicyOptions || {});
+        if (result && result.ok === true) return { ok: true, result: result, errors: [] };
+        return {
+            ok: false,
+            errors: result && Array.isArray(result.errors) && result.errors.length > 0
+                ? result.errors
+                : [makeRunnerV54GateError_('RUNNER_V54_GATE_REAL_MANUAL_POLICY_BLOCKED', 'realManualPolicy', 'real_manual policy diagnostics blocked execution.')],
+        };
+    } catch (error) {
+        return {
+            ok: false,
+            errors: [makeRunnerV54GateError_('RUNNER_V54_GATE_REAL_MANUAL_POLICY_EXCEPTION', 'evaluateRealManualPolicy', 'real_manual policy diagnostics failed safely.')],
+        };
+    }
 }
 
 function makeRunnerV54GateFailure_(status, mode, errors) {

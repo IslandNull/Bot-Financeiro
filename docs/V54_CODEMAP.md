@@ -31,6 +31,7 @@ Existem duas gerações de código convivendo no mesmo runtime:
 | `src/ViewsV54.js` | Skeleton de formatadores seguros V54 | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Gera texto seguro para sucesso, duplicidade, retry, parser/validação/unsupported/error; não envia Telegram. |
 | `src/RunnerV54.js` | Runner manual/shadow V54 fake-first | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Compoe handler, provider de contexto, parser OpenAI adapter e write path idempotente somente por DI explicita. Falha fechado sem dependencias; nao e chamado por `doPost` e nao envia Telegram. |
 | `src/RunnerV54Gate.js` | Gate revisado para invocacao manual/shadow V54 | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Aceita apenas envelope manual com checklist, rejeita eventos web, chama `runV54ManualShadow` somente apos validacao e nao e exposto por `doPost`/`doGet`. |
+| `src/RunnerV54RealManualPolicy.js` | Politica revisada e diagnosticos para futura execucao `real_manual` | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Exige operador, aprovacao, input sintetico, bloqueios de rota, Telegram desabilitado, dry-run/fake-shadow previo, snapshot ack, abas/headers V54, `Idempotency_Log` e contexto do parser por DI. Sem rota real e sem servicos reais nos testes. |
 | `src/Actions.js` | Lógica de escrita legacy V53: `handleEntry`, `recordParsedEntry`, `desfazerUltimo`, `handleManter`, `handleParcela` | `V53_LEGACY` | **Não** | Deprecated. Fluxo de escrita do Telegram atual. |
 | `src/Commands.js` | Switch de comandos legacy V53: `handleCommand`, `helpText` | `V53_LEGACY` | **Não** | Deprecated. Chamado por `doPost`. |
 | `src/Parser.js` | Parser OpenAI legacy V53: `parseWithOpenAI`, `validateParse`, `getListsCached` | `V53_LEGACY` | **Não** | Deprecated. Chamado por `handleEntry`. |
@@ -156,11 +157,18 @@ Adapter Apps Script:
     → invokeV54ManualShadowGate(input, options)
       → aceita somente envelope manual `{ mode, checklist, update, runnerOptions }`
       → exige checklist revisado: `reviewed`, `manualOnly`, `doPostUnchanged`, `telegramSendDisabled`
-      → `real_manual` exige tambem `realRunApproved`
+      → `real_manual` exige tambem `realRunApproved` e politica revisada de diagnosticos
       → rejeita objetos com formato de evento web Apps Script (`postData`, `parameter`, `parameters`, `queryString`)
       → em `dry_run`, valida o gate sem chamar o runner
       → em `fake_shadow`, chama `runV54ManualShadow` injetado/global somente apos validacao
       → não e chamado por `doPost`, não e exposto por `doGet`, não envia Telegram
+
+  src/RunnerV54RealManualPolicy.js
+    → evaluateV54RealManualPolicy(input, options)
+      → valida somente contrato de pre-run para futura execucao `real_manual`
+      → exige operador, aprovacao explicita, input sintetico/manual, bloqueios de `doPost`/`doGet`, Telegram send desabilitado, dry-run/fake-shadow previo e snapshot/export acknowledged
+      → valida por DI a presenca de `Idempotency_Log`, todas as abas V54, headers esperados e leitura de contexto do parser
+      → nao chama Telegram, OpenAI, SpreadsheetApp real, setup, seed, deploy ou rotas web
 ```
 
 **`recordEntryV54` NÃO é chamado por `doPost`.**
@@ -192,6 +200,7 @@ Para que V54 processe tráfego real do Telegram, é preciso:
 | Sem bundler | Não é possível usar `require()` em Apps Script — forçando duplicação. | LATER (avaliar clasp + esbuild ou rollup) |
 | ParserV54 produtivo ainda não roteado | Existem provider de contexto e adapter OpenAI por DI em `src/ParserV54Context.js`/`src/ParserV54OpenAI.js`, mas V54 ainda não processa Telegram real porque `doPost` não chama o handler/parser V54. | Próxima fase de gate de roteamento. |
 | Runner manual/shadow ainda local/fake-first | `src/RunnerV54.js` compoe as pecas V54 com DI explicita e `src/RunnerV54Gate.js` exige checklist manual revisado, mas isso nao e rota real, nao envia Telegram e nao deve ser usado como habilitacao de trafego. | Próxima fase de gate de roteamento. |
+| Politica `real_manual` ainda e contrato de diagnostico | `src/RunnerV54RealManualPolicy.js` define pre-condicoes e fake diagnostics, mas nao executa servicos reais nem torna V54 production-ready. | Revisao manual antes de qualquer execucao real. |
 | `ViewsV54` ainda é skeleton | Existe formatador seguro mínimo; respostas produtivas completas ainda não existem. | Próxima fase de feature. |
 | `ActionsV54.js` grande | Ainda concentra validação, mapeamento e escrita base. | NEXT (extrair helpers sem mudar comportamento) |
 | Aplicação real/roteada dos planos de recuperação de idempotência | Adapter Apps Script fake-first existe, mas nenhum fluxo real, rota, Telegram ou planilha produtiva aplica planos revisados. | NEXT antes do roteamento real. |

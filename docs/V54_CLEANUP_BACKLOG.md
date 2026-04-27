@@ -112,15 +112,16 @@ Organizado por prioridade. Última atualização: 2026-04-27.
   - rejeita objetos com formato de evento web Apps Script
   - sem `doPost`, sem `doGet`, sem Telegram real, sem OpenAI real, sem planilha real nos testes
 
+- [x] **Definir politica de execucao manual real**
+  - `src/RunnerV54RealManualPolicy.js` define checklist e diagnosticos de pre-run
+  - `src/RunnerV54Gate.js` exige politica aprovada para `real_manual`
+  - exige operador, aprovacao, input sintetico/manual, dry-run/fake-shadow previo e snapshot/export acknowledged
+  - valida `Idempotency_Log`, abas V54, headers e contexto do parser por DI fake-first
+  - sem `doPost`, sem `doGet`, sem Telegram real, sem OpenAI real, sem planilha real nos testes, sem setup/seed/deploy
+
 ---
 
 ## NEXT (Próximas iterações de limpeza — sem feature financeira nova)
-
-- [ ] **Definir politica de execucao manual real, se necessaria**
-  - revisar quem pode chamar `invokeV54ManualShadowGate` em Apps Script e com quais dependencias reais
-  - exigir snapshot/diagnostico antes de qualquer execucao `real_manual`
-  - manter `doPost` e `doGet` inalterados ate decisao separada de roteamento/manutencao
-  - **Restrição:** sem envio Telegram, sem OpenAI/planilha real sem revisao explicita
 
 - [ ] **Reduzir duplicação de schema**
   - `scripts/lib/v54-schema.js` é a autoridade.
