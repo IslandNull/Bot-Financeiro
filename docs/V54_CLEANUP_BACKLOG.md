@@ -69,6 +69,12 @@ Organizado por prioridade. Última atualização: 2026-04-27.
   - ainda sem alterar roteamento
   - guarda grupos de mutação: eventos simples, `compra_cartao` + `Faturas`, `compra_parcelada` + `Parcelas_Agenda` + `Faturas`
   - sem recuperação automática de `processing` stale
+- [x] **Definir política local/fake-first de recuperação de `processing` stale**
+  - chamada somente por opt-in injetado
+  - fresh sem mutação mantém `duplicate_processing` retryable
+  - stale sem mutação planeja `MARK_IDEMPOTENCY_FAILED` com `STALE_PROCESSING_NO_DOMAIN_MUTATION`
+  - match por `result_ref`/referência determinística planeja `MARK_IDEMPOTENCY_COMPLETED`
+  - estados ambíguos ou mismatched continuam bloqueados para revisão manual
 
 ---
 
@@ -90,11 +96,11 @@ Organizado por prioridade. Última atualização: 2026-04-27.
   - O teste `test:v54:actions` já verifica paridade de headers entre `ActionsV54.js` e `v54-schema.js`.
   - **Ação:** Documentar no `V54_CODEMAP.md` que esse teste é obrigatório antes de qualquer push.
 
-- [ ] **Definir política de recuperação de idempotência**
-  - Janela A: log `processing` inserido, row financeiro ausente.
-  - Janela B: grupo de mutação V54 aplicado, log ainda não marcado `completed`.
-  - **Ação:** definir timeout/retry/mark-completed manual antes de qualquer tráfego real.
-  - **Restrição:** não recuperar automaticamente sem regra aceita.
+- [ ] **Definir aplicação manual/revisada dos planos de recuperação de idempotência**
+  - Janela A: aplicar `MARK_IDEMPOTENCY_FAILED` antes de retry revisado.
+  - Janela B: aplicar `MARK_IDEMPOTENCY_COMPLETED` quando a mutação de domínio já existe.
+  - **Ação:** criar executor local/fake-first ou checklist operacional revisado antes de qualquer tráfego real.
+  - **Restrição:** não recuperar automaticamente estados ambíguos.
 
 ---
 

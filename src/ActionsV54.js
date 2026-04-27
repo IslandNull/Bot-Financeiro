@@ -235,6 +235,9 @@ function normalizeActionsV54Deps_(options) {
         planV54IdempotentWrite: typeof source.planV54IdempotentWrite === 'function'
             ? source.planV54IdempotentWrite
             : null,
+        planStaleProcessingRecovery: typeof source.planStaleProcessingRecovery === 'function'
+            ? source.planStaleProcessingRecovery
+            : null,
         readIdempotencyRows: typeof source.readIdempotencyRows === 'function'
             ? source.readIdempotencyRows
             : null,

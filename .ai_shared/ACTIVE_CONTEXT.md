@@ -20,13 +20,14 @@ Branch: feat/v54-production-readiness
 - Phase 4K: `Idempotency_Log` modelado local/fake-first em `scripts/lib/v54-idempotency-contract.js`, com schema em `scripts/lib/v54-schema.js` e espelho em `src/Setup.js`. Contrato bloqueia retry técnico por chave/update e apenas avisa sobre payload/duplicidade semântica; ainda não está integrado ao write path.
 - Phase 4L: Boundary local/fake-first de write path idempotente criado em `scripts/lib/v54-idempotent-write-path.js`. Planeja `INSERT_IDEMPOTENCY_LOG` (`processing`), mutação de domínio injetada e `MARK_IDEMPOTENCY_COMPLETED`, com executor em memória para testes. Modela janelas de falha sem recuperação automática escondida.
 - Phase 4M: Adapter Apps Script fake-first de idempotência criado em `src/ActionsV54Idempotency.js` e ligado de forma opt-in em `recordEntryV54` por `options.idempotency.enabled`. Em testes locais, consome o boundary via dependency injection, guarda o grupo inteiro de mutação para eventos simples, `compra_cartao` e `compra_parcelada`, e mantém `doPost`/Telegram real inalterados.
+- Phase 4N: Política local/fake-first de recuperação para `processing` stale definida em D042 e implementada em `scripts/lib/v54-idempotency-recovery-policy.js`. O write path só chama a política por opt-in injetado (`recoveryPolicy.enabled === true`), com `staleAfterMs` e `now` determinísticos. A política planeja transição explícita para `failed` quando stale sem mutação de domínio, planeja conclusão quando `result_ref`/referência determinística bate, e bloqueia estados ambíguos para revisão manual.
 
 ## O que esta bloqueado / Risco Atual
 - **Seguranca:** O Telegram E2E path (do webhook real para o script atualizado) precisa de testes finais.
 - GET mutantes protegidos por token na URL devem ser extintos.
 
 ## Proximo passo seguro
-1. Definir politica local/fake-first de recuperacao para logs `processing` stale antes de qualquer roteamento real V54.
+1. Revisar/aprovar como aplicar manualmente planos `MARK_IDEMPOTENCY_FAILED` e `MARK_IDEMPOTENCY_COMPLETED` antes de qualquer roteamento real V54.
 2. Implementar proximas fases locais/fake-first de `Pagamentos_Fatura` e reconciliacao somente apos regra aceita.
 3. **NAO executar** setup, seed, deploy, clasp, testes na planilha real, ou comandos Telegram sem aprovacao explicita.
 

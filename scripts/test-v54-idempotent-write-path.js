@@ -11,6 +11,10 @@ const {
     makeTelegramIdempotencyInput,
     planV54IdempotentWrite,
 } = require('./lib/v54-idempotent-write-path');
+const {
+    STALE_PROCESSING_ERROR_CODES,
+    planStaleProcessingRecovery,
+} = require('./lib/v54-idempotency-recovery-policy');
 
 function test(name, fn) {
     try {
@@ -68,6 +72,16 @@ function firstPlan(overrides, options) {
     }, overrides || {}), Object.assign(deterministicOptions(), options || {}));
 }
 
+function recoveryOptions(overrides) {
+    return Object.assign(deterministicOptions(), {
+        recoveryPolicy: {
+            enabled: true,
+            staleAfterMs: 10 * 60 * 1000,
+        },
+        planStaleProcessingRecovery,
+    }, overrides || {});
+}
+
 function completedRow() {
     const plan = firstPlan();
     const row = Object.assign({}, plan.plans[0].rowObject, {
@@ -120,6 +134,94 @@ failed += test('duplicate_processing_key_blocks_financial_insert_and_is_retryabl
     assert.strictEqual(plan.shouldCreateFinancialEntry, false);
     assert.deepStrictEqual(plan.plans, []);
     assert.strictEqual(plan.failureWindows[0].code, FAILURE_WINDOWS.PROCESSING_LOG_WITHOUT_FINANCIAL_ROW);
+});
+
+failed += test('fresh_processing_without_domain_mutation_still_blocks_and_is_retryable_with_recovery_policy', () => {
+    const processing = Object.assign(completedRow(), {
+        status: IDEMPOTENCY_STATUSES.PROCESSING,
+        result_ref: '',
+        updated_at: '2026-04-27T20:55:00.000Z',
+    });
+    const plan = firstPlan({ existingIdempotencyRows: [processing] }, recoveryOptions());
+
+    assert.strictEqual(plan.ok, false);
+    assert.strictEqual(plan.decision, 'duplicate_processing');
+    assert.strictEqual(plan.retryable, true);
+    assert.strictEqual(plan.shouldCreateFinancialEntry, false);
+    assert.deepStrictEqual(plan.plans, []);
+});
+
+failed += test('stale_processing_without_domain_mutation_returns_explicit_failed_transition_plan', () => {
+    const processing = Object.assign(completedRow(), {
+        status: IDEMPOTENCY_STATUSES.PROCESSING,
+        result_ref: '',
+        updated_at: '2026-04-27T20:00:00.000Z',
+    });
+    const plan = firstPlan({ existingIdempotencyRows: [processing] }, recoveryOptions());
+
+    assert.strictEqual(plan.ok, false);
+    assert.strictEqual(plan.decision, 'stale_processing_retry_allowed');
+    assert.strictEqual(plan.retryable, false);
+    assert.strictEqual(plan.shouldCreateFinancialEntry, false);
+    assert.deepStrictEqual(plan.plans.map((step) => step.action), ['MARK_IDEMPOTENCY_FAILED']);
+    assert.strictEqual(plan.plans[0].rowObject.status, IDEMPOTENCY_STATUSES.FAILED);
+    assert.strictEqual(plan.plans[0].rowObject.error_code, STALE_PROCESSING_ERROR_CODES.NO_DOMAIN_MUTATION);
+});
+
+failed += test('processing_with_matching_lancamento_plans_completion_recovery_without_duplicate_write', () => {
+    const processing = Object.assign(completedRow(), {
+        status: IDEMPOTENCY_STATUSES.PROCESSING,
+        result_ref: 'LAN_V54_IDEMPOTENT_0001',
+        updated_at: '2026-04-27T20:00:00.000Z',
+    });
+    const plan = firstPlan({
+        existingIdempotencyRows: [processing],
+        existingFinancialRows: [{ id_lancamento: 'LAN_V54_IDEMPOTENT_0001', sheet: 'Lancamentos_V54' }],
+    }, recoveryOptions());
+
+    assert.strictEqual(plan.ok, false);
+    assert.strictEqual(plan.decision, 'completion_recovery_planned');
+    assert.strictEqual(plan.shouldCreateFinancialEntry, false);
+    assert.deepStrictEqual(plan.plans.map((step) => step.action), ['MARK_IDEMPOTENCY_COMPLETED']);
+    assert.strictEqual(plan.plans[0].rowObject.status, IDEMPOTENCY_STATUSES.COMPLETED);
+    assert.strictEqual(plan.plans[0].rowObject.result_ref, 'LAN_V54_IDEMPOTENT_0001');
+});
+
+failed += test('processing_with_matching_compra_parcelada_plans_completion_recovery_without_duplicate_write', () => {
+    const processing = Object.assign(completedRow(), {
+        status: IDEMPOTENCY_STATUSES.PROCESSING,
+        result_ref: 'CP_ACTION_0001',
+        updated_at: '2026-04-27T20:00:00.000Z',
+    });
+    const plan = firstPlan({
+        existingIdempotencyRows: [processing],
+        existingFinancialRows: [{ id_compra: 'CP_ACTION_0001', sheet: 'Compras_Parceladas' }],
+    }, recoveryOptions({ makeId: () => 'CP_ACTION_0001' }));
+
+    assert.strictEqual(plan.ok, false);
+    assert.strictEqual(plan.decision, 'completion_recovery_planned');
+    assert.strictEqual(plan.shouldCreateFinancialEntry, false);
+    assert.strictEqual(plan.plans[0].rowObject.status, IDEMPOTENCY_STATUSES.COMPLETED);
+    assert.strictEqual(plan.plans[0].rowObject.result_ref, 'CP_ACTION_0001');
+});
+
+failed += test('stale_processing_with_mismatched_domain_mutation_blocks_for_manual_review', () => {
+    const processing = Object.assign(completedRow(), {
+        status: IDEMPOTENCY_STATUSES.PROCESSING,
+        result_ref: 'LAN_V54_IDEMPOTENT_0001',
+        updated_at: '2026-04-27T20:00:00.000Z',
+    });
+    const plan = firstPlan({
+        existingIdempotencyRows: [processing],
+        existingFinancialRows: [{ id_lancamento: 'LAN_V54_OTHER_0001', sheet: 'Lancamentos_V54' }],
+    }, recoveryOptions());
+
+    assert.strictEqual(plan.ok, false);
+    assert.strictEqual(plan.decision, 'stale_processing_review_required');
+    assert.strictEqual(plan.retryable, false);
+    assert.strictEqual(plan.shouldCreateFinancialEntry, false);
+    assert.deepStrictEqual(plan.plans, []);
+    assert.strictEqual(plan.errors[0].code, STALE_PROCESSING_ERROR_CODES.DOMAIN_MUTATION_REVIEW_REQUIRED);
 });
 
 failed += test('same_payload_with_different_update_id_warns_and_allows_plan', () => {
@@ -195,6 +297,23 @@ failed += test('failure_window_financial_row_exists_completed_log_missing_blocks
     assert.strictEqual(retry.shouldCreateFinancialEntry, false);
     assert.strictEqual(retry.failureWindows[0].code, FAILURE_WINDOWS.FINANCIAL_ROW_WITHOUT_COMPLETED_LOG);
     assert.strictEqual(retry.errors.some((error) => error.code === 'IDEMPOTENCY_COMPLETION_RECOVERY_TODO'), true);
+});
+
+failed += test('recovery_policy_planner_is_not_called_unless_opted_in', () => {
+    let called = 0;
+    const processing = Object.assign(completedRow(), {
+        status: IDEMPOTENCY_STATUSES.PROCESSING,
+        result_ref: '',
+    });
+    const plan = firstPlan({ existingIdempotencyRows: [processing] }, Object.assign(deterministicOptions(), {
+        planStaleProcessingRecovery: () => {
+            called += 1;
+            throw new Error('should not be called');
+        },
+    }));
+
+    assert.strictEqual(plan.decision, 'duplicate_processing');
+    assert.strictEqual(called, 0);
 });
 
 failed += test('deterministic_idempotency_key_derivation_remains_stable', () => {

@@ -9,6 +9,7 @@ const { V54_HEADERS, V54_SHEETS } = require('./lib/v54-schema');
 const { V54_SEED_DATA } = require('./lib/v54-seed');
 const { IDEMPOTENCY_STATUSES, hashPayload, makeSemanticFingerprint } = require('./lib/v54-idempotency-contract');
 const { planV54IdempotentWrite } = require('./lib/v54-idempotent-write-path');
+const { planStaleProcessingRecovery } = require('./lib/v54-idempotency-recovery-policy');
 const { mapSingleCardPurchaseContract } = require('./lib/v54-card-purchase-contract');
 const { mapInstallmentScheduleContract } = require('./lib/v54-installment-schedule-contract');
 const { planExpectedFaturasUpsert } = require('./lib/v54-faturas-expected-upsert');
@@ -242,10 +243,12 @@ function deps(fake, overrides) {
         mapInstallmentScheduleContract,
         planExpectedFaturasUpsert,
         planV54IdempotentWrite,
+        planStaleProcessingRecovery: source.planStaleProcessingRecovery || planStaleProcessingRecovery,
         idempotency: {
             enabled: true,
             input: source.idempotencyInput || idempotencyInput(),
             semanticEntry: source.semanticEntry,
+            recovery: source.recovery || null,
         },
         readIdempotencyRows: source.readIdempotencyRows,
         readExistingMutationRefs: source.readExistingMutationRefs,
@@ -349,6 +352,66 @@ failed += test('processing_log_with_matching_compra_parcelada_mutation_returns_c
 
     assert.strictEqual(result.ok, false);
     assert.strictEqual(result.decision, 'processing_with_financial_present_completion_missing');
+    assert.strictEqual((fake.writesBySheet[V54_SHEETS.COMPRAS_PARCELADAS] || []).length, 0);
+    assert.strictEqual((fake.writesBySheet[V54_SHEETS.PARCELAS_AGENDA] || []).length, 0);
+});
+
+failed += test('stale_processing_adapter_returns_failed_transition_plan_without_domain_mutation', () => {
+    const processing = completedIdempotencyRow({
+        status: IDEMPOTENCY_STATUSES.PROCESSING,
+        result_ref: '',
+        updated_at: '2026-04-27T20:00:00.000Z',
+    });
+    const fake = makeFakeSpreadsheet({ idempotencyRows: [processing] });
+    const { result } = record(baseEntry(), fake, {
+        recovery: { enabled: true, staleAfterMs: 10 * 60 * 1000 },
+    });
+
+    assert.strictEqual(result.ok, false);
+    assert.strictEqual(result.decision, 'stale_processing_retry_allowed');
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(result.plans.map((step) => step.action))), ['MARK_IDEMPOTENCY_FAILED']);
+    assert.strictEqual((fake.writesBySheet[V54_SHEETS.IDEMPOTENCY_LOG] || []).length, 0);
+    assert.strictEqual((fake.writesBySheet[V54_SHEETS.LANCAMENTOS_V54] || []).length, 0);
+});
+
+failed += test('stale_processing_adapter_with_matching_lancamento_returns_completion_plan_without_duplicate', () => {
+    const processing = completedIdempotencyRow({
+        status: IDEMPOTENCY_STATUSES.PROCESSING,
+        result_ref: 'LAN_V54_ADAPTER_0001',
+        updated_at: '2026-04-27T20:00:00.000Z',
+    });
+    const fake = makeFakeSpreadsheet({
+        idempotencyRows: [processing],
+        lancamentosRows: [lancamentoRow()],
+    });
+    const { result } = record(baseEntry(), fake, {
+        recovery: { enabled: true, staleAfterMs: 10 * 60 * 1000 },
+    });
+
+    assert.strictEqual(result.ok, false);
+    assert.strictEqual(result.decision, 'completion_recovery_planned');
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(result.plans.map((step) => step.action))), ['MARK_IDEMPOTENCY_COMPLETED']);
+    assert.strictEqual(result.plans[0].rowObject.status, IDEMPOTENCY_STATUSES.COMPLETED);
+    assert.strictEqual((fake.writesBySheet[V54_SHEETS.LANCAMENTOS_V54] || []).length, 0);
+});
+
+failed += test('stale_processing_adapter_with_matching_compra_parcelada_returns_completion_plan_without_duplicate', () => {
+    const processing = completedIdempotencyRow({
+        status: IDEMPOTENCY_STATUSES.PROCESSING,
+        result_ref: 'CP_ACTION_0001',
+        updated_at: '2026-04-27T20:00:00.000Z',
+    });
+    const fake = makeFakeSpreadsheet({
+        idempotencyRows: [processing],
+        comprasRows: [compraParceladaRow()],
+    });
+    const { result } = record(installmentEntry(), fake, {
+        recovery: { enabled: true, staleAfterMs: 10 * 60 * 1000 },
+    });
+
+    assert.strictEqual(result.ok, false);
+    assert.strictEqual(result.decision, 'completion_recovery_planned');
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(result.plans.map((step) => step.action))), ['MARK_IDEMPOTENCY_COMPLETED']);
     assert.strictEqual((fake.writesBySheet[V54_SHEETS.COMPRAS_PARCELADAS] || []).length, 0);
     assert.strictEqual((fake.writesBySheet[V54_SHEETS.PARCELAS_AGENDA] || []).length, 0);
 });

@@ -20,6 +20,7 @@ Mapeamento de entrypoints e estado de runtime da transição V53 -> V54.
 - **V54 Apps Script Adapter (Fake-First / Mocked Sheets):**
   - Lógica de escrita: `src/ActionsV54.js` (Eventos simples, compra de cartão, agendamento de parcelas).
   - Idempotência fake-first opt-in: `src/ActionsV54Idempotency.js`, consumindo planner injetado em testes locais.
+  - Recuperação de `processing` stale: contrato local em `scripts/lib/v54-idempotency-recovery-policy.js`, chamado pelo write path somente quando `recoveryPolicy.enabled === true` é injetado; retorna planos explícitos, não roteia Telegram e não chama planilha real nos testes.
   - Usa injeção de dependências para `spreadsheetApp`, `lockService`, etc., permitindo testes locais.
 - **V53 Legacy (deprecated/obsoleto):**
   - Módulos: `src/Actions.js`, `src/Commands.js`, `src/Parser.js`, `src/Views.js`, `src/SetupLegacy.js`.

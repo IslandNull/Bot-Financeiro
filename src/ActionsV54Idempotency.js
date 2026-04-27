@@ -58,6 +58,8 @@ function recordEntryV54Idempotent_(input, deps) {
     }, {
         now: deps.now,
         makeId: deps.makeId,
+        recoveryPolicy: deps.idempotency && deps.idempotency.recovery ? deps.idempotency.recovery : null,
+        planStaleProcessingRecovery: deps.planStaleProcessingRecovery,
         financialPlanner: function() {
             return domainPlan;
         },
@@ -378,6 +380,13 @@ function applyRecordEntryV54IdempotentPlans_(plans, context) {
             continue;
         }
 
+        if (plan.action === 'MARK_IDEMPOTENCY_FAILED') {
+            var failedUpdateResult = updateIdempotencyLogRow_(context.idempotencySheet, plan);
+            if (!failedUpdateResult.ok) return failedUpdateResult;
+            applied.push(plan.action);
+            continue;
+        }
+
         return {
             ok: false,
             sheet: plan.sheet || V54_IDEMPOTENCY_LOG_SHEET,
@@ -477,7 +486,7 @@ function updateIdempotencyLogRow_(sheet, plan) {
         return {
             ok: false,
             sheet: V54_IDEMPOTENCY_LOG_SHEET,
-            errors: [makeV54ContractError_('IDEMPOTENCY_LOG_ROW_NOT_FOUND', 'idempotency_key', 'Cannot mark idempotency completed because the processing row was not found.')],
+            errors: [makeV54ContractError_('IDEMPOTENCY_LOG_ROW_NOT_FOUND', 'idempotency_key', 'Cannot update idempotency row because the processing row was not found.')],
         };
     }
 

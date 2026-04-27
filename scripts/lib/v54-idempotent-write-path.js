@@ -7,6 +7,7 @@ const {
     planIdempotencyForUpdate,
 } = require('./v54-idempotency-contract');
 const { mapParsedEntryToLancamentoV54 } = require('./v54-lancamentos-mapper');
+const { planStaleProcessingRecovery } = require('./v54-idempotency-recovery-policy');
 
 const FAILURE_WINDOWS = {
     PROCESSING_LOG_WITHOUT_FINANCIAL_ROW: 'PROCESSING_LOG_WITHOUT_FINANCIAL_ROW',
@@ -119,6 +120,25 @@ function makeBaseResult(fields) {
     }, fields || {});
 }
 
+function recoveryPolicyEnabled(options) {
+    return Boolean(options && options.recoveryPolicy && options.recoveryPolicy.enabled === true);
+}
+
+function evaluateProcessingRecovery(idempotency, source, financial, options, now) {
+    if (!recoveryPolicyEnabled(options)) return null;
+    const planner = typeof options.planStaleProcessingRecovery === 'function'
+        ? options.planStaleProcessingRecovery
+        : planStaleProcessingRecovery;
+    return planner({
+        processingRow: idempotency.existing,
+        result_ref: idempotency.result_ref || financial.result_ref,
+        existingFinancialRows: source.existingFinancialRows || [],
+    }, {
+        now,
+        staleAfterMs: options.recoveryPolicy.staleAfterMs,
+    });
+}
+
 function planV54IdempotentWrite(input, options) {
     const source = input || {};
     const opts = options || {};
@@ -153,6 +173,36 @@ function planV54IdempotentWrite(input, options) {
     );
 
     if (idempotency.ok !== true) {
+        const recovery = idempotency.decision === 'duplicate_processing'
+            ? evaluateProcessingRecovery(idempotency, source, financial, opts, now)
+            : null;
+        if (recovery) {
+            return makeBaseResult({
+                ok: false,
+                decision: recovery.decision || idempotency.decision,
+                retryable: recovery.retryable === true,
+                shouldCreateFinancialEntry: false,
+                idempotency,
+                financial,
+                plans: Array.isArray(recovery.plans) ? recovery.plans : [],
+                warnings: [
+                    ...(idempotency.warnings || []),
+                    ...(Array.isArray(recovery.warnings) ? recovery.warnings : []),
+                ],
+                failureWindows: recovery.decision === 'completion_recovery_planned'
+                    ? [{
+                        code: FAILURE_WINDOWS.FINANCIAL_ROW_WITHOUT_COMPLETED_LOG,
+                        message: 'Matching domain mutation exists while idempotency log is still processing; completion recovery is planned and must be reviewed/applied explicitly.',
+                    }]
+                    : [{
+                        code: FAILURE_WINDOWS.PROCESSING_LOG_WITHOUT_FINANCIAL_ROW,
+                        message: 'Processing log recovery was evaluated by the injected stale-processing policy.',
+                    }],
+                errors: Array.isArray(recovery.errors) ? recovery.errors : [],
+                recovery: recovery.recovery || null,
+            });
+        }
+
         const existingFinancial = findFinancialByResultRef(source.existingFinancialRows, idempotency.result_ref || financial.result_ref);
         const failureWindows = [];
         const errors = [...(idempotency.errors || [])];

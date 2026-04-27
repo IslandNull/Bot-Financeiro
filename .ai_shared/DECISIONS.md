@@ -522,3 +522,20 @@ The expected upsert must fail closed and not modify invoices with status `fechad
 
 Reason:
 This gives card purchases and pending installment schedules a deterministic invoice aggregate without introducing payment settlement, reconciliation, or duplicate DRE recognition before those phases are accepted and tested.
+
+## D042 - V54 Stale Processing Recovery Policy
+Status: Accepted
+Date: 2026-04-27
+
+Decision:
+Stale `Idempotency_Log` rows with `status=processing` are handled by an explicit local/fake-first recovery planner before any Telegram V54 routing or real spreadsheet mutation. The policy is opt-in through dependency injection and requires deterministic `now` plus configured `staleAfterMs`.
+
+Fresh `processing` rows without matching domain mutation keep the existing `duplicate_processing` retryable block and do not produce recovery actions. Stale `processing` rows without any matching domain mutation may only produce a reviewed `MARK_IDEMPOTENCY_FAILED` plan with `error_code=STALE_PROCESSING_NO_DOMAIN_MUTATION`; they must not append a duplicate `processing` row automatically. `processing` rows with a matching deterministic `result_ref`/domain reference produce a reviewed `MARK_IDEMPOTENCY_COMPLETED` plan and must not apply the domain mutation again. Possible or mismatched domain mutation state blocks as manual review required. Failed rows remain non-retryable unless a future explicit policy is accepted.
+
+Reason:
+Webhook retries can arrive after a partial write window. Recovery must be visible, deterministic, and testable before V54 receives Telegram traffic, without silently creating duplicate financial rows or hiding ambiguous spreadsheet state.
+
+Rejected:
+- Silently recovering ambiguous domain state.
+- Automatically appending a second `processing` row for the same idempotency key.
+- Retrying failed rows without a separate accepted policy.
