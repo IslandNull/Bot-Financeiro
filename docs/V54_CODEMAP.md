@@ -29,6 +29,7 @@ Existem duas gerações de código convivendo no mesmo runtime:
 | `src/ParserV54OpenAI.js` | Adapter Apps Script produtivo do ParserV54 para OpenAI, atrás de DI | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Constrói prompt V54 canônico, chama OpenAI por `fetchJson`/`urlFetch` injetado ou fallback Apps Script, valida ParsedEntryV54 e não é chamado por `doPost`. |
 | `src/HandlerV54.js` | Skeleton Apps Script do handler V54 Telegram-like via DI | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Extrai update/message, valida contexto de usuário, chama parser injetado, valida ParsedEntryV54, chama `recordEntryV54` idempotente e retorna resultado estruturado; não é chamado por `doPost`. |
 | `src/ViewsV54.js` | Skeleton de formatadores seguros V54 | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Gera texto seguro para sucesso, duplicidade, retry, parser/validação/unsupported/error; não envia Telegram. |
+| `src/RunnerV54.js` | Runner manual/shadow V54 fake-first | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Compoe handler, provider de contexto, parser OpenAI adapter e write path idempotente somente por DI explicita. Falha fechado sem dependencias; nao e chamado por `doPost` e nao envia Telegram. |
 | `src/Actions.js` | Lógica de escrita legacy V53: `handleEntry`, `recordParsedEntry`, `desfazerUltimo`, `handleManter`, `handleParcela` | `V53_LEGACY` | **Não** | Deprecated. Fluxo de escrita do Telegram atual. |
 | `src/Commands.js` | Switch de comandos legacy V53: `handleCommand`, `helpText` | `V53_LEGACY` | **Não** | Deprecated. Chamado por `doPost`. |
 | `src/Parser.js` | Parser OpenAI legacy V53: `parseWithOpenAI`, `validateParse`, `getListsCached` | `V53_LEGACY` | **Não** | Deprecated. Chamado por `handleEntry`. |
@@ -141,11 +142,19 @@ Adapter Apps Script:
       → chama `recordEntryV54(parsedEntry, options)` com `idempotency.enabled=true`
       → usa `src/ViewsV54.js` para formatar resposta segura
       → retorna resultado estruturado; não chama Telegram e não é roteado
+
+  src/RunnerV54.js
+    → runV54ManualShadow(update, options)
+      → exige DI explicita: `getSpreadsheet`, `withLock`, validator, planner idempotente e parser fake ou `fetchJson` + `apiKey`
+      → monta `parserOptions` com `getParserContextV54`, `fetchJson`, `apiKey`, `model` e validator
+      → monta `recordOptions` com `getSpreadsheet`, `withLock`, `planV54IdempotentWrite`, contratos de cartao/parcelamento/faturas
+      → chama `handleTelegramUpdateV54(update, composedOptions)`
+      → retorna resultado estruturado; não chama `sendTelegram`, não chama `doPost` e não escolhe planilha/OpenAI real por fallback
 ```
 
 **`recordEntryV54` NÃO é chamado por `doPost`.**
 Para que V54 processe tráfego real do Telegram, é preciso:
-1. Criar `ParserV54` produtivo (usando LLM real) atrás da interface já modelada.
+1. Revisar e aceitar gate explicito de roteamento.
 2. Criar `ViewsV54` produtivo completo para respostas Telegram.
 3. Alterar `doPost` para rotear para V54 (via `ROUTING_MODES`) somente após gates aceitos.
 
@@ -171,6 +180,7 @@ Para que V54 processe tráfego real do Telegram, é preciso:
 | V53 ainda no runtime | Código morto que pode confundir agentes e humanos. | LATER (remover somente após V54 Telegram MVP funcional) |
 | Sem bundler | Não é possível usar `require()` em Apps Script — forçando duplicação. | LATER (avaliar clasp + esbuild ou rollup) |
 | ParserV54 produtivo ainda não roteado | Existem provider de contexto e adapter OpenAI por DI em `src/ParserV54Context.js`/`src/ParserV54OpenAI.js`, mas V54 ainda não processa Telegram real porque `doPost` não chama o handler/parser V54. | Próxima fase de gate de roteamento. |
+| Runner manual/shadow ainda local/fake-first | `src/RunnerV54.js` compoe as pecas V54 com DI explicita, mas nao e rota real, nao envia Telegram e nao deve ser usado como habilitacao de trafego sem novo gate. | Próxima fase de gate de roteamento. |
 | `ViewsV54` ainda é skeleton | Existe formatador seguro mínimo; respostas produtivas completas ainda não existem. | Próxima fase de feature. |
 | `ActionsV54.js` grande | Ainda concentra validação, mapeamento e escrita base. | NEXT (extrair helpers sem mudar comportamento) |
 | Aplicação real/roteada dos planos de recuperação de idempotência | Adapter Apps Script fake-first existe, mas nenhum fluxo real, rota, Telegram ou planilha produtiva aplica planos revisados. | NEXT antes do roteamento real. |

@@ -100,10 +100,20 @@ Organizado por prioridade. Última atualização: 2026-04-27.
   - `src/ParserV54Context.js` lê `Config_Categorias`, `Config_Fontes` e `Cartoes` por DI
   - valida headers, filtra `ativo=false`, remove campos sensíveis/unrelated e retorna contexto seguro
   - sem `doPost`, sem OpenAI real, sem Telegram real, sem mutação de planilha nos testes
+- [x] **Criar runner manual/shadow V54 fake-first**
+  - `src/RunnerV54.js` compoe handler, provider de contexto, parser OpenAI adapter e write path idempotente por DI
+  - falha fechado sem `getSpreadsheet`, `withLock`, validator, boundary idempotente e parser fake ou `fetchJson` + `apiKey`
+  - cobre `despesa`, `compra_cartao` e `compra_parcelada` em teste local com dependencias fake
+  - sem `doPost`, sem Telegram real, sem OpenAI real, sem planilha real, sem setup/seed/deploy
 
 ---
 
 ## NEXT (Próximas iterações de limpeza — sem feature financeira nova)
+
+- [ ] **Definir gate explicito para uso manual/shadow revisado**
+  - revisar quem pode chamar `runV54ManualShadow` e com quais dependencias
+  - manter `doPost` inalterado ate decisao separada de roteamento
+  - **Restrição:** sem envio Telegram, sem OpenAI/planilha real sem revisao explicita
 
 - [ ] **Reduzir duplicação de schema**
   - `scripts/lib/v54-schema.js` é a autoridade.

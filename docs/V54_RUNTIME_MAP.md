@@ -26,6 +26,7 @@ Mapeamento de entrypoints e estado de runtime da transição V53 -> V54.
   - Skeleton runtime V54: `src/ParserV54.js`, `src/HandlerV54.js`, e `src/ViewsV54.js` modelam parser/handler/view com dependências injetadas. O handler recebe update Telegram-like, exige contexto de usuário, valida ParsedEntryV54, chama `recordEntryV54` com idempotência ligada e retorna resposta segura. Ele não é chamado por `doPost`, não chama Telegram e não chama OpenAI real.
   - Provider de contexto ParserV54: `src/ParserV54Context.js` implementa `getParserContextV54(runtimeContext, options)` atrás de DI. Ele lê `Config_Categorias`, `Config_Fontes` e `Cartoes` por `getSpreadsheet` injetado, valida headers, filtra linhas inativas, remove campos sensíveis/unrelated e retorna somente `categories`, `fontes`, `cartoes`, `defaultPessoa`, `defaultEscopo` e `referenceDate`. Não é chamado por `doPost`, não chama OpenAI, não envia Telegram e não muta planilhas.
   - Adapter produtivo de parser V54: `src/ParserV54OpenAI.js` implementa `parseTextV54OpenAI(text, runtimeContext, options)` atrás de DI. Ele constrói prompt V54 canônico, chama OpenAI somente via `fetchJson`/`urlFetch` injetado ou fallback Apps Script para uso futuro revisado, interpreta JSON, valida ParsedEntryV54 e retorna `{ ok, parsedEntry, normalized, errors }`. Não é chamado por `doPost`, não escreve em planilhas e não envia Telegram.
+  - Runner manual/shadow V54: `src/RunnerV54.js` implementa `runV54ManualShadow(update, options)` e alias `runManualShadowV54(update, options)`. Ele compõe `handleTelegramUpdateV54`, `parseTextV54OpenAI`, `getParserContextV54`, `recordEntryV54`, idempotência e contratos de cartão/parcelamento/faturas somente quando dependências explícitas são injetadas. Falha fechado sem `getSpreadsheet`, `withLock`, validator, `planV54IdempotentWrite`, parser fake ou `fetchJson` + `apiKey`. Não é chamado por `doPost`, não envia Telegram e não escolhe OpenAI/planilha real em testes.
   - Usa injeção de dependências para `spreadsheetApp`, `lockService`, etc., permitindo testes locais.
 - **V53 Legacy (deprecated/obsoleto):**
   - Módulos: `src/Actions.js`, `src/Commands.js`, `src/Parser.js`, `src/Views.js`, `src/SetupLegacy.js`.
@@ -33,8 +34,10 @@ Mapeamento de entrypoints e estado de runtime da transição V53 -> V54.
 
 ## 3. O que ainda não está roteado
 - O ParserV54 context provider e OpenAI adapter existem, mas ainda não processam mensagens do Telegram em produção porque não estão conectados ao handler roteado.
+- O runner manual/shadow V54 existe, mas ainda é caminho desabilitado/manual por DI e não processa Telegram real.
 - `ActionsV54.recordEntryV54` ainda não é chamado por `doPost`.
 - `HandlerV54.handleTelegramUpdateV54` ainda não é chamado por `doPost`.
+- `RunnerV54.runV54ManualShadow` ainda não é chamado por `doPost`.
 - `ActionsV54Recovery.applyReviewedIdempotencyRecoveryV54` ainda não é chamado por `doPost` nem por rota de manutenção real.
 - `doPost` ainda chama `handleCommand` / `handleEntry`, que pertencem ao fluxo legacy V53.
 - V54 existe como contrato/adaptador testado, mas não é o caminho principal do Telegram.
