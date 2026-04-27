@@ -96,14 +96,14 @@ Reason:
 Multi-agent review found high production risk in webhook authentication, mutating maintenance endpoints, setup blast radius, missing write locks, and incomplete card/installment semantics. Local deterministic tests let the financial model be validated before touching the production spreadsheet.
 
 ## D010 - Initial V54 Invoice Cycle Assumption
-Status: Proposed
-Date: 2026-04-26
+Status: Accepted
+Date: 2026-04-27
 
 Decision:
-For initial local tests, a purchase belongs to the invoice whose closing date is the first closing date on or after the purchase date. A purchase on the closing day belongs to that closing cycle. A configured closing day that does not exist in a month is clamped to the month's last day. The due date is in the month after the closing date and is also clamped if needed.
+For local V54 card invoice cycle contracts, a purchase belongs to the invoice whose closing date is the first closing date on or after the purchase date. A purchase on the closing day belongs to that closing cycle. A configured closing day that does not exist in a month is clamped to the month's last day. The due date is in the month after the closing date and is also clamped if needed. Deterministic invoice IDs use the card ID and closing competence, for example `FAT_CARD_NUBANK_GU_2026_04`.
 
 Reason:
-This provides deterministic behavior for Nubank Gustavo day 30, Mercado Pago Gustavo day 5, and Nubank Luana day 1 while keeping edge cases testable before spreadsheet implementation.
+This provides deterministic behavior for Nubank Gustavo day 30, Mercado Pago Gustavo day 5, and Nubank Luana day 1 while keeping edge cases testable before spreadsheet implementation, card purchase writes, invoice writes, payments, or reconciliation.
 
 ## D011 - V54 Card Source Authority
 Status: Accepted

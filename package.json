@@ -19,6 +19,7 @@
     "test:v54:lancamentos-mapper": "node scripts/test-v54-lancamentos-mapper.js",
     "test:v54:actions": "node scripts/test-v54-actions-mvp.js",
     "test:v54:reporting": "node scripts/test-v54-reporting-contracts.js",
+    "test:v54:card-cycle": "node scripts/test-v54-card-invoice-cycle.js",
     "test:v54:setup": "node scripts/test-v54-setup-dry-run.js",
     "test:security-locks": "node scripts/test-security-locks.js",
     "test:routing-mode": "node scripts/test-routing-mode.js"
