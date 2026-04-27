@@ -510,3 +510,15 @@ For the MVP, debt payments (Caixa, Vasco) are tracked as cash outflows and non-D
 
 Reason:
 Unblocks the tracking of cash outflows without forcing the user to invent interest/principal splits before the banking data is confirmed.
+
+## D041 - V54 Expected Faturas Upsert
+Status: Accepted
+Date: 2026-04-27
+
+Decision:
+For Phase 4D local/fake-first expected invoice generation, create or update only `Faturas` rows with status `prevista`. The source of truth for `id_fatura`, `competencia`, `data_fechamento`, and `data_vencimento` is the accepted D010 card invoice cycle. Expected rows aggregate `valor_previsto` by `id_fatura`; `valor_fechado`, `valor_pago`, and `fonte_pagamento` stay blank while the invoice is only expected.
+
+The expected upsert must fail closed and not modify invoices with status `fechada`, `paga`, `parcialmente_paga`, `divergente`, `ajustada`, or `cancelada` until an explicit reconciliation rule exists. It must not create `Pagamentos_Fatura`, must not create direct DRE rows, and installment purchases still must not create `Lancamentos_V54` during this phase.
+
+Reason:
+This gives card purchases and pending installment schedules a deterministic invoice aggregate without introducing payment settlement, reconciliation, or duplicate DRE recognition before those phases are accepted and tested.

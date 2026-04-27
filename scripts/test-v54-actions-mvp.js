@@ -9,6 +9,7 @@ const { validateParsedEntryV54 } = require('./lib/v54-parsed-entry-contract');
 const { mapParsedEntryToLancamentoV54 } = require('./lib/v54-lancamentos-mapper');
 const { mapSingleCardPurchaseContract } = require('./lib/v54-card-purchase-contract');
 const { mapInstallmentScheduleContract } = require('./lib/v54-installment-schedule-contract');
+const { planExpectedFaturasUpsert } = require('./lib/v54-faturas-expected-upsert');
 
 const actionsV54Path = path.join(__dirname, '..', 'src', 'ActionsV54.js');
 const actionsV54Source = fs.readFileSync(actionsV54Path, 'utf8');
@@ -126,6 +127,11 @@ function makeFakeSheet(name, headers, rows, writes, writesBySheet) {
                     if (row === 1 && column === 1 && numRows === 1) {
                         return [Array.from({ length: numColumns }, (_, index) => headers[index] || '')];
                     }
+                    if (row >= 2 && column === 1) {
+                        return rows
+                            .slice(row - 2, row - 2 + numRows)
+                            .map((sourceRow) => Array.from({ length: numColumns }, (_, index) => sourceRow[index] || ''));
+                    }
                     throw new Error(`Unexpected getValues range ${name}:${row}:${column}:${numRows}:${numColumns}`);
                 },
                 setValues(values) {
@@ -162,6 +168,10 @@ function makeFakeSpreadsheet(options) {
 
     registerSheet(V54_SHEETS.LANCAMENTOS_V54, lancamentosHeaders, lancamentosRows);
 
+    const faturasRows = source.faturasRows ? source.faturasRows.map((row) => [...row]) : [];
+    const faturasHeaders = source.faturasHeaders || [...V54_HEADERS[V54_SHEETS.FATURAS]];
+    registerSheet(V54_SHEETS.FATURAS, faturasHeaders, faturasRows);
+
     if (source.installmentSheets) {
         const compraRows = source.installmentSheets.comprasRows
             ? source.installmentSheets.comprasRows.map((row) => [...row])
@@ -177,7 +187,8 @@ function makeFakeSpreadsheet(options) {
 
     (source.extraSheets || []).forEach((sheetName) => {
         if (sheetByName[sheetName]) return;
-        registerSheet(sheetName, ['id'], []);
+        const defaultHeaders = V54_HEADERS[sheetName] || ['id'];
+        registerSheet(sheetName, [...defaultHeaders], []);
     });
 
     return {
@@ -211,6 +222,7 @@ function deterministicDeps(fakeSpreadsheet, lockCalls, overrides) {
         makeCompraId: source.makeCompraId || null,
         mapSingleCardPurchaseContract: source.mapSingleCardPurchaseContract || null,
         mapInstallmentScheduleContract: source.mapInstallmentScheduleContract || null,
+        planExpectedFaturasUpsert: source.planExpectedFaturasUpsert || planExpectedFaturasUpsert,
         cards: source.cards ? source.cards.map((card) => ({ ...card })) : undefined,
     };
 }
@@ -492,7 +504,7 @@ failed += test('compra_cartao_before_closing_appends_one_lancamento_with_current
         { mapSingleCardPurchaseContract },
     ));
 
-    assert.strictEqual(fake.writes.length, 1);
+    assert.strictEqual(fake.writes.length, 2);
     assert.strictEqual(fake.rows.length, 1);
     assert.strictEqual(result.rowObject.tipo_evento, 'compra_cartao');
     assert.strictEqual(result.rowObject.id_fatura, 'FAT_CARD_NUBANK_GU_2026_04');
@@ -503,6 +515,11 @@ failed += test('compra_cartao_before_closing_appends_one_lancamento_with_current
     assert.strictEqual(result.rowObject.id_parcela, '');
     assert.strictEqual(result.rowValues.length, V54_HEADERS[V54_SHEETS.LANCAMENTOS_V54].length);
     assert.strictEqual(result.rowValues.includes(undefined), false);
+    assert.strictEqual((fake.writesBySheet[V54_SHEETS.FATURAS] || []).length, 1);
+    assert.strictEqual(result.faturas.rowObjects[0].id_fatura, 'FAT_CARD_NUBANK_GU_2026_04');
+    assert.strictEqual(result.faturas.rowObjects[0].valor_previsto, 90);
+    assert.strictEqual(result.faturas.rowObjects[0].valor_fechado, '');
+    assert.strictEqual(result.faturas.rowObjects[0].valor_pago, '');
     assert.deepStrictEqual(JSON.parse(JSON.stringify(locks)), ['recordEntryV54']);
 });
 
@@ -641,7 +658,7 @@ failed += test('compra_cartao_inactive_card_fails_and_appends_nothing', () => {
     assertNoAppend(fake);
 });
 
-failed += test('valid_compra_parcelada_appends_one_compra_and_n_parcelas_without_lancamentos', () => {
+failed += test('valid_compra_parcelada_appends_one_compra_n_parcelas_and_expected_faturas_without_lancamentos', () => {
     const fake = makeFakeSpreadsheet({
         installmentSheets: {},
         extraSheets: [V54_SHEETS.FATURAS, V54_SHEETS.PAGAMENTOS_FATURA],
@@ -664,8 +681,14 @@ failed += test('valid_compra_parcelada_appends_one_compra_and_n_parcelas_without
     assert.strictEqual((fake.writesBySheet[V54_SHEETS.COMPRAS_PARCELADAS] || []).length, 1);
     assert.strictEqual((fake.writesBySheet[V54_SHEETS.PARCELAS_AGENDA] || []).length, 1);
     assert.strictEqual((fake.writesBySheet[V54_SHEETS.LANCAMENTOS_V54] || []).length, 0);
-    assert.strictEqual((fake.writesBySheet[V54_SHEETS.FATURAS] || []).length, 0);
+    assert.strictEqual((fake.writesBySheet[V54_SHEETS.FATURAS] || []).length, 3);
     assert.strictEqual((fake.writesBySheet[V54_SHEETS.PAGAMENTOS_FATURA] || []).length, 0);
+    assert.deepStrictEqual(result.faturas.rowObjects.map((row) => row.id_fatura), [
+        'FAT_CARD_NUBANK_GU_2026_04',
+        'FAT_CARD_NUBANK_GU_2026_05',
+        'FAT_CARD_NUBANK_GU_2026_06',
+    ]);
+    assert.deepStrictEqual(result.faturas.rowObjects.map((row) => row.valor_previsto), [400, 400, 400]);
     assert.deepStrictEqual(JSON.parse(JSON.stringify(locks)), ['recordEntryV54']);
 });
 
@@ -747,7 +770,7 @@ failed += test('pagamento_fatura_remains_unsupported', () => {
     assert.strictEqual(fake.writes.length, 0);
 });
 
-failed += test('no_fake_rows_appended_to_faturas_pagamentos_or_installments', () => {
+failed += test('card_purchase_appends_expected_fatura_but_no_pagamentos_or_installments', () => {
     const fake = makeFakeSpreadsheet({
         extraSheets: [
             V54_SHEETS.FATURAS,
@@ -758,8 +781,8 @@ failed += test('no_fake_rows_appended_to_faturas_pagamentos_or_installments', ()
     });
     assertOk(record(baseCardPurchaseEntry(), fake, [], { mapSingleCardPurchaseContract }));
 
+    assert.strictEqual((fake.writesBySheet[V54_SHEETS.FATURAS] || []).length, 1);
     [
-        V54_SHEETS.FATURAS,
         V54_SHEETS.PAGAMENTOS_FATURA,
         V54_SHEETS.COMPRAS_PARCELADAS,
         V54_SHEETS.PARCELAS_AGENDA,
@@ -767,7 +790,10 @@ failed += test('no_fake_rows_appended_to_faturas_pagamentos_or_installments', ()
         const writes = fake.writesBySheet[sheetName] || [];
         assert.strictEqual(writes.length, 0, `${sheetName} should not receive writes`);
     });
-    assert.deepStrictEqual(JSON.parse(JSON.stringify(fake.requestedSheets)), [V54_SHEETS.LANCAMENTOS_V54]);
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(fake.requestedSheets)), [
+        V54_SHEETS.LANCAMENTOS_V54,
+        V54_SHEETS.FATURAS,
+    ]);
 });
 
 failed += test('card_purchase_lock_wrapper_is_used_around_append', () => {
@@ -775,7 +801,7 @@ failed += test('card_purchase_lock_wrapper_is_used_around_append', () => {
     const locks = [];
     assertOk(record(baseCardPurchaseEntry(), fake, locks, { mapSingleCardPurchaseContract }));
     assert.deepStrictEqual(JSON.parse(JSON.stringify(locks)), ['recordEntryV54']);
-    assert.strictEqual(fake.writes.length, 1);
+    assert.strictEqual(fake.writes.length, 2);
 });
 
 failed += test('card_purchase_uses_injected_id_and_timestamp_deterministically', () => {
@@ -846,7 +872,10 @@ failed += test('v53_sheet_names_are_never_requested', () => {
     ['Config', 'Lancamentos', 'Lançamentos', 'Dashboard', 'Investimentos', 'Parcelas'].forEach((name) => {
         assert.strictEqual(fake.requestedSheets.includes(name), false, `Unexpected V53 sheet requested: ${name}`);
     });
-    assert.deepStrictEqual(JSON.parse(JSON.stringify(fake.requestedSheets)), [V54_SHEETS.LANCAMENTOS_V54]);
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(fake.requestedSheets)), [
+        V54_SHEETS.LANCAMENTOS_V54,
+        V54_SHEETS.FATURAS,
+    ]);
 });
 
 failed += test('protected_production_files_are_not_loaded_or_referenced_by_actions_v54', () => {

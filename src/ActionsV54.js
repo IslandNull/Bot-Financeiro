@@ -9,6 +9,7 @@
 var V54_LANCAMENTOS_SHEET = 'Lancamentos_V54';
 var V54_COMPRAS_PARCELADAS_SHEET = 'Compras_Parceladas';
 var V54_PARCELAS_AGENDA_SHEET = 'Parcelas_Agenda';
+var V54_FATURAS_SHEET = 'Faturas';
 var V54_ACTIONS_MVP_SUPPORTED_EVENTS = ['despesa', 'receita', 'transferencia', 'aporte', 'compra_cartao', 'compra_parcelada'];
 var V54_ACTIONS_UNSUPPORTED_EVENTS = ['pagamento_fatura', 'divida_pagamento', 'ajuste'];
 var V54_LANCAMENTOS_HEADERS = [
@@ -54,6 +55,18 @@ var V54_PARCELAS_AGENDA_HEADERS = [
     'id_fatura',
     'status',
     'id_lancamento',
+];
+var V54_FATURAS_HEADERS = [
+    'id_fatura',
+    'id_cartao',
+    'competencia',
+    'data_fechamento',
+    'data_vencimento',
+    'valor_previsto',
+    'valor_fechado',
+    'valor_pago',
+    'fonte_pagamento',
+    'status',
 ];
 
 var V54_ALLOWED_TIPO_EVENTO = [
@@ -133,8 +146,24 @@ function recordEntryV54(parsedEntry, options) {
             return makeActionsV54Failure_('ROW_WIDTH_MISMATCH', 'rowValues', 'Lancamentos_V54 row must have exactly 19 columns.', mapped);
         }
 
+        var faturasPlan = null;
+        if (input.tipo_evento === 'compra_cartao') {
+            faturasPlan = planCardPurchaseFaturaUpsert_(spreadsheet, mapping, deps);
+            if (!faturasPlan.ok) {
+                return makeActionsV54FailureWithSheet_(
+                    V54_FATURAS_SHEET,
+                    null,
+                    null,
+                    null,
+                    null,
+                    faturasPlan.errors
+                );
+            }
+        }
+
         var rowNumber = sheet.getLastRow() + 1;
         sheet.getRange(rowNumber, 1, 1, V54_LANCAMENTOS_HEADERS.length).setValues([mapped.rowValues]);
+        var faturasWriteResult = faturasPlan ? applyFaturasPlan_(faturasPlan.sheet, faturasPlan.plan) : null;
 
         return {
             ok: true,
@@ -144,6 +173,7 @@ function recordEntryV54(parsedEntry, options) {
             rowObject: mapped.rowObject,
             rowValues: mapped.rowValues,
             cycle: mapping.cycle || null,
+            faturas: faturasWriteResult,
             errors: [],
         };
     });
@@ -179,6 +209,9 @@ function normalizeActionsV54Deps_(options) {
             : null,
         mapInstallmentScheduleContract: typeof source.mapInstallmentScheduleContract === 'function'
             ? source.mapInstallmentScheduleContract
+            : null,
+        planExpectedFaturasUpsert: typeof source.planExpectedFaturasUpsert === 'function'
+            ? source.planExpectedFaturasUpsert
             : null,
         cards: cloneV54Cards_(source.cards),
     };
@@ -398,10 +431,23 @@ function writeInstallmentPurchaseRows_(input, deps) {
         );
     }
 
+    var faturasPlan = planInstallmentFaturasUpsert_(spreadsheet, schedule, deps);
+    if (!faturasPlan.ok) {
+        return makeActionsV54FailureWithSheet_(
+            V54_FATURAS_SHEET,
+            null,
+            null,
+            null,
+            null,
+            faturasPlan.errors
+        );
+    }
+
     var compraRowNumber = comprasSheet.getLastRow() + 1;
     comprasSheet.getRange(compraRowNumber, 1, 1, V54_COMPRAS_PARCELADAS_HEADERS.length).setValues([compraRowValues[0]]);
     var parcelasStartRow = parcelasSheet.getLastRow() + 1;
     parcelasSheet.getRange(parcelasStartRow, 1, parcelaRowValues.length, V54_PARCELAS_AGENDA_HEADERS.length).setValues(parcelaRowValues);
+    var faturasWriteResult = applyFaturasPlan_(faturasPlan.sheet, faturasPlan.plan);
 
     return {
         ok: true,
@@ -424,7 +470,176 @@ function writeInstallmentPurchaseRows_(input, deps) {
             rowValues: parcelaRowValues,
         },
         cycles: Array.isArray(schedule.cycles) ? schedule.cycles : [],
+        faturas: faturasWriteResult,
         errors: [],
+    };
+}
+
+function getExpectedFaturasPlanner_(deps) {
+    if (deps && typeof deps.planExpectedFaturasUpsert === 'function') {
+        return deps.planExpectedFaturasUpsert;
+    }
+    if (typeof planExpectedFaturasUpsert === 'function') {
+        return planExpectedFaturasUpsert;
+    }
+    return null;
+}
+
+function planCardPurchaseFaturaUpsert_(spreadsheet, mapping, deps) {
+    var planner = getExpectedFaturasPlanner_(deps);
+    if (!planner) {
+        return {
+            ok: false,
+            errors: [makeV54ContractError_('FATURAS_CONTRACT_UNAVAILABLE', 'Faturas', 'planExpectedFaturasUpsert dependency is required for compra_cartao fatura upsert.')],
+        };
+    }
+
+    var sheetResult = getAndValidateFaturasSheet_(spreadsheet);
+    if (!sheetResult.ok) return sheetResult;
+
+    var cycle = mapping.cycle || {};
+    var mapped = mapping.mapped && mapping.mapped.rowObject ? mapping.mapped.rowObject : {};
+    var plan = planner({
+        headers: V54_FATURAS_HEADERS.slice(),
+        existingRows: readSheetRowsAsObjects_(sheetResult.sheet, V54_FATURAS_HEADERS),
+        expectedItems: [{
+            id_fatura: cycle.id_fatura,
+            id_cartao: cycle.id_cartao,
+            competencia: cycle.competencia,
+            data_fechamento: cycle.data_fechamento,
+            data_vencimento: cycle.data_vencimento,
+            valor: mapped.valor,
+        }],
+    });
+
+    if (!plan || plan.ok !== true) {
+        return {
+            ok: false,
+            errors: plan && Array.isArray(plan.errors)
+                ? plan.errors
+                : [makeV54ContractError_('FATURAS_CONTRACT_INVALID_RESULT', 'Faturas', 'Faturas upsert contract returned an invalid result.')],
+        };
+    }
+
+    return { ok: true, sheet: sheetResult.sheet, plan: plan, errors: [] };
+}
+
+function planInstallmentFaturasUpsert_(spreadsheet, schedule, deps) {
+    var planner = getExpectedFaturasPlanner_(deps);
+    if (!planner) {
+        return {
+            ok: false,
+            errors: [makeV54ContractError_('FATURAS_CONTRACT_UNAVAILABLE', 'Faturas', 'planExpectedFaturasUpsert dependency is required for compra_parcelada fatura upsert.')],
+        };
+    }
+
+    var sheetResult = getAndValidateFaturasSheet_(spreadsheet);
+    if (!sheetResult.ok) return sheetResult;
+
+    var parcelas = schedule.parcelas && Array.isArray(schedule.parcelas.rowObjects)
+        ? schedule.parcelas.rowObjects
+        : [];
+    var cycles = Array.isArray(schedule.cycles) ? schedule.cycles : [];
+    var expectedItems = [];
+
+    for (var i = 0; i < parcelas.length; i++) {
+        if (parcelas[i].status !== 'pendente') continue;
+        expectedItems.push({
+            id_fatura: parcelas[i].id_fatura,
+            id_cartao: cycles[i] ? cycles[i].id_cartao : '',
+            competencia: parcelas[i].competencia,
+            data_fechamento: cycles[i] ? cycles[i].data_fechamento : '',
+            data_vencimento: cycles[i] ? cycles[i].data_vencimento : '',
+            valor: parcelas[i].valor_parcela,
+        });
+    }
+
+    var plan = planner({
+        headers: V54_FATURAS_HEADERS.slice(),
+        existingRows: readSheetRowsAsObjects_(sheetResult.sheet, V54_FATURAS_HEADERS),
+        expectedItems: expectedItems,
+    });
+
+    if (!plan || plan.ok !== true) {
+        return {
+            ok: false,
+            errors: plan && Array.isArray(plan.errors)
+                ? plan.errors
+                : [makeV54ContractError_('FATURAS_CONTRACT_INVALID_RESULT', 'Faturas', 'Faturas upsert contract returned an invalid result.')],
+        };
+    }
+
+    return { ok: true, sheet: sheetResult.sheet, plan: plan, errors: [] };
+}
+
+function getAndValidateFaturasSheet_(spreadsheet) {
+    var sheet = spreadsheet && spreadsheet.getSheetByName(V54_FATURAS_SHEET);
+    if (!sheet) {
+        return {
+            ok: false,
+            errors: [makeV54ContractError_('MISSING_SHEET', V54_FATURAS_SHEET, 'Faturas sheet was not found.')],
+        };
+    }
+
+    var headerCheck = validateSheetHeaders_(sheet, V54_FATURAS_HEADERS, V54_FATURAS_SHEET);
+    if (!headerCheck.ok) {
+        return {
+            ok: false,
+            errors: [makeV54ContractError_(headerCheck.code, headerCheck.field, headerCheck.message)],
+        };
+    }
+
+    return { ok: true, sheet: sheet, errors: [] };
+}
+
+function readSheetRowsAsObjects_(sheet, headers) {
+    var lastRow = sheet.getLastRow();
+    if (lastRow <= 1) return [];
+
+    var values = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+    return values.map(function(rowValues, index) {
+        var row = { _rowNumber: index + 2 };
+        headers.forEach(function(header, headerIndex) {
+            row[header] = rowValues[headerIndex] === undefined || rowValues[headerIndex] === null ? '' : rowValues[headerIndex];
+        });
+        return row;
+    });
+}
+
+function applyFaturasPlan_(sheet, plan) {
+    var writes = [];
+    var actions = Array.isArray(plan.actions) ? plan.actions : [];
+    actions.forEach(function(action) {
+        if (action.type === 'append') {
+            var appendRow = sheet.getLastRow() + 1;
+            sheet.getRange(appendRow, 1, 1, V54_FATURAS_HEADERS.length).setValues([action.rowValues]);
+            writes.push({
+                type: 'append',
+                rowNumber: appendRow,
+                id_fatura: action.id_fatura,
+                rowObject: action.rowObject,
+                rowValues: action.rowValues,
+            });
+            return;
+        }
+
+        if (action.type === 'update') {
+            sheet.getRange(action.rowNumber, 1, 1, V54_FATURAS_HEADERS.length).setValues([action.rowValues]);
+            writes.push({
+                type: 'update',
+                rowNumber: action.rowNumber,
+                id_fatura: action.id_fatura,
+                rowObject: action.rowObject,
+                rowValues: action.rowValues,
+            });
+        }
+    });
+
+    return {
+        sheet: V54_FATURAS_SHEET,
+        writes: writes,
+        rowObjects: Array.isArray(plan.rowObjects) ? plan.rowObjects : [],
+        rowValues: Array.isArray(plan.rowValues) ? plan.rowValues : [],
     };
 }
 
