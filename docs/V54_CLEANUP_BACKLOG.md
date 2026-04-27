@@ -5,7 +5,9 @@ Organizado por prioridade. Última atualização: 2026-04-27.
 
 ---
 
-## NOW (Fase atual — 4F)
+## COMPLETED
+
+### Phase 4F — Architecture Guardrails
 
 - [x] **Corrigir ambiguidade do runtime map**
   - Frase antiga: "Todo o tráfego atual de Telegram, se existir, usaria V53 ou seria barrado pela falta de integração V54."
@@ -23,7 +25,7 @@ Organizado por prioridade. Última atualização: 2026-04-27.
 
 ---
 
-## NOW (Phase 4H — Context Load Reduction — CONCLUÍDA)
+### Phase 4H — Context Load Reduction
 
 - [x] **Deletar documentação obsoleta/redundante**
   - Deletados: `AI_WORKFLOW.md`, `.ai_shared/HANDOFF_PROTOCOL.md`, `.ai_shared/registry.json`, `.ai_shared/tools/`, `.ai_shared/skills/` (9 arquivos), `.ai_shared/handoffs/` (3 arquivos), `.ai_shared/archive/ANALISE_A_SER_CONSIDERADA.MD`, `docs/IMPLEMENTATION_PLAN.md`, `docs/archive/` (2 arquivos V52/pre-D031), `docs/superpowers/`.
@@ -39,6 +41,16 @@ Organizado por prioridade. Última atualização: 2026-04-27.
 
 - [x] **Limpar referências quebradas em docs ativos**
   - Removida referência stale a `docs/MASTERPLAN_REFATORACAO_V54.md` no MASTERPLAN.
+
+---
+
+## NOW
+
+- [ ] **Modelar Idempotency_Log local/fake-first**
+  - sem Telegram
+  - sem planilha real
+  - sem doPost
+  - sem Apps Script real
 
 ---
 
@@ -91,9 +103,6 @@ Organizado por prioridade. Última atualização: 2026-04-27.
 ---
 
 ## DO NOT DO YET
-
-- [ ] **Não implementar `Idempotency_Log`** nesta fase
-  - Decisão D038 aceita, mas implementação é bloqueio para roteamento Telegram, não para guardrails ou docs.
 
 - [ ] **Não implementar `Pagamentos_Fatura`** nesta fase
   - Decisão D036 aceita. Requer reconciliação e estado de fatura `fechada`.
