@@ -5,6 +5,8 @@ Branch: feat/v54-production-readiness
 Status: MVP V54-only plan
 Planning premise: V54 is the target product. V53 is a deprecated historical prototype, not a mandatory production fallback.
 
+> **Authority note:** this masterplan is a planning/reference document. Accepted decisions in `.ai_shared/DECISIONS.md` prevail over any stale TODO/OPEN item here.
+
 ## 1. Executive Summary
 
 DECISION: The project is still in development. V53 was a prototype and must not be treated as active production or mandatory fallback in V54 planning.
@@ -77,27 +79,33 @@ Non-goals for MVP:
 - DECISION: Recommendations start deterministic/rule-based before any LLM phrasing.
 - DECISION: Real spreadsheet writes require protected tests with deterministic fixtures and cleanup.
 
-## 5. Open Domain Decisions
+## 5. Domain Decision Status
 
-PROPOSTA: detailed proposals for the blocking MVP domain decisions are now documented in `docs/V54_DOMAIN_DECISIONS.md`.
+### Accepted / resolved in DECISIONS.md
+- V54-only premise → D031
+- Rateio / income base → D032
+- Benefits VA/VR/Alelo → D033
+- `Fora orcamento` disabled → D034
+- Home earmarked assets taxonomy → D035
+- Fatura prepayment blocked → D036
+- Acerto allocation by fatura competence → D037
+- Idempotency_Log required before Telegram routing → D038
+- Future fatura refunds → D039
+- Debt payments as cash obligations → D040
+- Expected Faturas upsert → D041
 
-TODO: after human review, accepted items must be recorded in `.ai_shared/DECISIONS.md` and converted into local/fake-first tests before implementation.
-
-| Decision | Label | Why It Matters |
-|---|---|---|
-| V54 opening date and competence | OPEN_DECISION | Defines starting invoices, balances, installments, and reports. |
-| Cash income for rateio | OPEN_DECISION | Local tests use Gustavo `3400` and Luana `3500`; seed also has Gustavo fuel allowance `1200` with `afeta_rateio=true`. |
-| Benefits in acerto/DRE/cash | OPEN_DECISION | Alelo/VA are restricted resources and cannot be treated like ordinary cash without explicit rule. |
-| `Fora orcamento` scope | OPEN_DECISION | Schema allows it, parser/actions currently reject it. |
-| Home earmark taxonomy | OPEN_DECISION | Seed uses `Itens da casa`; reporting helper classifies home earmark as `Casa`/`home`. |
-| Global ID strategy | OPEN_DECISION | Real Telegram retries/import duplicates require idempotency. |
-| Dedupe mechanism | OPEN_DECISION | Need source message IDs, idempotency log, or deterministic dedupe keys. |
-| Fatura state machine | OPEN_DECISION | Need expected, closed, paid, partial, divergent, adjusted/cancelled behavior. |
-| Invoice payment acerto rule | OPEN_DECISION | Must avoid counting purchase and fatura payment as the same couple expense. |
-| Refunds/chargebacks/cancellations | OPEN_DECISION | Needed before card use is safe in real life. |
-| Corrections/adjustments | OPEN_DECISION | Need immutable reversal/adjustment rules before Telegram usage. |
-| Debt payment semantics | OPEN_DECISION | `divida_pagamento` exists in parser contract but is not supported in ActionsV54. |
-| Protected real test surface | OPEN_DECISION | Need safe write/cleanup route before real spreadsheet mutation tests. |
+### Still missing / unresolved inputs
+- V54 opening date and competence.
+- Opening balances for account sources.
+- Opening balances for VA/Alelo benefits.
+- Open faturas at start date by card.
+- Active installments still being paid.
+- Caixa debt details.
+- Vasco debt details.
+- Privacy defaults, if not fully accepted elsewhere.
+- Thresholds for large purchase/surplus/recommendation triggers.
+- Future home activation date and forecast confirmation.
+- Protected real test surface, if still pending.
 
 ## 6. Missing Inputs
 
@@ -108,7 +116,6 @@ TODO: after human review, accepted items must be recorded in `.ai_shared/DECISIO
 - MISSING_INPUT: Active installments still being paid.
 - MISSING_INPUT: Caixa debt details: current balance, installment, remaining term, interest/rate, amortization system, start date.
 - MISSING_INPUT: Vasco debt details: current balance, installment, remaining term, interest/rate, amortization system, start date.
-- MISSING_INPUT: Whether Gustavo fuel allowance is included in `3400` or additional to it.
 - MISSING_INPUT: Privacy defaults for personal categories.
 - MISSING_INPUT: Thresholds for large purchase, large surplus, and recommendation triggers.
 - MISSING_INPUT: Confirmation of future home activation date and forecast values.
@@ -134,13 +141,14 @@ VERIFIED: `compra_cartao` fake path writes one `Lancamentos_V54` row with comput
 
 VERIFIED: `compra_parcelada` fake path writes one `Compras_Parceladas` row and N `Parcelas_Agenda` rows, not `Lancamentos_V54` or `Faturas` rows.
 
+VERIFIED: `Faturas` expected upsert local/fake-first is implemented and accepted in D041.
+
 MVP requirements:
 
-- Implement `Faturas` upsert/generation from card purchases and installments.
-- Implement `Pagamentos_Fatura` as settlement only with `afeta_dre=false`.
+- Implement `Pagamentos_Fatura` (not yet implemented; D036 blocks prepayment).
 - Support full payment, partial payment, and divergence.
 - Define how expected, closed, and paid values reconcile.
-- Support or explicitly reject refunds, chargebacks, cancellations, and adjustments before Telegram V54.
+- Refunds/cancellations follow D039.
 
 ### 7.3 Rateio And Acerto
 
@@ -150,9 +158,9 @@ VERIFIED: local reporting excludes `receita` from couple settlement.
 
 MVP requirements:
 
-- Resolve income base for rateio.
-- Resolve how benefits reduce or credit shared spending.
-- Define whether card purchase recognition or fatura payment drives acerto.
+- Rateio follows D032 (base uses only unrestricted recurring incomes).
+- Benefits follow D033 (VA/VR/Alelo are restricted, do not enter rateio base).
+- Acerto allocation by fatura competence follows D037.
 - Prevent duplicate acerto from purchase plus invoice settlement.
 - Keep private details out of shared detailed views.
 
@@ -163,8 +171,8 @@ VERIFIED: Current home-item assets total `16635` in seed and are not emergency r
 MVP requirements:
 
 - Emergency reserve counts only assets with `conta_reserva_emergencia=true`.
-- Home earmarked assets must remain visible but excluded from reserve.
-- Debt reports must label unknown interest/principal split instead of inventing precision.
+- Home earmarked assets follow D035 (must remain visible but excluded from reserve).
+- Debt payments follow D040 (tracked as cash outflows and non-DRE obligations, without requiring principal/interest split on day one).
 - No amortization recommendation until reserve, invoices, and debt data are reliable.
 
 ### 7.5 Reports And Recommendations
@@ -203,15 +211,13 @@ Goal: close the domain decisions that would otherwise corrupt financial reportin
 Required outputs:
 
 - PROPOSTA: review `docs/V54_DOMAIN_DECISIONS.md` and accept/reject/adjust each proposed rule.
-- TODO: Opening date and opening competence.
-- TODO: Income/rateio rule, including Gustavo fuel allowance.
-- TODO: Benefit rule for Alelo/VA.
-- TODO: Fatura state machine and reconciliation rule.
-- TODO: Payment/acerto rule.
-- TODO: ID/idempotency/dedupe design.
-- TODO: Refund/chargeback/cancellation/adjustment semantics.
-- TODO: Debt payment semantics or explicit MVP exclusion.
-- TODO: Privacy defaults.
+- TODO: Opening date and opening competence, if no accepted decision yet.
+- TODO: Opening balances.
+- TODO: Active installments.
+- TODO: Full debt details.
+- TODO: Privacy defaults, if not yet accepted.
+- TODO: Recommendation thresholds.
+- TODO: Protected real test surface, if still pending.
 
 Exit criteria:
 
@@ -235,10 +241,9 @@ Already verified locally:
 
 Next TODOs:
 
-- Implement local/fake-first `Faturas` expected upsert.
-- Implement local/fake-first `Pagamentos_Fatura` writes.
+- Implement local/fake-first `Idempotency_Log` (D038).
+- Implement local/fake-first `Pagamentos_Fatura` writes (respecting D036).
 - Implement local/fake-first reconciliation: expected, closed, paid, partial, divergent.
-- Implement local/fake-first idempotency/dedupe checks.
 - Implement local/fake-first adjustment/refund/cancellation behavior or explicit rejection.
 - Add fake tests proving no duplicate DRE/acerto recognition.
 
@@ -372,14 +377,14 @@ Rollback within V54-only MVP:
 V54 MVP is ready for real household use only when all applicable items are VERIFIED:
 
 - V53 is documented as deprecated prototype with no new features.
-- V54 domain decisions are recorded.
+- V54 domain decisions are recorded and accepted decisions live in `.ai_shared/DECISIONS.md`.
 - Opening state is reviewed.
-- Rateio and benefits rules are implemented and tested.
-- ID/idempotency/dedupe are implemented and tested.
-- Fatura expected/closed/paid/reconciliation lifecycle is implemented and tested.
+- Rateio (D032) and benefits (D033) rules are implemented and tested.
+- Idempotency (D038) is implemented and tested.
+- Fatura expected (D041)/closed/paid/reconciliation lifecycle is implemented and tested.
 - `Pagamentos_Fatura` never affects operational DRE.
 - Purchases/installments are recognized once.
-- Adjustments/refunds/cancellations are supported or safely rejected.
+- Adjustments/refunds/cancellations (D039) are supported or safely rejected.
 - Protected real spreadsheet tests pass with cleanup.
 - Production negative webhook tests pass.
 - Telegram V54 E2E passes.

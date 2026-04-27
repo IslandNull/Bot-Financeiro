@@ -44,6 +44,14 @@ Organizado por prioridade. Última atualização: 2026-04-27.
 
 ---
 
+### Phase 4J — Masterplan Stale Decision Cleanup
+
+- [x] **Limpar decisões obsoletas no masterplan**
+  - Masterplan alinhado com decisões D031-D041.
+  - Nota de autoridade adicionada no topo.
+
+---
+
 ## NOW
 
 - [ ] **Modelar Idempotency_Log local/fake-first**
