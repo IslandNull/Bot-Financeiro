@@ -594,3 +594,18 @@ Rejected:
 - Accepting webhook-shaped input for manual execution.
 - Running `real_manual` without prior fake/dry-run and snapshot acknowledgement.
 - Exposing the policy or gate through `doPost` or `doGet`.
+
+## D046 - V54 Real Manual Parser Context Evidence
+Status: Accepted
+Date: 2026-04-27
+
+Decision:
+`real_manual` parser context diagnostics require callable injected evidence. A boolean acknowledgement such as `diagnostics.parserContextReadable === true` is not sufficient. The policy must receive `options.getParserContext` as a function, call it with deterministic diagnostic input, and require a result object with `ok === true`; missing dependency, thrown exception, invalid result, or `ok:false` blocks the gate before the runner is called.
+
+Reason:
+Parser context is a dependency boundary for future real execution. Treating it as an acknowledgement flag could allow `real_manual` to pass without proving that canonical context can actually be read through the reviewed diagnostic path.
+
+Rejected:
+- Passing parser-context diagnostics with only an acknowledgement boolean.
+- Letting `RunnerV54Gate` call the runner after parser-context policy failure.
+- Treating this hardening as production readiness or route authorization.

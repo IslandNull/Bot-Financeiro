@@ -26,14 +26,14 @@ function test(name, fn) {
 function loadPolicy(extraSandbox) {
     const sandbox = Object.assign({ console, Date, JSON, String, Object, Array }, extraSandbox || {});
     vm.createContext(sandbox);
-    vm.runInContext(`${policySource}\nresult = { evaluateV54RealManualPolicy, evaluateRunnerV54RealManualPolicy };`, sandbox);
+    vm.runInContext(`${policySource}\nresult = { evaluateV54RealManualPolicy, evaluateRunnerV54RealManualPolicy, V54_REAL_MANUAL_REQUIRED_SHEETS, V54_REAL_MANUAL_HEADERS };`, sandbox);
     return sandbox.result;
 }
 
 function loadGateWithPolicy(extraSandbox) {
     const sandbox = Object.assign({ console, Date, Math, JSON, Number, String, Boolean, Object, Array, RegExp }, extraSandbox || {});
     vm.createContext(sandbox);
-    vm.runInContext(`${policySource}\n${gateSource}\nresult = { invokeV54ManualShadowGate, evaluateRunnerV54RealManualPolicy };`, sandbox);
+    vm.runInContext(`${policySource}\n${gateSource}\nresult = { invokeV54ManualShadowGate, evaluateRunnerV54RealManualPolicy, V54_REAL_MANUAL_REQUIRED_SHEETS, V54_REAL_MANUAL_HEADERS };`, sandbox);
     return sandbox.result;
 }
 
@@ -102,11 +102,19 @@ function input(overrides) {
 
 function options(overrides) {
     const source = overrides || {};
-    return {
+    const result = {
         getSpreadsheet: () => makeSpreadsheet(source.spreadsheet),
-        getParserContext: source.getParserContext || (() => ({ ok: true, context: { categories: [], fontes: [], cartoes: [] }, errors: [] })),
         now: () => '2026-04-27T22:00:00.000Z',
     };
+    if (Object.prototype.hasOwnProperty.call(source, 'getSpreadsheet')) {
+        result.getSpreadsheet = source.getSpreadsheet;
+    }
+    if (Object.prototype.hasOwnProperty.call(source, 'getParserContext')) {
+        result.getParserContext = source.getParserContext;
+    } else {
+        result.getParserContext = () => ({ ok: true, context: { categories: [], fontes: [], cartoes: [] }, errors: [] });
+    }
+    return result;
 }
 
 function assertError(result, code, field) {
@@ -117,7 +125,33 @@ function assertError(result, code, field) {
     }), `Expected ${code}${field ? ` on ${field}` : ''}, got ${JSON.stringify(result.errors)}`);
 }
 
+function plainArray(values) {
+    return Array.from(values || []);
+}
+
 let failed = 0;
+
+failed += test('policy_required_sheets_match_canonical_schema_exactly', () => {
+    const { V54_REAL_MANUAL_REQUIRED_SHEETS } = loadPolicy();
+    const policySheets = plainArray(V54_REAL_MANUAL_REQUIRED_SHEETS);
+    const schemaSheets = Object.values(V54_SHEETS);
+    assert.deepStrictEqual(policySheets, schemaSheets);
+
+    const policyOnly = policySheets.filter((sheetName) => !schemaSheets.includes(sheetName));
+    const schemaOnly = schemaSheets.filter((sheetName) => !policySheets.includes(sheetName));
+    assert.deepStrictEqual(policyOnly, [], `Extra policy sheets: ${policyOnly.join(', ')}`);
+    assert.deepStrictEqual(schemaOnly, [], `Missing policy sheets: ${schemaOnly.join(', ')}`);
+});
+
+failed += test('policy_headers_match_canonical_schema_exactly_for_every_sheet', () => {
+    const { V54_REAL_MANUAL_REQUIRED_SHEETS, V54_REAL_MANUAL_HEADERS } = loadPolicy();
+    plainArray(V54_REAL_MANUAL_REQUIRED_SHEETS).forEach((sheetName) => {
+        assert.deepStrictEqual(plainArray(V54_REAL_MANUAL_HEADERS[sheetName]), V54_HEADERS[sheetName], `${sheetName} headers drifted`);
+    });
+    Object.values(V54_SHEETS).forEach((sheetName) => {
+        assert.ok(Object.prototype.hasOwnProperty.call(V54_REAL_MANUAL_HEADERS, sheetName), `${sheetName} missing from policy headers`);
+    });
+});
 
 failed += test('missing_operator_fails', () => {
     const { evaluateV54RealManualPolicy } = loadPolicy();
@@ -161,6 +195,72 @@ failed += test('header_mismatch_diagnostic_fails', () => {
     assertError(result, 'V54_REAL_MANUAL_HEADER_MISMATCH', V54_SHEETS.LANCAMENTOS_V54);
 });
 
+failed += test('parser_context_boolean_ack_without_injected_getParserContext_fails', () => {
+    let calls = 0;
+    const { invokeV54ManualShadowGate } = loadGateWithPolicy();
+    const result = invokeV54ManualShadowGate(input({
+        diagnostics: { parserContextReadable: true },
+    }), {
+        runV54ManualShadow() {
+            calls += 1;
+            return { ok: true };
+        },
+        realManualPolicyOptions: options({ getParserContext: null }),
+    });
+    assertError(result, 'V54_REAL_MANUAL_PARSER_CONTEXT_DIAGNOSTIC_REQUIRED', 'getParserContext');
+    assert.strictEqual(calls, 0);
+});
+
+failed += test('missing_getParserContext_fails', () => {
+    let calls = 0;
+    const { invokeV54ManualShadowGate } = loadGateWithPolicy();
+    const result = invokeV54ManualShadowGate(input(), {
+        runV54ManualShadow() {
+            calls += 1;
+            return { ok: true };
+        },
+        realManualPolicyOptions: options({ getParserContext: null }),
+    });
+    assertError(result, 'V54_REAL_MANUAL_PARSER_CONTEXT_DIAGNOSTIC_REQUIRED', 'getParserContext');
+    assert.strictEqual(calls, 0);
+});
+
+failed += test('getParserContext_throwing_fails', () => {
+    let calls = 0;
+    const { invokeV54ManualShadowGate } = loadGateWithPolicy();
+    const result = invokeV54ManualShadowGate(input(), {
+        runV54ManualShadow() {
+            calls += 1;
+            return { ok: true };
+        },
+        realManualPolicyOptions: options({
+            getParserContext() {
+                throw new Error('context failed');
+            },
+        }),
+    });
+    assertError(result, 'V54_REAL_MANUAL_PARSER_CONTEXT_UNREADABLE', 'getParserContext');
+    assert.strictEqual(calls, 0);
+});
+
+failed += test('getParserContext_ok_false_fails', () => {
+    let calls = 0;
+    const { invokeV54ManualShadowGate } = loadGateWithPolicy();
+    const result = invokeV54ManualShadowGate(input(), {
+        runV54ManualShadow() {
+            calls += 1;
+            return { ok: true };
+        },
+        realManualPolicyOptions: options({
+            getParserContext() {
+                return { ok: false, context: null, errors: [{ code: 'FAKE_CONTEXT_FAILED' }] };
+            },
+        }),
+    });
+    assertError(result, 'V54_REAL_MANUAL_PARSER_CONTEXT_UNREADABLE', 'getParserContext');
+    assert.strictEqual(calls, 0);
+});
+
 failed += test('valid_fake_diagnostics_pass', () => {
     const { evaluateV54RealManualPolicy } = loadPolicy();
     const result = evaluateV54RealManualPolicy(input(), options());
@@ -187,6 +287,22 @@ failed += test('policy_result_can_be_consumed_by_runner_gate_for_real_manual', (
     assert.strictEqual(result.mode, 'real_manual');
     assert.strictEqual(calls.length, 1);
     assert.strictEqual(result.gate.realManualPolicy.ok, true);
+});
+
+failed += test('gate_real_manual_without_policy_options_blocks_runner', () => {
+    let calls = 0;
+    const { invokeV54ManualShadowGate } = loadGateWithPolicy();
+    const result = invokeV54ManualShadowGate(input(), {
+        runV54ManualShadow() {
+            calls += 1;
+            return { ok: true, status: 'recorded', errors: [] };
+        },
+    });
+
+    assert.strictEqual(result.ok, false);
+    assert.strictEqual(result.status, 'gate_real_manual_policy_blocked');
+    assertError(result, 'V54_REAL_MANUAL_SPREADSHEET_DIAGNOSTIC_REQUIRED', 'getSpreadsheet');
+    assert.strictEqual(calls, 0);
 });
 
 failed += test('main_doPost_and_doGet_remain_unchanged_for_v54_policy', () => {

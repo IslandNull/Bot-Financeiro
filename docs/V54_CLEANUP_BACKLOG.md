@@ -119,6 +119,13 @@ Organizado por prioridade. Última atualização: 2026-04-27.
   - valida `Idempotency_Log`, abas V54, headers e contexto do parser por DI fake-first
   - sem `doPost`, sem `doGet`, sem Telegram real, sem OpenAI real, sem planilha real nos testes, sem setup/seed/deploy
 
+- [x] **Endurecer diagnosticos `real_manual` do contexto do parser**
+  - remove aceitaçao por acknowledgement booleano (`parserContextReadable`)
+  - exige `getParserContext` injetado, chamada deterministica e retorno `{ ok: true }`
+  - gate bloqueia runner quando a politica falha
+  - testes cobrem drift de abas/headers contra `scripts/lib/v54-schema.js`
+  - sem rota real, sem Telegram, sem OpenAI real, sem planilha real nos testes
+
 ---
 
 ## NEXT (Próximas iterações de limpeza — sem feature financeira nova)

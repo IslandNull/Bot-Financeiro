@@ -142,9 +142,6 @@ function validateV54RealManualSheetHeaders_(sheet, sheetName) {
 }
 
 function evaluateV54RealManualParserContext_(deps, input, diagnostics, errors) {
-    if (diagnostics.parserContextReadable === true && !deps.getParserContext) {
-        return 'parser_context_readable:acknowledged';
-    }
     if (!deps.getParserContext) {
         errors.push(makeV54RealManualPolicyError_('V54_REAL_MANUAL_PARSER_CONTEXT_DIAGNOSTIC_REQUIRED', 'getParserContext', 'Real manual policy requires parser context diagnostics.'));
         return '';
