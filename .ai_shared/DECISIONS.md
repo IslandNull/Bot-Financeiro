@@ -539,3 +539,22 @@ Rejected:
 - Silently recovering ambiguous domain state.
 - Automatically appending a second `processing` row for the same idempotency key.
 - Retrying failed rows without a separate accepted policy.
+
+## D043 - V54 Idempotent Result References And Reviewed Recovery Executor
+Status: Accepted
+Date: 2026-04-27
+
+Decision:
+The V54 idempotent write path must use deterministic domain result references derived from the idempotency key. For idempotent simple/card launch paths, `id_lancamento` is `LAN_V54_IDEMP_<hash(idempotency_key)>`. For idempotent `compra_parcelada`, `id_compra` is `CP_V54_IDEMP_<hash(idempotency_key)>`. Non-idempotent fake/local paths may keep their existing injected or default ID behavior.
+
+Crash recovery after `APPLY_DOMAIN_MUTATION` but before `MARK_IDEMPOTENCY_COMPLETED` may only plan completion when retry reconstructs the same deterministic result reference and finds the matching domain row. Random or non-reproducible result references must block as review-required.
+
+Reviewed recovery application is modeled by a local-only executor/checklist. It can update only `Idempotency_Log` rows and only with `MARK_IDEMPOTENCY_FAILED` or `MARK_IDEMPOTENCY_COMPLETED`. It must never apply domain mutations. Completion recovery requires a reviewed checklist confirming the matched result reference; failed recovery requires a reviewed checklist confirming no matching domain mutation.
+
+Reason:
+The processing log is initially inserted with empty `result_ref`. If the domain mutation succeeds and completion marking fails, a retry must not depend on regenerating random IDs. Deterministic idempotent references make the already-written domain mutation discoverable while preserving explicit review for ambiguous states.
+
+Rejected:
+- Relying on random IDs being regenerated the same way.
+- Applying recovery plans without a reviewed checklist.
+- Letting the recovery executor apply `APPLY_DOMAIN_MUTATION` or any non-idempotency-log update.

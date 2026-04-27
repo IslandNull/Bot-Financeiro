@@ -8,7 +8,7 @@ const vm = require('vm');
 const { V54_HEADERS, V54_SHEETS } = require('./lib/v54-schema');
 const { V54_SEED_DATA } = require('./lib/v54-seed');
 const { IDEMPOTENCY_STATUSES, hashPayload, makeSemanticFingerprint } = require('./lib/v54-idempotency-contract');
-const { planV54IdempotentWrite } = require('./lib/v54-idempotent-write-path');
+const { makeDeterministicIdempotentResultRefs, planV54IdempotentWrite } = require('./lib/v54-idempotent-write-path');
 const { planStaleProcessingRecovery } = require('./lib/v54-idempotency-recovery-policy');
 const { mapSingleCardPurchaseContract } = require('./lib/v54-card-purchase-contract');
 const { mapInstallmentScheduleContract } = require('./lib/v54-installment-schedule-contract');
@@ -17,6 +17,8 @@ const { planExpectedFaturasUpsert } = require('./lib/v54-faturas-expected-upsert
 const actionsSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'ActionsV54.js'), 'utf8');
 const idempotencyAdapterSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'ActionsV54Idempotency.js'), 'utf8');
 const mainSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'Main.js'), 'utf8');
+const IDEMPOTENCY_KEY = 'telegram:telegram_update_id:91001';
+const IDEMPOTENT_REFS = makeDeterministicIdempotentResultRefs(IDEMPOTENCY_KEY);
 
 function test(name, fn) {
     try {
@@ -180,7 +182,7 @@ function completedIdempotencyRow(overrides) {
         chat_id: String(input.chat_id || ''),
         payload_hash: hashPayload(input.payload),
         status: IDEMPOTENCY_STATUSES.COMPLETED,
-        result_ref: 'LAN_V54_ADAPTER_0001',
+        result_ref: IDEMPOTENT_REFS.id_lancamento,
         created_at: '2026-04-27T21:00:00.000Z',
         updated_at: '2026-04-27T21:01:00.000Z',
         error_code: '',
@@ -190,7 +192,7 @@ function completedIdempotencyRow(overrides) {
 
 function lancamentoRow(overrides) {
     return Object.assign({
-        id_lancamento: 'LAN_V54_ADAPTER_0001',
+        id_lancamento: IDEMPOTENT_REFS.id_lancamento,
         data: '2026-04-27',
         competencia: '2026-04',
         tipo_evento: 'despesa',
@@ -214,7 +216,7 @@ function lancamentoRow(overrides) {
 
 function compraParceladaRow(overrides) {
     return Object.assign({
-        id_compra: 'CP_ACTION_0001',
+        id_compra: IDEMPOTENT_REFS.id_compra,
         data_compra: '2026-04-29',
         id_cartao: 'CARD_NUBANK_GU',
         descricao: 'Geladeira',
@@ -274,7 +276,7 @@ failed += test('simple_event_idempotent_path_records_processing_applies_lancamen
     assert.deepStrictEqual(JSON.parse(JSON.stringify(result.applied)), ['INSERT_IDEMPOTENCY_LOG', 'APPLY_DOMAIN_MUTATION', 'MARK_IDEMPOTENCY_COMPLETED']);
     assert.strictEqual((fake.writesBySheet[V54_SHEETS.IDEMPOTENCY_LOG] || []).length, 2);
     assert.strictEqual((fake.writesBySheet[V54_SHEETS.LANCAMENTOS_V54] || []).length, 1);
-    assert.strictEqual(result.id_lancamento, 'LAN_V54_ADAPTER_0001');
+    assert.strictEqual(result.id_lancamento, IDEMPOTENT_REFS.id_lancamento);
     assert.deepStrictEqual(locks, ['recordEntryV54']);
 });
 
@@ -299,7 +301,7 @@ failed += test('compra_parcelada_idempotent_path_guards_compra_parcelas_and_fatu
     assert.strictEqual((fake.writesBySheet[V54_SHEETS.PARCELAS_AGENDA] || []).length, 1);
     assert.strictEqual((fake.writesBySheet[V54_SHEETS.FATURAS] || []).length, 3);
     assert.strictEqual((fake.writesBySheet[V54_SHEETS.LANCAMENTOS_V54] || []).length, 0);
-    assert.strictEqual(result.compra.rowObject.id_compra, 'CP_ACTION_0001');
+    assert.strictEqual(result.compra.rowObject.id_compra, IDEMPOTENT_REFS.id_compra);
     assert.strictEqual(result.parcelas.rowCount, 3);
 });
 
@@ -325,7 +327,7 @@ failed += test('duplicate_processing_key_without_matching_domain_mutation_is_ret
 });
 
 failed += test('processing_log_with_matching_domain_mutation_returns_completion_recovery_todo', () => {
-    const processing = completedIdempotencyRow({ status: IDEMPOTENCY_STATUSES.PROCESSING, result_ref: 'LAN_V54_ADAPTER_0001' });
+    const processing = completedIdempotencyRow({ status: IDEMPOTENCY_STATUSES.PROCESSING, result_ref: IDEMPOTENT_REFS.id_lancamento });
     const fake = makeFakeSpreadsheet({
         idempotencyRows: [processing],
         lancamentosRows: [lancamentoRow()],
@@ -342,7 +344,7 @@ failed += test('processing_log_with_matching_domain_mutation_returns_completion_
 failed += test('processing_log_with_matching_compra_parcelada_mutation_returns_completion_recovery_todo', () => {
     const processing = completedIdempotencyRow({
         status: IDEMPOTENCY_STATUSES.PROCESSING,
-        result_ref: 'CP_ACTION_0001',
+        result_ref: IDEMPOTENT_REFS.id_compra,
     });
     const fake = makeFakeSpreadsheet({
         idempotencyRows: [processing],
@@ -377,7 +379,7 @@ failed += test('stale_processing_adapter_returns_failed_transition_plan_without_
 failed += test('stale_processing_adapter_with_matching_lancamento_returns_completion_plan_without_duplicate', () => {
     const processing = completedIdempotencyRow({
         status: IDEMPOTENCY_STATUSES.PROCESSING,
-        result_ref: 'LAN_V54_ADAPTER_0001',
+        result_ref: IDEMPOTENT_REFS.id_lancamento,
         updated_at: '2026-04-27T20:00:00.000Z',
     });
     const fake = makeFakeSpreadsheet({
@@ -398,7 +400,7 @@ failed += test('stale_processing_adapter_with_matching_lancamento_returns_comple
 failed += test('stale_processing_adapter_with_matching_compra_parcelada_returns_completion_plan_without_duplicate', () => {
     const processing = completedIdempotencyRow({
         status: IDEMPOTENCY_STATUSES.PROCESSING,
-        result_ref: 'CP_ACTION_0001',
+        result_ref: IDEMPOTENT_REFS.id_compra,
         updated_at: '2026-04-27T20:00:00.000Z',
     });
     const fake = makeFakeSpreadsheet({

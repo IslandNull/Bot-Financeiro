@@ -36,18 +36,6 @@ function recordEntryV54Idempotent_(input, deps) {
         );
     }
 
-    var domainPlan = planRecordEntryV54DomainMutation_(input, deps, spreadsheet);
-    if (!domainPlan.ok) {
-        return makeActionsV54FailureWithSheet_(
-            domainPlan.sheet || V54_LANCAMENTOS_SHEET,
-            null,
-            null,
-            null,
-            domainPlan.rowObject || null,
-            domainPlan.errors
-        );
-    }
-
     var boundary = deps.planV54IdempotentWrite({
         parsedEntry: input,
         telegramUpdate: deps.idempotency.telegramUpdate || null,
@@ -58,10 +46,22 @@ function recordEntryV54Idempotent_(input, deps) {
     }, {
         now: deps.now,
         makeId: deps.makeId,
+        makeCompraId: deps.makeCompraId,
+        deterministicResultRefs: deps.deterministicResultRefs,
         recoveryPolicy: deps.idempotency && deps.idempotency.recovery ? deps.idempotency.recovery : null,
         planStaleProcessingRecovery: deps.planStaleProcessingRecovery,
-        financialPlanner: function() {
-            return domainPlan;
+        financialPlanner: function(parsedEntry, plannerOptions) {
+            var effectiveDeps = {};
+            Object.keys(deps).forEach(function(key) {
+                effectiveDeps[key] = deps[key];
+            });
+            if (plannerOptions && typeof plannerOptions.makeId === 'function') {
+                effectiveDeps.makeId = plannerOptions.makeId;
+            }
+            if (plannerOptions && typeof plannerOptions.makeCompraId === 'function') {
+                effectiveDeps.makeCompraId = plannerOptions.makeCompraId;
+            }
+            return planRecordEntryV54DomainMutation_(parsedEntry, effectiveDeps, spreadsheet);
         },
     });
 
@@ -93,7 +93,7 @@ function recordEntryV54Idempotent_(input, deps) {
         );
     }
 
-    return makeIdempotentRecordEntryV54Success_(boundary, domainPlan, execution);
+    return makeIdempotentRecordEntryV54Success_(boundary, boundary.financial, execution);
 }
 
 function planRecordEntryV54DomainMutation_(input, deps, spreadsheet) {

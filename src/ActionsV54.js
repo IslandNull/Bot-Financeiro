@@ -223,6 +223,7 @@ function normalizeActionsV54Deps_(options) {
         makeCompraId: typeof source.makeCompraId === 'function'
             ? source.makeCompraId
             : makeDefaultCompraV54Id_,
+        deterministicResultRefs: source.deterministicResultRefs === false ? false : true,
         mapSingleCardPurchaseContract: typeof source.mapSingleCardPurchaseContract === 'function'
             ? source.mapSingleCardPurchaseContract
             : null,

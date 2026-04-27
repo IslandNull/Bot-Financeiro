@@ -75,6 +75,14 @@ Organizado por prioridade. Última atualização: 2026-04-27.
   - stale sem mutação planeja `MARK_IDEMPOTENCY_FAILED` com `STALE_PROCESSING_NO_DOMAIN_MUTATION`
   - match por `result_ref`/referência determinística planeja `MARK_IDEMPOTENCY_COMPLETED`
   - estados ambíguos ou mismatched continuam bloqueados para revisão manual
+- [x] **Tornar referências do caminho idempotente recuperáveis após crash**
+  - `id_lancamento`/`id_compra` idempotentes são derivados do `idempotency_key`
+  - crash após mutação de domínio com log ainda `processing` e `result_ref` vazio pode reconstruir a referência esperada
+  - ID aleatório/non-reproducible bloqueia recuperação automática e exige revisão
+- [x] **Criar executor/checklist local para planos revisados de recuperação**
+  - aplica somente `MARK_IDEMPOTENCY_FAILED` e `MARK_IDEMPOTENCY_COMPLETED`
+  - exige checklist revisado antes de aplicar
+  - nunca aplica `APPLY_DOMAIN_MUTATION`
 
 ---
 
@@ -96,11 +104,10 @@ Organizado por prioridade. Última atualização: 2026-04-27.
   - O teste `test:v54:actions` já verifica paridade de headers entre `ActionsV54.js` e `v54-schema.js`.
   - **Ação:** Documentar no `V54_CODEMAP.md` que esse teste é obrigatório antes de qualquer push.
 
-- [ ] **Definir aplicação manual/revisada dos planos de recuperação de idempotência**
-  - Janela A: aplicar `MARK_IDEMPOTENCY_FAILED` antes de retry revisado.
-  - Janela B: aplicar `MARK_IDEMPOTENCY_COMPLETED` quando a mutação de domínio já existe.
-  - **Ação:** criar executor local/fake-first ou checklist operacional revisado antes de qualquer tráfego real.
-  - **Restrição:** não recuperar automaticamente estados ambíguos.
+- [ ] **Criar adapter Apps Script fake-first para aplicação revisada de recuperação**
+  - consumir o executor/checklist local por DI ou espelho mínimo Apps Script
+  - cobrir leitura/escrita fake de `Idempotency_Log`
+  - **Restrição:** ainda sem rota real, sem Telegram, sem planilha real, sem recuperar estados ambíguos.
 
 ---
 

@@ -38,6 +38,7 @@ Existem duas gerações de código convivendo no mesmo runtime:
 | `scripts/lib/v54-card-invoice-cycle.js` | Ciclo de fatura de cartão (fechamento/vencimento) | `V54_LOCAL_CONTRACT` | Sim | Determinístico, usado por compra e parcelamento. |
 | `scripts/lib/v54-idempotency-contract.js` | Contrato local de idempotência V54 | `V54_LOCAL_CONTRACT` | Sim | Planeja `Idempotency_Log` sem Apps Script, Telegram real, rede ou planilha real. |
 | `scripts/lib/v54-idempotency-recovery-policy.js` | Política local de recuperação para `processing` stale | `V54_LOCAL_CONTRACT` | Sim | Pure planner opt-in: fresh blocks, stale sem mutação planeja `failed`, match por referência planeja `completed`, ambíguo bloqueia. |
+| `scripts/lib/v54-idempotency-recovery-executor.js` | Executor/checklist local para planos revisados de recuperação | `V54_LOCAL_CONTRACT` | Sim | Aplica somente `MARK_IDEMPOTENCY_FAILED`/`MARK_IDEMPOTENCY_COMPLETED` em `Idempotency_Log` fake; nunca aplica mutação de domínio. |
 | `scripts/lib/v54-idempotent-write-path.js` | Boundary local de write path idempotente V54 | `V54_LOCAL_CONTRACT` | Sim | Planeja log `processing`, insert financeiro e marcação `completed`; executor em memória só para testes. |
 | `scripts/lib/v54-reporting-contracts.js` | Contratos de relatório V54 (DRE, reserva, patrimônio, acerto) | `V54_LOCAL_CONTRACT` | Sim | Pure local, sem spreadsheet. |
 | `docs/V54_DOCS_INDEX.md` | Índice da documentação V54 | `DOCS_ONLY` | N/A | Ponto de entrada para agentes. |
@@ -83,6 +84,7 @@ Contratos locais Node.js (scripts/lib/):
   v54-reporting-contracts.js    ← DRE, reserva, patrimônio, acerto
   v54-idempotency-contract.js   ← retry técnico e Idempotency_Log local
   v54-idempotency-recovery-policy.js ← política explícita para processing stale
+  v54-idempotency-recovery-executor.js ← aplicação local revisada de planos de recuperação
   v54-idempotent-write-path.js  ← boundary fake-first antes do append financeiro
 
 Adapter Apps Script:
@@ -130,4 +132,4 @@ Para que V54 processe tráfego real do Telegram, é preciso:
 | Sem `ParserV54` produtivo | V54 não pode processar mensagens do Telegram até existir um parser que chame LLM real. | Próxima fase de feature. |
 | Sem `ViewsV54` produtivo | V54 não pode responder no Telegram até existir. | Próxima fase de feature. |
 | `ActionsV54.js` grande | Ainda concentra validação, mapeamento e escrita base. | NEXT (extrair helpers sem mudar comportamento) |
-| Aplicação manual dos planos de recuperação de idempotência | Política local já planeja `MARK_IDEMPOTENCY_FAILED`/`MARK_IDEMPOTENCY_COMPLETED`, mas nenhum fluxo real aplica isso em produção. | NEXT antes do roteamento real. |
+| Aplicação Apps Script dos planos de recuperação de idempotência | Executor local fake-first existe, mas nenhum fluxo Apps Script real aplica planos revisados em produção. | NEXT antes do roteamento real. |

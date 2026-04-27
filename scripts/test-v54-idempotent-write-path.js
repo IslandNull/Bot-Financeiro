@@ -8,6 +8,7 @@ const { IDEMPOTENCY_STATUSES, hashPayload, makeSemanticFingerprint } = require('
 const {
     FAILURE_WINDOWS,
     createInMemoryV54WriteStore,
+    makeDeterministicIdempotentResultRefs,
     makeTelegramIdempotencyInput,
     planV54IdempotentWrite,
 } = require('./lib/v54-idempotent-write-path');
@@ -15,6 +16,12 @@ const {
     STALE_PROCESSING_ERROR_CODES,
     planStaleProcessingRecovery,
 } = require('./lib/v54-idempotency-recovery-policy');
+const {
+    applyReviewedIdempotencyRecovery,
+} = require('./lib/v54-idempotency-recovery-executor');
+
+const IDEMPOTENCY_KEY = 'telegram:telegram_update_id:91001';
+const IDEMPOTENT_REFS = makeDeterministicIdempotentResultRefs(IDEMPOTENCY_KEY);
 
 function test(name, fn) {
     try {
@@ -86,7 +93,7 @@ function completedRow() {
     const plan = firstPlan();
     const row = Object.assign({}, plan.plans[0].rowObject, {
         status: IDEMPOTENCY_STATUSES.COMPLETED,
-        result_ref: 'LAN_V54_IDEMPOTENT_0001',
+        result_ref: IDEMPOTENT_REFS.id_lancamento,
         updated_at: '2026-04-27T21:01:00.000Z',
     });
     return row;
@@ -105,10 +112,11 @@ failed += test('first_valid_payload_plans_processing_log_financial_insert_and_co
         'INSERT_FINANCIAL_ENTRY',
         'MARK_IDEMPOTENCY_COMPLETED',
     ]);
-    assert.strictEqual(plan.plans[0].rowObject.idempotency_key, 'telegram:telegram_update_id:91001');
-    assert.strictEqual(plan.plans[1].rowObject.id_lancamento, 'LAN_V54_IDEMPOTENT_0001');
+    assert.strictEqual(plan.plans[0].rowObject.idempotency_key, IDEMPOTENCY_KEY);
+    assert.strictEqual(plan.plans[0].rowObject.result_ref, '');
+    assert.strictEqual(plan.plans[1].rowObject.id_lancamento, IDEMPOTENT_REFS.id_lancamento);
     assert.strictEqual(plan.plans[2].rowObject.status, 'completed');
-    assert.strictEqual(plan.plans[2].rowObject.result_ref, 'LAN_V54_IDEMPOTENT_0001');
+    assert.strictEqual(plan.plans[2].rowObject.result_ref, IDEMPOTENT_REFS.id_lancamento);
 });
 
 failed += test('duplicate_completed_key_blocks_financial_insert', () => {
@@ -171,12 +179,12 @@ failed += test('stale_processing_without_domain_mutation_returns_explicit_failed
 failed += test('processing_with_matching_lancamento_plans_completion_recovery_without_duplicate_write', () => {
     const processing = Object.assign(completedRow(), {
         status: IDEMPOTENCY_STATUSES.PROCESSING,
-        result_ref: 'LAN_V54_IDEMPOTENT_0001',
+        result_ref: IDEMPOTENT_REFS.id_lancamento,
         updated_at: '2026-04-27T20:00:00.000Z',
     });
     const plan = firstPlan({
         existingIdempotencyRows: [processing],
-        existingFinancialRows: [{ id_lancamento: 'LAN_V54_IDEMPOTENT_0001', sheet: 'Lancamentos_V54' }],
+        existingFinancialRows: [{ id_lancamento: IDEMPOTENT_REFS.id_lancamento, sheet: 'Lancamentos_V54' }],
     }, recoveryOptions());
 
     assert.strictEqual(plan.ok, false);
@@ -184,31 +192,31 @@ failed += test('processing_with_matching_lancamento_plans_completion_recovery_wi
     assert.strictEqual(plan.shouldCreateFinancialEntry, false);
     assert.deepStrictEqual(plan.plans.map((step) => step.action), ['MARK_IDEMPOTENCY_COMPLETED']);
     assert.strictEqual(plan.plans[0].rowObject.status, IDEMPOTENCY_STATUSES.COMPLETED);
-    assert.strictEqual(plan.plans[0].rowObject.result_ref, 'LAN_V54_IDEMPOTENT_0001');
+    assert.strictEqual(plan.plans[0].rowObject.result_ref, IDEMPOTENT_REFS.id_lancamento);
 });
 
 failed += test('processing_with_matching_compra_parcelada_plans_completion_recovery_without_duplicate_write', () => {
     const processing = Object.assign(completedRow(), {
         status: IDEMPOTENCY_STATUSES.PROCESSING,
-        result_ref: 'CP_ACTION_0001',
+        result_ref: IDEMPOTENT_REFS.id_compra,
         updated_at: '2026-04-27T20:00:00.000Z',
     });
     const plan = firstPlan({
         existingIdempotencyRows: [processing],
-        existingFinancialRows: [{ id_compra: 'CP_ACTION_0001', sheet: 'Compras_Parceladas' }],
-    }, recoveryOptions({ makeId: () => 'CP_ACTION_0001' }));
+        existingFinancialRows: [{ id_compra: IDEMPOTENT_REFS.id_compra, sheet: 'Compras_Parceladas' }],
+    }, recoveryOptions());
 
     assert.strictEqual(plan.ok, false);
     assert.strictEqual(plan.decision, 'completion_recovery_planned');
     assert.strictEqual(plan.shouldCreateFinancialEntry, false);
     assert.strictEqual(plan.plans[0].rowObject.status, IDEMPOTENCY_STATUSES.COMPLETED);
-    assert.strictEqual(plan.plans[0].rowObject.result_ref, 'CP_ACTION_0001');
+    assert.strictEqual(plan.plans[0].rowObject.result_ref, IDEMPOTENT_REFS.id_compra);
 });
 
 failed += test('stale_processing_with_mismatched_domain_mutation_blocks_for_manual_review', () => {
     const processing = Object.assign(completedRow(), {
         status: IDEMPOTENCY_STATUSES.PROCESSING,
-        result_ref: 'LAN_V54_IDEMPOTENT_0001',
+        result_ref: IDEMPOTENT_REFS.id_lancamento,
         updated_at: '2026-04-27T20:00:00.000Z',
     });
     const plan = firstPlan({
@@ -222,6 +230,49 @@ failed += test('stale_processing_with_mismatched_domain_mutation_blocks_for_manu
     assert.strictEqual(plan.shouldCreateFinancialEntry, false);
     assert.deepStrictEqual(plan.plans, []);
     assert.strictEqual(plan.errors[0].code, STALE_PROCESSING_ERROR_CODES.DOMAIN_MUTATION_REVIEW_REQUIRED);
+});
+
+failed += test('crash_after_domain_mutation_with_empty_processing_result_ref_recovers_when_deterministic_lancamento_ref_matches', () => {
+    const store = createInMemoryV54WriteStore();
+    const plan = firstPlan();
+    store.applyPlan(plan, { stopAfterAction: 'INSERT_FINANCIAL_ENTRY' });
+
+    const retry = firstPlan({
+        existingIdempotencyRows: store.existingIdempotencyRows(),
+        existingFinancialRows: store.existingFinancialRows(),
+    }, recoveryOptions());
+
+    assert.strictEqual(store.existingIdempotencyRows()[0].result_ref, '');
+    assert.strictEqual(store.existingFinancialRows()[0].id_lancamento, IDEMPOTENT_REFS.id_lancamento);
+    assert.strictEqual(retry.decision, 'completion_recovery_planned');
+    assert.deepStrictEqual(retry.plans.map((step) => step.action), ['MARK_IDEMPOTENCY_COMPLETED']);
+    assert.strictEqual(retry.plans[0].rowObject.result_ref, IDEMPOTENT_REFS.id_lancamento);
+});
+
+failed += test('crash_after_domain_mutation_with_random_non_reproducible_ref_blocks_for_review', () => {
+    let counter = 0;
+    const randomishOptions = Object.assign(recoveryOptions({
+        deterministicResultRefs: false,
+        makeId: () => {
+            counter += 1;
+            return `LAN_RANDOM_${counter}`;
+        },
+    }));
+    const first = firstPlan({}, randomishOptions);
+    const store = createInMemoryV54WriteStore();
+    store.applyPlan(first, { stopAfterAction: 'INSERT_FINANCIAL_ENTRY' });
+
+    const retry = firstPlan({
+        existingIdempotencyRows: store.existingIdempotencyRows(),
+        existingFinancialRows: store.existingFinancialRows(),
+    }, randomishOptions);
+
+    assert.strictEqual(store.existingIdempotencyRows()[0].result_ref, '');
+    assert.strictEqual(store.existingFinancialRows()[0].id_lancamento, 'LAN_RANDOM_1');
+    assert.strictEqual(retry.financial.result_ref, 'LAN_RANDOM_2');
+    assert.strictEqual(retry.decision, 'stale_processing_review_required');
+    assert.strictEqual(retry.shouldCreateFinancialEntry, false);
+    assert.deepStrictEqual(retry.plans, []);
 });
 
 failed += test('same_payload_with_different_update_id_warns_and_allows_plan', () => {
@@ -299,6 +350,74 @@ failed += test('failure_window_financial_row_exists_completed_log_missing_blocks
     assert.strictEqual(retry.errors.some((error) => error.code === 'IDEMPOTENCY_COMPLETION_RECOVERY_TODO'), true);
 });
 
+failed += test('reviewed_recovery_executor_applies_only_completed_or_failed_idempotency_updates', () => {
+    const store = createInMemoryV54WriteStore();
+    const plan = firstPlan();
+    store.applyPlan(plan, { stopAfterAction: 'INSERT_FINANCIAL_ENTRY' });
+    const retry = firstPlan({
+        existingIdempotencyRows: store.existingIdempotencyRows(),
+        existingFinancialRows: store.existingFinancialRows(),
+    }, recoveryOptions());
+
+    const applied = applyReviewedIdempotencyRecovery({
+        idempotencyRows: store.existingIdempotencyRows(),
+        plans: retry.plans,
+    }, {
+        checklist: {
+            reviewed: true,
+            domainMutationWillNotBeApplied: true,
+            matchedResultRefVerified: true,
+        },
+    });
+
+    assert.strictEqual(applied.ok, true, JSON.stringify(applied.errors));
+    assert.deepStrictEqual(applied.applied.map((item) => item.action), ['MARK_IDEMPOTENCY_COMPLETED']);
+    assert.strictEqual(applied.idempotencyRows[0].status, IDEMPOTENCY_STATUSES.COMPLETED);
+    assert.strictEqual(applied.idempotencyRows[0].result_ref, IDEMPOTENT_REFS.id_lancamento);
+});
+
+failed += test('reviewed_recovery_executor_rejects_domain_mutation_plans', () => {
+    const plan = firstPlan();
+    const applied = applyReviewedIdempotencyRecovery({
+        idempotencyRows: [plan.plans[0].rowObject],
+        plans: [plan.plans[1]],
+    }, {
+        checklist: {
+            reviewed: true,
+            domainMutationWillNotBeApplied: true,
+            matchedResultRefVerified: true,
+            noDomainMutationVerified: true,
+        },
+    });
+
+    assert.strictEqual(applied.ok, false);
+    assert.strictEqual(applied.errors.some((error) => error.code === 'RECOVERY_PLAN_ACTION_FORBIDDEN'), true);
+});
+
+failed += test('reviewed_recovery_executor_applies_failed_transition_after_no_domain_mutation_checklist', () => {
+    const processing = Object.assign(completedRow(), {
+        status: IDEMPOTENCY_STATUSES.PROCESSING,
+        result_ref: '',
+        updated_at: '2026-04-27T20:00:00.000Z',
+    });
+    const retry = firstPlan({ existingIdempotencyRows: [processing] }, recoveryOptions());
+    const applied = applyReviewedIdempotencyRecovery({
+        idempotencyRows: [processing],
+        plans: retry.plans,
+    }, {
+        checklist: {
+            reviewed: true,
+            domainMutationWillNotBeApplied: true,
+            noDomainMutationVerified: true,
+        },
+    });
+
+    assert.strictEqual(applied.ok, true, JSON.stringify(applied.errors));
+    assert.deepStrictEqual(applied.applied.map((item) => item.action), ['MARK_IDEMPOTENCY_FAILED']);
+    assert.strictEqual(applied.idempotencyRows[0].status, IDEMPOTENCY_STATUSES.FAILED);
+    assert.strictEqual(applied.idempotencyRows[0].error_code, STALE_PROCESSING_ERROR_CODES.NO_DOMAIN_MUTATION);
+});
+
 failed += test('recovery_policy_planner_is_not_called_unless_opted_in', () => {
     let called = 0;
     const processing = Object.assign(completedRow(), {
@@ -321,7 +440,7 @@ failed += test('deterministic_idempotency_key_derivation_remains_stable', () => 
     const first = firstPlan({ idempotencyInput: input });
     const second = firstPlan({ idempotencyInput: input });
 
-    assert.strictEqual(first.idempotency.idempotency_key, 'telegram:telegram_update_id:91001');
+    assert.strictEqual(first.idempotency.idempotency_key, IDEMPOTENCY_KEY);
     assert.deepStrictEqual(first.idempotency, second.idempotency);
 });
 

@@ -1,5 +1,7 @@
 'use strict';
 
+const crypto = require('crypto');
+
 const { V54_SHEETS } = require('./v54-schema');
 const {
     IDEMPOTENCY_HEADERS,
@@ -21,6 +23,18 @@ function makeError(code, field, message) {
 
 function normalizeText(value) {
     return String(value === undefined || value === null ? '' : value).trim();
+}
+
+function makeStableRefSuffix(idempotencyKey) {
+    return crypto.createHash('sha256').update(normalizeText(idempotencyKey)).digest('hex').slice(0, 20).toUpperCase();
+}
+
+function makeDeterministicIdempotentResultRefs(idempotencyKey) {
+    const suffix = makeStableRefSuffix(idempotencyKey);
+    return {
+        id_lancamento: `LAN_V54_IDEMP_${suffix}`,
+        id_compra: `CP_V54_IDEMP_${suffix}`,
+    };
 }
 
 function rowToObject(row, headers) {
@@ -83,7 +97,10 @@ function findFinancialByResultRef(existingFinancialRows, resultRef) {
     if (!wanted) return null;
     return (existingFinancialRows || [])
         .map((row) => rowToObject(row, []))
-        .find((row) => normalizeText(row.id_lancamento) === wanted || normalizeText(row.result_ref) === wanted) || null;
+        .find((row) => normalizeText(row.id_lancamento) === wanted
+            || normalizeText(row.id_compra) === wanted
+            || normalizeText(row.id_parcela) === wanted
+            || normalizeText(row.result_ref) === wanted) || null;
 }
 
 function makeCompletionPlan(processingRowObject, resultRef, now) {
@@ -148,12 +165,30 @@ function planV54IdempotentWrite(input, options) {
     if (!source.idempotencyInput) idempotencySource.telegramUpdate = source.telegramUpdate;
     idempotencySource.semantic_entry = source.semanticEntry || source.parsedEntry;
     const idempotencyInput = makeTelegramIdempotencyInput(idempotencySource);
+    const idempotency = planIdempotencyForUpdate(
+        idempotencyInput,
+        source.existingIdempotencyRows || [],
+        { now }
+    );
+    const deterministicRefs = makeDeterministicIdempotentResultRefs(idempotency.idempotency_key);
+    const useDeterministicResultRefs = opts.deterministicResultRefs !== false;
 
     const financial = financialPlanner(source.parsedEntry, {
         mapperOptions: {
             now,
-            makeId: opts.makeId,
+            makeId: useDeterministicResultRefs
+                ? () => deterministicRefs.id_lancamento
+                : opts.makeId,
         },
+        idempotencyInput,
+        idempotency,
+        deterministicResultRefs: deterministicRefs,
+        makeId: useDeterministicResultRefs
+            ? () => deterministicRefs.id_lancamento
+            : opts.makeId,
+        makeCompraId: useDeterministicResultRefs
+            ? () => deterministicRefs.id_compra
+            : opts.makeCompraId,
     });
 
     if (!financial || financial.ok !== true) {
@@ -165,12 +200,6 @@ function planV54IdempotentWrite(input, options) {
                 : [makeError('FINANCIAL_PLAN_INVALID', 'financial', 'Financial planner returned an invalid result.')],
         });
     }
-
-    const idempotency = planIdempotencyForUpdate(
-        idempotencyInput,
-        source.existingIdempotencyRows || [],
-        { now }
-    );
 
     if (idempotency.ok !== true) {
         const recovery = idempotency.decision === 'duplicate_processing'
@@ -324,6 +353,7 @@ module.exports = {
     FAILURE_WINDOWS,
     createInMemoryV54WriteStore,
     defaultFinancialPlanner,
+    makeDeterministicIdempotentResultRefs,
     makeTelegramIdempotencyInput,
     planV54IdempotentWrite,
 };

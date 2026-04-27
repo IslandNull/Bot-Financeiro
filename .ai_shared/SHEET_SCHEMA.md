@@ -32,6 +32,8 @@ VERIFIED in local code on 2026-04-27: `scripts/lib/v54-idempotent-write-path.js`
 
 VERIFIED in local code on 2026-04-27: stale `processing` recovery is modeled in `scripts/lib/v54-idempotency-recovery-policy.js` without changing `Idempotency_Log` headers. The policy uses existing columns (`status`, `result_ref`, `updated_at`, `error_code`, `observacao`) to plan reviewed transitions to `failed` or `completed`. No setup/sync/deploy was run, and no real spreadsheet state was verified for this policy.
 
+VERIFIED in local code on 2026-04-27: deterministic idempotent result references and reviewed recovery execution use the existing schema only. `result_ref` remains empty on the initial `processing` insert and is filled on reviewed completion recovery or normal completion. No new columns were added.
+
 ## 3. V53 Legacy Sheets (Reference Only)
 The sheets `Dashboard`, `Investimentos`, `Parcelas`, `Lançamentos`, `Orçamento Mensal`, `Compras da Casa`, `Metas de Poupança`, and `Config` belong to the V53 era.
 **Do not use these sheets to build new features.** They exist only as a historical reference until V54 is fully deployed and the legacy prototype is safely removed.
