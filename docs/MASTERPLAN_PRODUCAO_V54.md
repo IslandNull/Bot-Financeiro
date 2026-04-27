@@ -79,6 +79,10 @@ Non-goals for MVP:
 
 ## 5. Open Domain Decisions
 
+PROPOSTA: detailed proposals for the blocking MVP domain decisions are now documented in `docs/V54_DOMAIN_DECISIONS.md`.
+
+TODO: after human review, accepted items must be recorded in `.ai_shared/DECISIONS.md` and converted into local/fake-first tests before implementation.
+
 | Decision | Label | Why It Matters |
 |---|---|---|
 | V54 opening date and competence | OPEN_DECISION | Defines starting invoices, balances, installments, and reports. |
@@ -198,6 +202,7 @@ Goal: close the domain decisions that would otherwise corrupt financial reportin
 
 Required outputs:
 
+- PROPOSTA: review `docs/V54_DOMAIN_DECISIONS.md` and accept/reject/adjust each proposed rule.
 - TODO: Opening date and opening competence.
 - TODO: Income/rateio rule, including Gustavo fuel allowance.
 - TODO: Benefit rule for Alelo/VA.
@@ -406,6 +411,7 @@ V53 may still remain in the repository temporarily as deprecated reference code,
 - `.ai_shared/KNOWN_ISSUES.md`
 - `.ai_shared/FORMULA_STANDARD.md`
 - `.ai_shared/SPREADSHEET_STATE.md`
+- `docs/V54_DOMAIN_DECISIONS.md`
 - `scripts/lib/v54-schema.js`
 - `scripts/lib/v54-seed.js`
 - `src/ActionsV54.js`

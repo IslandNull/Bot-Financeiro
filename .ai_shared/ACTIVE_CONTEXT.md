@@ -133,6 +133,7 @@ Branch: feat/v54-production-readiness
 - Phase 4C-actions does not append `Lancamentos_V54`, `Faturas`, or `Pagamentos_Fatura` rows for `compra_parcelada`; `pagamento_fatura` remains unsupported.
 - `node --check src/ActionsV54.js`, `node --check scripts/test-v54-actions-mvp.js`, `cmd /c npm run test:v54:actions`, `cmd /c npm run test:v54:installment-schedule`, `cmd /c npm run test:v54:card-purchase`, `cmd /c npm run test:v54:card-cycle`, `cmd /c npm run test:v54:contract`, `cmd /c npm run test:v54:schema`, and `cmd /c npm run test:v53` passed on 2026-04-27 after Phase 4C-actions local changes.
 - `docs/MASTERPLAN_PRODUCAO_V54.md` was rewritten on 2026-04-27 as a concise V54-only MVP plan. It removes V53 production/fallback/cutover/sunset gates and preserves the real remaining V54 risks: rateio, benefits, faturas, payments, idempotency, dedupe, adjustments, refunds/chargebacks/cancellations, protected real spreadsheet tests, and Telegram V54 E2E.
+- `docs/V54_DOMAIN_DECISIONS.md` was created on 2026-04-27 as a PROPOSTA-only decision pack for V54 MVP domain blockers: income/rateio, benefits, `Fora orcamento`, home-item asset taxonomy, couple acerto for cards/faturas, fatura statuses, ID/idempotency/dedupe, adjustments/refunds/chargebacks/cancellations, and debt payment semantics. These proposals are not yet accepted in `.ai_shared/DECISIONS.md`.
 
 ## Unverified claims
 - Negative webhook security behavior is not yet production-tested: POST without secret, POST with invalid secret, and valid secret with unauthorized chat should not write anything.
@@ -143,10 +144,10 @@ Branch: feat/v54-production-readiness
 - V53 code/sheets are safe to remove or rename immediately. They are deprecated under D031, but removal is still UNVERIFIED because current code and scripts still reference V53-era files/sheets. Treat removal as a separate cleanup/refactor phase, not as a production fallback requirement.
 
 ## Current task
-Execute V54 as a V54-only MVP in small phases. Current phase: documentation reset is complete locally; next implementation work should not add V53 features and should focus on V54 domain decisions, local/fake-first transaction completion, protected real V54 tests, Telegram V54, and deterministic reports.
+Execute V54 as a V54-only MVP in small phases. Current phase: domain decision proposals are documented but still need human acceptance before implementation. Next implementation work should not add V53 features and should focus on accepted V54 domain decisions, local/fake-first transaction completion, protected real V54 tests, Telegram V54, and deterministic reports.
 
 ## Next safe action
-1. Review the V54-only masterplan rewrite and D031 decision.
-2. Resolve Phase 1 domain decisions: opening date, rateio/income base, benefits, fatura state machine, payment/acerto rule, ID/idempotency/dedupe, adjustments/refunds/cancellations, and debt payment semantics.
+1. Review `docs/V54_DOMAIN_DECISIONS.md` and answer the listed human questions before implementation.
+2. Record accepted domain decisions in `.ai_shared/DECISIONS.md` after human approval.
 3. Keep `pagamento_fatura` unsupported until dedicated fatura/payment/reconciliation phases.
 4. Do not run setup, seed, deploy, clasp, real spreadsheet tests, Telegram mutation, or production writes without explicit later approval.
