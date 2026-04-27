@@ -7,8 +7,8 @@
 // here and covered by local parity tests against scripts/lib/v54-schema.js.
 
 var V54_LANCAMENTOS_SHEET = 'Lancamentos_V54';
-var V54_ACTIONS_MVP_SUPPORTED_EVENTS = ['despesa', 'receita', 'transferencia', 'aporte'];
-var V54_ACTIONS_UNSUPPORTED_EVENTS = ['compra_cartao', 'compra_parcelada', 'pagamento_fatura', 'divida_pagamento', 'ajuste'];
+var V54_ACTIONS_MVP_SUPPORTED_EVENTS = ['despesa', 'receita', 'transferencia', 'aporte', 'compra_cartao'];
+var V54_ACTIONS_UNSUPPORTED_EVENTS = ['compra_parcelada', 'pagamento_fatura', 'divida_pagamento', 'ajuste'];
 var V54_LANCAMENTOS_HEADERS = [
     'id_lancamento',
     'data',
@@ -74,20 +74,18 @@ function recordEntryV54(parsedEntry, options) {
     var input = cloneV54PlainObject_(parsedEntry);
 
     if (input && V54_ACTIONS_UNSUPPORTED_EVENTS.indexOf(input.tipo_evento) !== -1) {
-        return makeActionsV54Failure_('UNSUPPORTED_EVENT', 'tipo_evento', 'Phase 3A MVP does not support ' + input.tipo_evento + '.', null);
+        return makeActionsV54Failure_('UNSUPPORTED_EVENT', 'tipo_evento', 'Phase 4B-actions does not support ' + input.tipo_evento + '.', null);
     }
 
     if (!input || V54_ACTIONS_MVP_SUPPORTED_EVENTS.indexOf(input.tipo_evento) === -1) {
-        return makeActionsV54Failure_('UNSUPPORTED_EVENT', 'tipo_evento', 'Phase 3A MVP supports only despesa, receita, transferencia, and aporte.', null);
+        return makeActionsV54Failure_('UNSUPPORTED_EVENT', 'tipo_evento', 'Phase 4B-actions supports only despesa, receita, transferencia, aporte, and compra_cartao.', null);
     }
 
     return deps.withLock('recordEntryV54', function() {
-        var mapped = mapParsedEntryToLancamentoV54_(input, {
-            now: deps.now,
-            makeId: deps.makeId,
-        });
+        var mapping = mapEntryForRecordV54_(input, deps);
+        var mapped = mapping.mapped;
 
-        if (!mapped.ok) {
+        if (!mapping.ok) {
             return makeActionsV54FailureFromMapped_(mapped);
         }
 
@@ -116,6 +114,7 @@ function recordEntryV54(parsedEntry, options) {
             id_lancamento: mapped.rowObject.id_lancamento,
             rowObject: mapped.rowObject,
             rowValues: mapped.rowValues,
+            cycle: mapping.cycle || null,
             errors: [],
         };
     });
@@ -143,6 +142,130 @@ function normalizeActionsV54Deps_(options) {
         makeId: typeof source.makeId === 'function'
             ? source.makeId
             : makeDefaultLancamentoV54Id_,
+        mapSingleCardPurchaseContract: typeof source.mapSingleCardPurchaseContract === 'function'
+            ? source.mapSingleCardPurchaseContract
+            : null,
+        cards: cloneV54Cards_(source.cards),
+    };
+}
+
+function mapEntryForRecordV54_(input, deps) {
+    if (input && input.tipo_evento === 'compra_cartao') {
+        var cardContractMapper = getCardPurchaseContractMapper_(deps);
+        if (!cardContractMapper) {
+            return {
+                ok: false,
+                mapped: {
+                    ok: false,
+                    errors: [
+                        makeV54ContractError_(
+                            'CARD_CONTRACT_UNAVAILABLE',
+                            'tipo_evento',
+                            'mapSingleCardPurchaseContract dependency is required for compra_cartao in Phase 4B-actions.',
+                        ),
+                    ],
+                    rowObject: null,
+                    rowValues: [],
+                },
+                cycle: null,
+            };
+        }
+
+        return normalizeCardPurchaseContractResult_(cardContractMapper(input, buildCardPurchaseContractOptions_(deps)));
+    }
+
+    var mappedSimple = mapParsedEntryToLancamentoV54_(input, {
+            now: deps.now,
+            makeId: deps.makeId,
+        });
+
+    return {
+        ok: mappedSimple.ok,
+        mapped: mappedSimple,
+        cycle: null,
+    };
+}
+
+function getCardPurchaseContractMapper_(deps) {
+    if (deps && typeof deps.mapSingleCardPurchaseContract === 'function') {
+        return deps.mapSingleCardPurchaseContract;
+    }
+    if (typeof mapSingleCardPurchaseContract === 'function') {
+        return mapSingleCardPurchaseContract;
+    }
+    return null;
+}
+
+function buildCardPurchaseContractOptions_(deps) {
+    var options = {
+        mapperOptions: {
+            now: deps.now,
+            makeId: deps.makeId,
+        },
+    };
+    if (Array.isArray(deps.cards)) {
+        options.cards = cloneV54Cards_(deps.cards);
+    }
+    return options;
+}
+
+function normalizeCardPurchaseContractResult_(result) {
+    if (!result || typeof result !== 'object') {
+        return {
+            ok: false,
+            mapped: {
+                ok: false,
+                errors: [makeV54ContractError_('CARD_CONTRACT_INVALID_RESULT', 'result', 'Card purchase contract returned an invalid result.')],
+                rowObject: null,
+                rowValues: [],
+            },
+            cycle: null,
+        };
+    }
+
+    var mapped = result.mapped && typeof result.mapped === 'object'
+        ? result.mapped
+        : {
+            ok: false,
+            errors: [makeV54ContractError_('CARD_CONTRACT_MAPPED_MISSING', 'mapped', 'Card purchase contract did not return mapped payload.')],
+            rowObject: null,
+            rowValues: [],
+        };
+
+    if (result.ok !== true || mapped.ok !== true) {
+        var normalizedErrors = [];
+
+        if (Array.isArray(result.errors) && result.errors.length > 0) {
+            normalizedErrors = normalizedErrors.concat(result.errors);
+        }
+
+        if (Array.isArray(mapped.errors) && mapped.errors.length > 0) {
+            normalizedErrors = normalizedErrors.concat(mapped.errors);
+        }
+
+        if (normalizedErrors.length === 0) {
+            normalizedErrors.push(makeV54ContractError_('CARD_CONTRACT_REJECTED', 'compra_cartao', 'Card purchase contract rejected the entry.'));
+        }
+
+        mapped.ok = false;
+        mapped.errors = normalizedErrors;
+        mapped.rowObject = mapped.rowObject || null;
+        mapped.rowValues = Array.isArray(mapped.rowValues) ? mapped.rowValues : [];
+
+        return {
+            ok: false,
+            mapped: mapped,
+            cycle: result.cycle || null,
+        };
+    }
+
+    mapped.errors = Array.isArray(mapped.errors) ? mapped.errors : [];
+    mapped.rowValues = Array.isArray(mapped.rowValues) ? mapped.rowValues : [];
+
+    return {
+        ok: true,
+        mapped: mapped,
+        cycle: result.cycle || null,
     };
 }
 
@@ -410,4 +533,11 @@ function makeV54ContractError_(code, field, message) {
 function cloneV54PlainObject_(input) {
     if (!input || typeof input !== 'object' || Array.isArray(input)) return input;
     return JSON.parse(JSON.stringify(input));
+}
+
+function cloneV54Cards_(cards) {
+    if (!Array.isArray(cards)) return null;
+    return cards.map(function(card) {
+        return cloneV54PlainObject_(card);
+    });
 }

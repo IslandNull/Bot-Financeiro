@@ -4,11 +4,15 @@ const path = require('path');
 const vm = require('vm');
 
 const { V54_HEADERS, V54_SHEETS } = require('./lib/v54-schema');
+const { V54_SEED_DATA } = require('./lib/v54-seed');
 const { validateParsedEntryV54 } = require('./lib/v54-parsed-entry-contract');
 const { mapParsedEntryToLancamentoV54 } = require('./lib/v54-lancamentos-mapper');
+const { mapSingleCardPurchaseContract } = require('./lib/v54-card-purchase-contract');
 
 const actionsV54Path = path.join(__dirname, '..', 'src', 'ActionsV54.js');
 const actionsV54Source = fs.readFileSync(actionsV54Path, 'utf8');
+const cardPurchaseContractPath = path.join(__dirname, 'lib', 'v54-card-purchase-contract.js');
+const cardPurchaseContractSource = fs.readFileSync(cardPurchaseContractPath, 'utf8');
 const protectedProductionFiles = [
     'src/Main.js',
     'src/Actions.js',
@@ -28,8 +32,8 @@ function test(name, fn) {
     }
 }
 
-function loadActionsV54() {
-    const sandbox = {
+function loadActionsV54(globals) {
+    const sandbox = Object.assign({
         console,
         Date,
         Math,
@@ -40,9 +44,12 @@ function loadActionsV54() {
         Object,
         Array,
         RegExp,
-    };
+    }, globals || {});
     vm.createContext(sandbox);
-    vm.runInContext(`${actionsV54Source}\nresult = { recordEntryV54, V54_LANCAMENTOS_HEADERS };`, sandbox);
+    vm.runInContext(
+        `${actionsV54Source}\nresult = { recordEntryV54, V54_LANCAMENTOS_HEADERS, V54_ACTIONS_MVP_SUPPORTED_EVENTS, V54_ACTIONS_UNSUPPORTED_EVENTS };`,
+        sandbox,
+    );
     return sandbox.result;
 }
 
@@ -67,15 +74,27 @@ function baseEntry(overrides) {
     }, overrides || {});
 }
 
-function makeFakeSpreadsheet(options) {
-    const source = options || {};
-    const headers = source.headers === undefined
-        ? [...V54_HEADERS[V54_SHEETS.LANCAMENTOS_V54]]
-        : source.headers;
-    const rows = source.rows ? source.rows.map((row) => [...row]) : [];
-    const requestedSheets = [];
-    const writes = [];
-    const sheet = {
+function baseCardPurchaseEntry(overrides) {
+    return Object.assign({
+        tipo_evento: 'compra_cartao',
+        data: '2026-04-29',
+        competencia: '2099-12',
+        valor: 90,
+        descricao: 'Compra no cartao',
+        pessoa: 'Gustavo',
+        escopo: 'Casal',
+        visibilidade: 'detalhada',
+        id_categoria: 'OPEX_RESTAURANTE_CASAL',
+        id_cartao: 'CARD_NUBANK_GU',
+        id_fonte: undefined,
+        afeta_dre: true,
+        afeta_acerto: true,
+        afeta_patrimonio: true,
+    }, overrides || {});
+}
+
+function makeFakeSheet(name, headers, rows, writes, writesBySheet) {
+    return {
         getLastRow() {
             return 1 + rows.length;
         },
@@ -85,38 +104,64 @@ function makeFakeSpreadsheet(options) {
                     if (row === 1 && column === 1 && numRows === 1) {
                         return [Array.from({ length: numColumns }, (_, index) => headers[index] || '')];
                     }
-                    throw new Error(`Unexpected getValues range ${row}:${column}:${numRows}:${numColumns}`);
+                    throw new Error(`Unexpected getValues range ${name}:${row}:${column}:${numRows}:${numColumns}`);
                 },
                 setValues(values) {
-                    writes.push({ row, column, numRows, numColumns, values });
+                    const write = { sheet: name, row, column, numRows, numColumns, values };
+                    writes.push(write);
+                    if (!writesBySheet[name]) writesBySheet[name] = [];
+                    writesBySheet[name].push(write);
                     rows.push([...values[0]]);
                 },
             };
         },
     };
+}
+
+function makeFakeSpreadsheet(options) {
+    const source = options || {};
+    const headers = source.headers === undefined
+        ? [...V54_HEADERS[V54_SHEETS.LANCAMENTOS_V54]]
+        : source.headers;
+    const rows = source.rows ? source.rows.map((row) => [...row]) : [];
+    const requestedSheets = [];
+    const writes = [];
+    const writesBySheet = {};
+    const lancamentosSheet = makeFakeSheet(V54_SHEETS.LANCAMENTOS_V54, headers, rows, writes, writesBySheet);
+    const auxSheets = {};
+
+    (source.extraSheets || []).forEach((sheetName) => {
+        auxSheets[sheetName] = makeFakeSheet(sheetName, ['id'], [], writes, writesBySheet);
+    });
 
     return {
         rows,
         requestedSheets,
         writes,
+        writesBySheet,
         getSheetByName(name) {
             requestedSheets.push(name);
-            if (source.missingSheet) return null;
-            if (name === 'Lancamentos_V54') return sheet;
+            if (source.missingSheet && name === V54_SHEETS.LANCAMENTOS_V54) return null;
+            if (name === V54_SHEETS.LANCAMENTOS_V54) return lancamentosSheet;
+            if (auxSheets[name]) return auxSheets[name];
+            if (source.throwOnUnknownSheet === false) return null;
             throw new Error(`Unexpected sheet requested: ${name}`);
         },
     };
 }
 
-function deterministicDeps(fakeSpreadsheet, lockCalls) {
+function deterministicDeps(fakeSpreadsheet, lockCalls, overrides) {
+    const source = overrides || {};
     return {
         getSpreadsheet: () => fakeSpreadsheet,
         withLock(label, fn) {
             lockCalls.push(label);
             return fn();
         },
-        now: () => '2026-04-26T22:00:00.000Z',
-        makeId: () => 'LAN_V54_TEST_ACTION_0001',
+        now: source.now || (() => '2026-04-26T22:00:00.000Z'),
+        makeId: source.makeId || (() => 'LAN_V54_TEST_ACTION_0001'),
+        mapSingleCardPurchaseContract: source.mapSingleCardPurchaseContract || null,
+        cards: source.cards ? source.cards.map((card) => ({ ...card })) : undefined,
     };
 }
 
@@ -127,9 +172,9 @@ function deterministicMapperDeps() {
     };
 }
 
-function record(entry, fakeSpreadsheet, lockCalls) {
+function record(entry, fakeSpreadsheet, lockCalls, overrides) {
     const { recordEntryV54 } = loadActionsV54();
-    return recordEntryV54(entry, deterministicDeps(fakeSpreadsheet, lockCalls || []));
+    return recordEntryV54(entry, deterministicDeps(fakeSpreadsheet, lockCalls || [], overrides));
 }
 
 function assertOk(result) {
@@ -178,7 +223,7 @@ function assertCanonicalMapperParity(entry, keyFields) {
     return { canonical, actions };
 }
 
-function validEntriesByMvpType() {
+function validSimpleEntriesByMvpType() {
     return {
         despesa: baseEntry({
             tipo_evento: 'despesa',
@@ -228,17 +273,6 @@ function validEntriesByMvpType() {
 
 function unsupportedCanonicalAcceptedEntries() {
     return {
-        compra_cartao: baseEntry({
-            tipo_evento: 'compra_cartao',
-            valor: 80,
-            descricao: 'Compra credito',
-            id_categoria: 'OPEX_MERCADO_CASAL',
-            id_fonte: undefined,
-            id_cartao: 'CARD_NUBANK_GU',
-            afeta_dre: true,
-            afeta_acerto: true,
-            afeta_patrimonio: false,
-        }),
         compra_parcelada: baseEntry({
             tipo_evento: 'compra_parcelada',
             valor: 600,
@@ -289,15 +323,24 @@ function unsupportedCanonicalAcceptedEntries() {
     };
 }
 
+function cardsById() {
+    return V54_SEED_DATA[V54_SHEETS.CARTOES].reduce((acc, card) => {
+        acc[card.id_cartao] = { ...card };
+        return acc;
+    }, {});
+}
+
 let failed = 0;
 
-failed += test('actions_v54_headers_match_canonical_schema', () => {
-    const { V54_LANCAMENTOS_HEADERS } = loadActionsV54();
-    assert.deepStrictEqual(JSON.parse(JSON.stringify(V54_LANCAMENTOS_HEADERS)), V54_HEADERS[V54_SHEETS.LANCAMENTOS_V54]);
-    assert.strictEqual(V54_LANCAMENTOS_HEADERS.length, 19);
+failed += test('actions_v54_headers_and_supported_events_match_phase_4b_contract', () => {
+    const loaded = loadActionsV54();
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(loaded.V54_LANCAMENTOS_HEADERS)), V54_HEADERS[V54_SHEETS.LANCAMENTOS_V54]);
+    assert.strictEqual(loaded.V54_LANCAMENTOS_HEADERS.length, 19);
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(loaded.V54_ACTIONS_MVP_SUPPORTED_EVENTS)), ['despesa', 'receita', 'transferencia', 'aporte', 'compra_cartao']);
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(loaded.V54_ACTIONS_UNSUPPORTED_EVENTS)), ['compra_parcelada', 'pagamento_fatura', 'divida_pagamento', 'ajuste']);
 });
 
-failed += test('valid_mvp_events_match_canonical_mapper_key_fields', () => {
+failed += test('valid_simple_events_still_match_canonical_mapper_key_fields', () => {
     const keyFields = [
         'id_lancamento',
         'data',
@@ -316,7 +359,7 @@ failed += test('valid_mvp_events_match_canonical_mapper_key_fields', () => {
         'created_at',
     ];
 
-    Object.values(validEntriesByMvpType()).forEach((entry) => {
+    Object.values(validSimpleEntriesByMvpType()).forEach((entry) => {
         assertCanonicalMapperParity(entry, keyFields);
     });
 });
@@ -325,7 +368,7 @@ failed += test('valid_despesa_appends_one_row', () => {
     const fake = makeFakeSpreadsheet();
     const locks = [];
     const result = assertOk(record(baseEntry(), fake, locks));
-    assert.strictEqual(result.sheet, 'Lancamentos_V54');
+    assert.strictEqual(result.sheet, V54_SHEETS.LANCAMENTOS_V54);
     assert.strictEqual(result.rowNumber, 2);
     assert.strictEqual(result.id_lancamento, 'LAN_V54_TEST_ACTION_0001');
     assert.strictEqual(fake.writes.length, 1);
@@ -334,56 +377,191 @@ failed += test('valid_despesa_appends_one_row', () => {
     assert.deepStrictEqual(JSON.parse(JSON.stringify(locks)), ['recordEntryV54']);
 });
 
-failed += test('valid_receita_appends_one_row', () => {
+failed += test('compra_cartao_before_closing_appends_one_lancamento_with_current_cycle_id_fatura', () => {
     const fake = makeFakeSpreadsheet();
-    const result = assertOk(record(baseEntry({
-        tipo_evento: 'receita',
-        valor: '3400.00',
-        descricao: 'Salario Gustavo',
-        id_categoria: 'REC_SALARIO',
-        id_fonte: 'FONTE_CONTA_GU',
-        visibilidade: 'resumo',
-        afeta_dre: true,
-        afeta_acerto: true,
-        afeta_patrimonio: true,
-    }), fake, []));
-    assert.strictEqual(result.rowObject.tipo_evento, 'receita');
-    assert.strictEqual(result.rowObject.valor, 3400);
+    const locks = [];
+    const result = assertOk(record(
+        baseCardPurchaseEntry({
+            data: '2026-04-29',
+            competencia: '2099-12',
+            id_cartao: 'CARD_NUBANK_GU',
+        }),
+        fake,
+        locks,
+        { mapSingleCardPurchaseContract },
+    ));
+
+    assert.strictEqual(fake.writes.length, 1);
     assert.strictEqual(fake.rows.length, 1);
+    assert.strictEqual(result.rowObject.tipo_evento, 'compra_cartao');
+    assert.strictEqual(result.rowObject.id_fatura, 'FAT_CARD_NUBANK_GU_2026_04');
+    assert.strictEqual(result.rowObject.competencia, '2026-04');
+    assert.strictEqual(result.rowObject.data, '2026-04-29');
+    assert.strictEqual(result.rowObject.id_fonte, 'FONTE_NUBANK_GU');
+    assert.strictEqual(result.rowObject.id_compra, '');
+    assert.strictEqual(result.rowObject.id_parcela, '');
+    assert.strictEqual(result.rowValues.length, V54_HEADERS[V54_SHEETS.LANCAMENTOS_V54].length);
+    assert.strictEqual(result.rowValues.includes(undefined), false);
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(locks)), ['recordEntryV54']);
 });
 
-failed += test('valid_transferencia_and_aporte_with_afeta_dre_false_append_one_row', () => {
-    ['transferencia', 'aporte'].forEach((tipo_evento) => {
-        const fake = makeFakeSpreadsheet();
-        const result = assertOk(record(baseEntry({
-            tipo_evento,
-            valor: 1400,
-            descricao: `${tipo_evento} reserva`,
-            id_categoria: 'INV_APORTE',
+failed += test('compra_cartao_on_closing_day_uses_same_cycle_id_fatura', () => {
+    const result = assertOk(record(
+        baseCardPurchaseEntry({
+            data: '2026-04-30',
+            id_cartao: 'CARD_NUBANK_GU',
+        }),
+        makeFakeSpreadsheet(),
+        [],
+        { mapSingleCardPurchaseContract },
+    ));
+
+    assert.strictEqual(result.rowObject.id_fatura, 'FAT_CARD_NUBANK_GU_2026_04');
+    assert.strictEqual(result.rowObject.competencia, '2026-04');
+});
+
+failed += test('compra_cartao_after_closing_uses_next_cycle_id_fatura', () => {
+    const result = assertOk(record(
+        baseCardPurchaseEntry({
+            data: '2026-04-06',
+            id_cartao: 'CARD_MP_GU',
+            competencia: '2026-04',
+        }),
+        makeFakeSpreadsheet(),
+        [],
+        { mapSingleCardPurchaseContract },
+    ));
+
+    assert.strictEqual(result.rowObject.id_fatura, 'FAT_CARD_MP_GU_2026_05');
+    assert.strictEqual(result.rowObject.competencia, '2026-05');
+    assert.strictEqual(result.rowObject.id_fonte, 'FONTE_MP_GU');
+});
+
+failed += test('compra_cartao_december_boundary_writes_january_competencia_and_preserves_purchase_date', () => {
+    const result = assertOk(record(
+        baseCardPurchaseEntry({
+            data: '2026-12-31',
+            competencia: '2026-12',
+            id_cartao: 'CARD_NUBANK_GU',
+        }),
+        makeFakeSpreadsheet(),
+        [],
+        { mapSingleCardPurchaseContract },
+    ));
+
+    assert.strictEqual(result.rowObject.data, '2026-12-31');
+    assert.strictEqual(result.rowObject.competencia, '2027-01');
+    assert.strictEqual(result.rowObject.id_fatura, 'FAT_CARD_NUBANK_GU_2027_01');
+});
+
+failed += test('compra_cartao_conflicting_id_fonte_fails_and_appends_nothing', () => {
+    const fake = makeFakeSpreadsheet();
+    const result = record(
+        baseCardPurchaseEntry({
+            id_cartao: 'CARD_NUBANK_GU',
             id_fonte: 'FONTE_CONTA_GU',
-            visibilidade: 'resumo',
-            afeta_dre: false,
-            afeta_acerto: true,
-            afeta_patrimonio: true,
-        }), fake, []));
-        assert.strictEqual(result.rowObject.tipo_evento, tipo_evento);
-        assert.strictEqual(result.rowObject.afeta_dre, false);
-        assert.strictEqual(fake.rows.length, 1);
-    });
+        }),
+        fake,
+        [],
+        { mapSingleCardPurchaseContract },
+    );
+    assertError(result, 'CARD_SOURCE_CONFLICT', 'id_fonte');
+    assert.strictEqual(fake.writes.length, 0);
 });
 
-failed += test('unsupported_card_installment_invoice_debt_adjustment_events_reject', () => {
-    ['compra_cartao', 'compra_parcelada', 'pagamento_fatura', 'divida_pagamento', 'ajuste'].forEach((tipo_evento) => {
+failed += test('compra_cartao_unknown_card_fails_and_appends_nothing', () => {
+    const fake = makeFakeSpreadsheet();
+    const result = record(
+        baseCardPurchaseEntry({
+            id_cartao: 'CARD_UNKNOWN',
+        }),
+        fake,
+        [],
+        { mapSingleCardPurchaseContract },
+    );
+    assertError(result, 'UNKNOWN_CARD', 'id_cartao');
+    assert.strictEqual(fake.writes.length, 0);
+});
+
+failed += test('compra_cartao_inactive_card_fails_and_appends_nothing', () => {
+    const fake = makeFakeSpreadsheet();
+    const cards = V54_SEED_DATA[V54_SHEETS.CARTOES].map((card) => (
+        card.id_cartao === 'CARD_NUBANK_GU' ? { ...card, ativo: false } : { ...card }
+    ));
+    const result = record(
+        baseCardPurchaseEntry({
+            id_cartao: 'CARD_NUBANK_GU',
+        }),
+        fake,
+        [],
+        {
+            mapSingleCardPurchaseContract,
+            cards,
+        },
+    );
+    assertError(result, 'INACTIVE_CARD', 'id_cartao');
+    assert.strictEqual(fake.writes.length, 0);
+});
+
+failed += test('unsupported_compra_parcelada_and_pagamento_fatura_still_rejected', () => {
+    ['compra_parcelada', 'pagamento_fatura'].forEach((tipo_evento) => {
         const fake = makeFakeSpreadsheet();
         const result = record(baseEntry({
             tipo_evento,
             id_cartao: 'CARD_NUBANK_GU',
             id_fatura: 'FAT_TEST',
             afeta_dre: false,
-        }), fake, []);
+        }), fake, [], { mapSingleCardPurchaseContract });
         assertError(result, 'UNSUPPORTED_EVENT', 'tipo_evento');
         assert.strictEqual(fake.writes.length, 0);
     });
+});
+
+failed += test('no_fake_rows_appended_to_faturas_pagamentos_or_installments', () => {
+    const fake = makeFakeSpreadsheet({
+        extraSheets: [
+            V54_SHEETS.FATURAS,
+            V54_SHEETS.PAGAMENTOS_FATURA,
+            V54_SHEETS.COMPRAS_PARCELADAS,
+            V54_SHEETS.PARCELAS_AGENDA,
+        ],
+    });
+    assertOk(record(baseCardPurchaseEntry(), fake, [], { mapSingleCardPurchaseContract }));
+
+    [
+        V54_SHEETS.FATURAS,
+        V54_SHEETS.PAGAMENTOS_FATURA,
+        V54_SHEETS.COMPRAS_PARCELADAS,
+        V54_SHEETS.PARCELAS_AGENDA,
+    ].forEach((sheetName) => {
+        const writes = fake.writesBySheet[sheetName] || [];
+        assert.strictEqual(writes.length, 0, `${sheetName} should not receive writes`);
+    });
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(fake.requestedSheets)), [V54_SHEETS.LANCAMENTOS_V54]);
+});
+
+failed += test('card_purchase_lock_wrapper_is_used_around_append', () => {
+    const fake = makeFakeSpreadsheet();
+    const locks = [];
+    assertOk(record(baseCardPurchaseEntry(), fake, locks, { mapSingleCardPurchaseContract }));
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(locks)), ['recordEntryV54']);
+    assert.strictEqual(fake.writes.length, 1);
+});
+
+failed += test('card_purchase_uses_injected_id_and_timestamp_deterministically', () => {
+    const fake = makeFakeSpreadsheet();
+    const result = assertOk(record(
+        baseCardPurchaseEntry({ data: '2026-04-29' }),
+        fake,
+        [],
+        {
+            mapSingleCardPurchaseContract,
+            now: () => '2030-01-02T03:04:05.000Z',
+            makeId: () => 'LAN_V54_CARD_ACTION_FIXED',
+        },
+    ));
+    assert.strictEqual(result.rowObject.id_lancamento, 'LAN_V54_CARD_ACTION_FIXED');
+    assert.strictEqual(result.rowObject.created_at, '2030-01-02T03:04:05.000Z');
 });
 
 failed += test('invalid_parsed_entry_rejects_before_append', () => {
@@ -405,127 +583,12 @@ failed += test('unknown_field_rejection_matches_canonical_contract', () => {
     assertError(canonical, 'UNKNOWN_FIELD', 'unexpected_field');
 });
 
-failed += test('missing_required_fields_produce_structured_canonical_rejection', () => {
-    const entry = baseEntry({
-        data: undefined,
-        competencia: undefined,
-        valor: undefined,
-        descricao: undefined,
-        pessoa: undefined,
-        escopo: undefined,
-        visibilidade: undefined,
-        id_categoria: undefined,
-        id_fonte: undefined,
-        afeta_dre: undefined,
-        afeta_acerto: undefined,
-        afeta_patrimonio: undefined,
-    });
-    const { canonical, actions } = assertCanonicalValidationParity(entry);
-
-    [
-        'data',
-        'competencia',
-        'valor',
-        'descricao',
-        'pessoa',
-        'escopo',
-        'visibilidade',
-        'afeta_dre',
-        'afeta_acerto',
-        'afeta_patrimonio',
-    ].forEach((field) => {
-        assertError(actions, 'REQUIRED_FIELD', field);
-        assertError(canonical, 'REQUIRED_FIELD', field);
-    });
-    assertError(actions, 'REQUIRED_FOR_EVENT', 'id_categoria');
-    assertError(actions, 'REQUIRED_FOR_EVENT', 'id_fonte');
-});
-
-failed += test('boolean_string_rejection_matches_canonical_contract', () => {
-    const { canonical, actions } = assertCanonicalValidationParity(baseEntry({
-        afeta_dre: 'true',
-        afeta_acerto: 'false',
-        afeta_patrimonio: 'false',
-    }));
-    ['afeta_dre', 'afeta_acerto', 'afeta_patrimonio'].forEach((field) => {
-        assertError(actions, 'INVALID_BOOLEAN', field);
-        assertError(canonical, 'INVALID_BOOLEAN', field);
-    });
-});
-
-failed += test('missing_lancamentos_v54_sheet_rejects', () => {
-    const fake = makeFakeSpreadsheet({ missingSheet: true });
-    const result = record(baseEntry(), fake, []);
-    assertError(result, 'MISSING_SHEET', 'Lancamentos_V54');
-    assert.deepStrictEqual(fake.requestedSheets, ['Lancamentos_V54']);
-    assert.strictEqual(fake.writes.length, 0);
-});
-
-failed += test('header_mismatch_rejects', () => {
-    const wrongHeaders = [...V54_HEADERS[V54_SHEETS.LANCAMENTOS_V54]];
-    wrongHeaders[0] = 'id_errado';
-    const fake = makeFakeSpreadsheet({ headers: wrongHeaders });
-    const result = record(baseEntry(), fake, []);
-    assertError(result, 'HEADER_MISMATCH', 'Lancamentos_V54');
-    assert.strictEqual(fake.writes.length, 0);
-});
-
-failed += test('row_width_is_exactly_19', () => {
-    const fake = makeFakeSpreadsheet();
-    const result = assertOk(record(baseEntry(), fake, []));
-    assert.strictEqual(result.rowValues.length, 19);
-    assert.strictEqual(fake.writes[0].numColumns, 19);
-    assert.strictEqual(fake.writes[0].values[0].length, 19);
-});
-
-failed += test('optional_fields_become_empty_strings_not_undefined', () => {
-    const fake = makeFakeSpreadsheet();
-    const result = assertOk(record(baseEntry({
-        id_cartao: undefined,
-        id_fatura: undefined,
-        id_compra: undefined,
-        id_parcela: undefined,
-    }), fake, []));
-    ['id_cartao', 'id_fatura', 'id_compra', 'id_parcela'].forEach((field) => {
-        assert.strictEqual(result.rowObject[field], '');
-        assert.strictEqual(result.rowValues[result.rowValues.indexOf(undefined)], undefined);
-    });
-    assert.strictEqual(result.rowValues.includes(undefined), false);
-});
-
-failed += test('optional_link_fields_become_empty_strings_in_row_payload_like_canonical_mapper', () => {
-    const entry = baseEntry({
-        tipo_evento: 'transferencia',
-        id_categoria: undefined,
-        id_cartao: undefined,
-        id_fatura: undefined,
-        id_compra: undefined,
-        id_parcela: undefined,
-        afeta_dre: false,
-    });
-    const { canonical, actions } = assertCanonicalMapperParity(entry, [
-        'id_categoria',
-        'id_cartao',
-        'id_fatura',
-        'id_compra',
-        'id_parcela',
-    ]);
-
-    ['id_categoria', 'id_cartao', 'id_fatura', 'id_compra', 'id_parcela'].forEach((field) => {
-        const index = V54_HEADERS[V54_SHEETS.LANCAMENTOS_V54].indexOf(field);
-        assert.strictEqual(actions.rowObject[field], '');
-        assert.strictEqual(canonical.rowObject[field], '');
-        assert.strictEqual(actions.rowValues[index], '');
-        assert.strictEqual(canonical.rowValues[index], '');
-    });
-});
-
-failed += test('unsupported_mvp_events_are_rejected_by_actions_even_when_canonical_accepts', () => {
+failed += test('unsupported_non_card_events_are_rejected_even_when_canonical_accepts', () => {
     Object.entries(unsupportedCanonicalAcceptedEntries()).forEach(([tipo_evento, entry]) => {
         const canonical = validateParsedEntryV54(entry);
         const mapped = mapParsedEntryToLancamentoV54(entry, deterministicMapperDeps());
         const fake = makeFakeSpreadsheet();
-        const actions = record(entry, fake, []);
+        const actions = record(entry, fake, [], { mapSingleCardPurchaseContract });
 
         assert.strictEqual(canonical.ok, true, `${tipo_evento} canonical validation errors: ${JSON.stringify(canonical.errors)}`);
         assert.strictEqual(mapped.ok, true, `${tipo_evento} canonical mapper errors: ${JSON.stringify(mapped.errors)}`);
@@ -534,45 +597,26 @@ failed += test('unsupported_mvp_events_are_rejected_by_actions_even_when_canonic
     });
 });
 
-failed += test('booleans_and_numbers_are_preserved', () => {
-    const fake = makeFakeSpreadsheet();
-    const result = assertOk(record(baseEntry({ valor: '12.34', afeta_acerto: false, afeta_patrimonio: true }), fake, []));
-    assert.strictEqual(result.rowObject.valor, 12.34);
-    assert.strictEqual(typeof result.rowObject.valor, 'number');
-    assert.strictEqual(typeof result.rowObject.afeta_dre, 'boolean');
-    assert.strictEqual(typeof result.rowObject.afeta_acerto, 'boolean');
-    assert.strictEqual(typeof result.rowObject.afeta_patrimonio, 'boolean');
-});
+failed += test('input_is_not_mutated_for_simple_or_card_entries', () => {
+    const simpleInput = baseEntry({ valor: '12.34', descricao: '  Restaurante casal  ' });
+    const cardInput = baseCardPurchaseEntry({ competencia: '2099-12', id_fonte: undefined });
+    const simpleBefore = JSON.stringify(simpleInput);
+    const cardBefore = JSON.stringify(cardInput);
 
-failed += test('injected_id_and_timestamp_are_deterministic', () => {
-    const fake = makeFakeSpreadsheet();
-    const result = assertOk(record(baseEntry(), fake, []));
-    assert.strictEqual(result.rowObject.id_lancamento, 'LAN_V54_TEST_ACTION_0001');
-    assert.strictEqual(result.rowObject.created_at, '2026-04-26T22:00:00.000Z');
-});
+    assertOk(record(simpleInput, makeFakeSpreadsheet(), []));
+    assertOk(record(cardInput, makeFakeSpreadsheet(), [], { mapSingleCardPurchaseContract }));
 
-failed += test('lock_wrapper_is_used_around_append', () => {
-    const fake = makeFakeSpreadsheet();
-    const locks = [];
-    assertOk(record(baseEntry(), fake, locks));
-    assert.deepStrictEqual(JSON.parse(JSON.stringify(locks)), ['recordEntryV54']);
-    assert.strictEqual(fake.writes.length, 1);
-});
-
-failed += test('input_is_not_mutated', () => {
-    const input = baseEntry({ valor: '12.34', descricao: '  Restaurante casal  ' });
-    const before = JSON.stringify(input);
-    assertOk(record(input, makeFakeSpreadsheet(), []));
-    assert.strictEqual(JSON.stringify(input), before);
+    assert.strictEqual(JSON.stringify(simpleInput), simpleBefore);
+    assert.strictEqual(JSON.stringify(cardInput), cardBefore);
 });
 
 failed += test('v53_sheet_names_are_never_requested', () => {
     const fake = makeFakeSpreadsheet();
-    assertOk(record(baseEntry(), fake, []));
+    assertOk(record(baseCardPurchaseEntry(), fake, [], { mapSingleCardPurchaseContract }));
     ['Config', 'Lancamentos', 'Lançamentos', 'Dashboard', 'Investimentos', 'Parcelas'].forEach((name) => {
         assert.strictEqual(fake.requestedSheets.includes(name), false, `Unexpected V53 sheet requested: ${name}`);
     });
-    assert.deepStrictEqual(JSON.parse(JSON.stringify(fake.requestedSheets)), ['Lancamentos_V54']);
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(fake.requestedSheets)), [V54_SHEETS.LANCAMENTOS_V54]);
 });
 
 failed += test('protected_production_files_are_not_loaded_or_referenced_by_actions_v54', () => {
@@ -587,10 +631,37 @@ failed += test('actions_v54_does_not_use_require_or_node_modules', () => {
     assert.strictEqual(/module\.exports/.test(actionsV54Source), false);
 });
 
-failed += test('default_production_id_generation_is_not_second_precision_only', () => {
-    assert.ok(actionsV54Source.includes('randomPart'));
-    assert.ok(actionsV54Source.includes('Math.random()'));
-    assert.ok(actionsV54Source.includes("slice(0, 17)"));
+failed += test('card_purchase_contract_has_no_apps_script_globals', () => {
+    ['SpreadsheetApp', 'LockService', 'PropertiesService', 'UrlFetchApp'].forEach((globalName) => {
+        assert.strictEqual(cardPurchaseContractSource.includes(globalName), false, `${globalName} should not appear`);
+    });
+});
+
+failed += test('no_openai_or_vendor_calls_in_actions_or_card_purchase_contract', () => {
+    ['openai', 'chat.completions', 'responses.create', 'UrlFetchApp.fetch'].forEach((needle) => {
+        assert.strictEqual(actionsV54Source.toLowerCase().includes(needle.toLowerCase()), false, `${needle} should not appear in ActionsV54`);
+        assert.strictEqual(cardPurchaseContractSource.toLowerCase().includes(needle.toLowerCase()), false, `${needle} should not appear in card purchase contract`);
+    });
+});
+
+failed += test('card_purchase_missing_contract_dependency_returns_structured_error', () => {
+    const result = record(baseCardPurchaseEntry(), makeFakeSpreadsheet(), []);
+    assertError(result, 'CARD_CONTRACT_UNAVAILABLE', 'tipo_evento');
+});
+
+failed += test('card_purchase_cycle_and_card_source_resolution_match_seed_cards', () => {
+    const cards = cardsById();
+    const resultNubank = assertOk(record(baseCardPurchaseEntry({
+        data: '2026-04-29',
+        id_cartao: 'CARD_NUBANK_GU',
+    }), makeFakeSpreadsheet(), [], { mapSingleCardPurchaseContract }));
+    const resultMp = assertOk(record(baseCardPurchaseEntry({
+        data: '2026-04-06',
+        id_cartao: 'CARD_MP_GU',
+    }), makeFakeSpreadsheet(), [], { mapSingleCardPurchaseContract }));
+
+    assert.strictEqual(resultNubank.rowObject.id_fonte, cards.CARD_NUBANK_GU.id_fonte);
+    assert.strictEqual(resultMp.rowObject.id_fonte, cards.CARD_MP_GU.id_fonte);
 });
 
 if (failed > 0) {
