@@ -375,3 +375,15 @@ For `compra_cartao`, `Lancamentos_V54.data` stores the real purchase date, while
 
 Reason:
 This keeps card purchases deterministic across closing-day boundaries, prevents duplicate expense recognition, and aligns `Lancamentos_V54` with the future `Faturas`/`Pagamentos_Fatura` reconciliation model.
+
+## D029 - Installment Schedule Is Local Before Recognition
+Status: Accepted
+Date: 2026-04-27
+
+Decision:
+For `compra_parcelada`, Phase 4C-prep maps a validated parser candidate into one `Compras_Parceladas` row and N `Parcelas_Agenda` rows only. The first parcel uses the purchase-date invoice cycle, later parcels advance one invoice cycle each, `Parcelas_Agenda.competencia` and `id_fatura` follow those cycles, and parcel values split cents deterministically so the sum equals `valor_total`.
+
+Installment scheduling does not create `Lancamentos_V54`, `Faturas`, or `Pagamentos_Fatura` rows in this phase. Statuses are `Compras_Parceladas.status = ativa`, `Parcelas_Agenda.status = pendente`, and `Parcelas_Agenda.id_lancamento = ""`.
+
+Reason:
+Installments need a stable schedule before expense recognition, invoice-row creation, payments, reconciliation, or Telegram routing. Keeping this as a pure local contract reduces the risk of duplicate DRE recognition and lets future write paths consume deterministic `id_compra`, `id_parcela`, competence, and invoice references.
