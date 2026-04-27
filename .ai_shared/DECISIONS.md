@@ -365,3 +365,13 @@ Rejected:
 - Calling OpenAI or generating recommendations from an LLM in reporting contracts.
 - Counting home-item earmarked assets as emergency reserve.
 - Pretending a principal/interest split exists for Caixa/Vasco-like debts when fixture data does not provide it.
+
+## D028 - Card Purchase Competence Follows Invoice Cycle
+Status: Accepted
+Date: 2026-04-27
+
+Decision:
+For `compra_cartao`, `Lancamentos_V54.data` stores the real purchase date, while `Lancamentos_V54.competencia` must be overwritten to the computed invoice-cycle competence from the card cycle contract. The purchase is recognized once as expense in `Lancamentos_V54`; future invoice payment is settlement only and must not create another operational DRE expense.
+
+Reason:
+This keeps card purchases deterministic across closing-day boundaries, prevents duplicate expense recognition, and aligns `Lancamentos_V54` with the future `Faturas`/`Pagamentos_Fatura` reconciliation model.

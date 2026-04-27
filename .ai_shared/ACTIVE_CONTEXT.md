@@ -115,6 +115,8 @@ Branch: feat/v54-production-readiness
 - `node --check scripts\lib\v54-reporting-contracts.js`, `node --check scripts\test-v54-reporting-contracts.js`, `cmd /c npm run test:v54:reporting`, `cmd /c npm run test:v54:contract`, `cmd /c npm run test:v54:parser`, `cmd /c npm run test:v54:lancamentos-mapper`, `cmd /c npm run test:v54:actions`, `cmd /c npm run test:routing-mode`, `cmd /c npm run test:security-locks`, `cmd /c npm run test:v54:setup`, `cmd /c npm run test:v54:seed`, `cmd /c npm run test:v54:snapshot`, `cmd /c npm run test:v54:schema`, and `cmd /c npm run test:v53` passed on 2026-04-26 after Phase 4A-hardening local changes.
 - V54 Phase 4B-prep local card invoice cycle contracts are coded locally: `scripts/lib/v54-card-invoice-cycle.js` assigns purchase dates to deterministic invoice cycles, clamps closing/due days for short months, computes due dates from the closing cycle, and generates deterministic invoice IDs like `FAT_CARD_NUBANK_GU_2026_04`.
 - `node --check scripts\lib\v54-card-invoice-cycle.js`, `node --check scripts\test-v54-card-invoice-cycle.js`, `cmd /c npm run test:v54:card-cycle`, `cmd /c npm run test:v54:reporting`, `cmd /c npm run test:v54:contract`, `cmd /c npm run test:v54:parser`, `cmd /c npm run test:v54:lancamentos-mapper`, `cmd /c npm run test:v54:actions`, `cmd /c npm run test:routing-mode`, `cmd /c npm run test:security-locks`, `cmd /c npm run test:v54:setup`, `cmd /c npm run test:v54:seed`, `cmd /c npm run test:v54:snapshot`, `cmd /c npm run test:v54:schema`, and `cmd /c npm run test:v53` passed on 2026-04-27 after Phase 4B-prep local changes.
+- V54 Phase 4B-contract local single card purchase contract is coded locally: `scripts/lib/v54-card-purchase-contract.js` validates `compra_cartao`, resolves active card/source by `id_cartao`, computes invoice cycle, forces `competencia` to cycle competence, and maps one canonical `Lancamentos_V54` row with `id_cartao`, `id_fatura`, and card `id_fonte`.
+- V54 Phase 4B-contract tests were added locally in `scripts/test-v54-card-purchase-contract.js` with npm script `test:v54:card-purchase`; the contract remains local-only and is not wired into Apps Script write paths, Telegram routing, spreadsheet mutation, Faturas writes, installment writes, invoice payments, or reconciliation.
 
 ## Unverified claims
 - Negative webhook security behavior is not yet production-tested: POST without secret, POST with invalid secret, and valid secret with unauthorized chat should not write anything.
@@ -125,10 +127,10 @@ Branch: feat/v54-production-readiness
 - V53 sheets are safe to remove or rename. They are not: current production code still depends on them until V54 write paths replace V53.
 
 ## Current task
-Execute V54 safely in small phases. Current phase: V54 Phase 4B-prep local card invoice cycle contracts are local-only and verified by tests. The next gate is review/push of the card-cycle contract commit; after that, plan the next card purchase/fatura slice separately.
+Execute V54 safely in small phases. Current phase: V54 Phase 4B-contract local single card purchase contract and tests (local-only, no real writes). Next gate is review/push of the card-purchase contract commit.
 
 ## Next safe action
-1. Review/push the Phase 4B-prep card-cycle contract commit after local tests pass.
-2. Do not start real V54 spreadsheet writes, card purchase writes, invoice writes, payments, reconciliation, or report wiring until the card-cycle contract commit is reviewed.
+1. Review/push the Phase 4B-contract card-purchase contract commit after local tests pass.
+2. Do not start real V54 spreadsheet writes, invoice writes, payments, reconciliation, or Telegram/report wiring until the card-purchase contract commit is reviewed.
 3. Keep `Parser.js`, `Actions.js`, `Commands.js`, `Views.js`, `doPost`, and V53 routing unchanged unless a later phase explicitly authorizes integration.
-4. Do not write to the spreadsheet, run `clasp push`, deploy, seed, setup, migration, or Telegram mutation during local reporting-contract work.
+4. Do not write to the spreadsheet, run `clasp push`, deploy, seed, setup, migration, or Telegram mutation during local contract work.
