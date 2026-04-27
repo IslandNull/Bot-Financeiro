@@ -34,6 +34,8 @@ VERIFIED in local code on 2026-04-27: stale `processing` recovery is modeled in 
 
 VERIFIED in local code on 2026-04-27: deterministic idempotent result references and reviewed recovery execution use the existing schema only. `result_ref` remains empty on the initial `processing` insert and is filled on reviewed completion recovery or normal completion. No new columns were added.
 
+VERIFIED in local code on 2026-04-27: `src/ActionsV54Recovery.js` applies reviewed recovery plans through mocked sheet dependencies only and updates only existing `Idempotency_Log` rows. It uses the existing headers above; no schema columns were added or changed, and no real spreadsheet state was re-verified.
+
 ## 3. V53 Legacy Sheets (Reference Only)
 The sheets `Dashboard`, `Investimentos`, `Parcelas`, `Lançamentos`, `Orçamento Mensal`, `Compras da Casa`, `Metas de Poupança`, and `Config` belong to the V53 era.
 **Do not use these sheets to build new features.** They exist only as a historical reference until V54 is fully deployed and the legacy prototype is safely removed.

@@ -23,6 +23,7 @@ Existem duas gerações de código convivendo no mesmo runtime:
 | `src/Main.js` | Entry points (`doPost`, `doGet`), CONFIG, utilitários (`sendTelegram`, `formatBRL`, `withScriptLock`), routing mode enum | `SHARED_INFRA` | Não sem aprovação explícita | Roteia para V53 hoje. Futuro roteamento V54 será adicionado aqui. |
 | `src/ActionsV54.js` | Adapter Apps Script V54: `recordEntryV54`, validação, mapeamento, escrita fake-first em Lancamentos/Compras/Parcelas/Faturas | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Contém duplicação temporária de headers e validação (limitação CommonJS). Não wired into `doPost` yet. |
 | `src/ActionsV54Idempotency.js` | Adapter Apps Script fake-first para idempotência em `recordEntryV54` via DI | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Consome planner local injetado, guarda grupos de mutação V54, sem `require()` e sem roteamento Telegram. |
+| `src/ActionsV54Recovery.js` | Adapter Apps Script fake-first para aplicar planos revisados de recuperação em `Idempotency_Log` via DI | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Consome executor/checklist local injetado em testes, escreve somente `Idempotency_Log`, sem rota Telegram e sem mutação de domínio. |
 | `src/Actions.js` | Lógica de escrita legacy V53: `handleEntry`, `recordParsedEntry`, `desfazerUltimo`, `handleManter`, `handleParcela` | `V53_LEGACY` | **Não** | Deprecated. Fluxo de escrita do Telegram atual. |
 | `src/Commands.js` | Switch de comandos legacy V53: `handleCommand`, `helpText` | `V53_LEGACY` | **Não** | Deprecated. Chamado por `doPost`. |
 | `src/Parser.js` | Parser OpenAI legacy V53: `parseWithOpenAI`, `validateParse`, `getListsCached` | `V53_LEGACY` | **Não** | Deprecated. Chamado por `handleEntry`. |
@@ -99,6 +100,14 @@ Adapter Apps Script:
       → OU mapInstallmentScheduleContract (compra_parcelada, via DI)
       → planExpectedFaturasUpsert (Faturas upsert, via DI)
       → sheet.getRange().setValues()
+
+  src/ActionsV54Recovery.js
+    → applyReviewedIdempotencyRecoveryV54(input, options)
+      → exige DI: `getSpreadsheet`, `withLock`, `applyReviewedIdempotencyRecovery`, `checklist`
+      → valida `Idempotency_Log` e headers
+      → le linhas existentes de idempotência
+      → aplica somente planos revisados `MARK_IDEMPOTENCY_FAILED`/`MARK_IDEMPOTENCY_COMPLETED`
+      → escreve somente a linha correspondente em `Idempotency_Log`
 ```
 
 **`recordEntryV54` NÃO é chamado por `doPost`.**
@@ -132,4 +141,4 @@ Para que V54 processe tráfego real do Telegram, é preciso:
 | Sem `ParserV54` produtivo | V54 não pode processar mensagens do Telegram até existir um parser que chame LLM real. | Próxima fase de feature. |
 | Sem `ViewsV54` produtivo | V54 não pode responder no Telegram até existir. | Próxima fase de feature. |
 | `ActionsV54.js` grande | Ainda concentra validação, mapeamento e escrita base. | NEXT (extrair helpers sem mudar comportamento) |
-| Aplicação Apps Script dos planos de recuperação de idempotência | Executor local fake-first existe, mas nenhum fluxo Apps Script real aplica planos revisados em produção. | NEXT antes do roteamento real. |
+| Aplicação real/roteada dos planos de recuperação de idempotência | Adapter Apps Script fake-first existe, mas nenhum fluxo real, rota, Telegram ou planilha produtiva aplica planos revisados. | NEXT antes do roteamento real. |

@@ -22,13 +22,14 @@ Branch: feat/v54-production-readiness
 - Phase 4M: Adapter Apps Script fake-first de idempotência criado em `src/ActionsV54Idempotency.js` e ligado de forma opt-in em `recordEntryV54` por `options.idempotency.enabled`. Em testes locais, consome o boundary via dependency injection, guarda o grupo inteiro de mutação para eventos simples, `compra_cartao` e `compra_parcelada`, e mantém `doPost`/Telegram real inalterados.
 - Phase 4N: Política local/fake-first de recuperação para `processing` stale definida em D042 e implementada em `scripts/lib/v54-idempotency-recovery-policy.js`. O write path só chama a política por opt-in injetado (`recoveryPolicy.enabled === true`), com `staleAfterMs` e `now` determinísticos. A política planeja transição explícita para `failed` quando stale sem mutação de domínio, planeja conclusão quando `result_ref`/referência determinística bate, e bloqueia estados ambíguos para revisão manual.
 - Phase 4O: Referências determinísticas do caminho idempotente aceitas em D043. `planV54IdempotentWrite` deriva `id_lancamento`/`id_compra` do `idempotency_key` para que retry após crash entre mutação de domínio e `MARK_IDEMPOTENCY_COMPLETED` consiga localizar a mutação já escrita sem depender de ID aleatório. Criado executor/checklist local `scripts/lib/v54-idempotency-recovery-executor.js`, que aplica somente `MARK_IDEMPOTENCY_FAILED` ou `MARK_IDEMPOTENCY_COMPLETED` em memória e nunca aplica mutação de domínio.
+- Phase 4P: Adapter Apps Script fake-first de recuperação revisada criado em `src/ActionsV54Recovery.js`. Ele exige `getSpreadsheet`, `withLock`, `applyReviewedIdempotencyRecovery` e checklist por DI, valida `Idempotency_Log`/headers, lê linhas existentes, e escreve somente a linha correspondente em `Idempotency_Log`. Não é chamado por `doPost`, não chama Telegram, não usa planilha real nos testes e não aplica mutação de domínio.
 
 ## O que esta bloqueado / Risco Atual
 - **Seguranca:** O Telegram E2E path (do webhook real para o script atualizado) precisa de testes finais.
 - GET mutantes protegidos por token na URL devem ser extintos.
 
 ## Proximo passo seguro
-1. Definir adapter Apps Script fake-first para aplicar planos revisados de recuperação em `Idempotency_Log`, ainda sem rota real, sem Telegram e sem planilha real nos testes.
+1. Definir uma rota/manual runner revisado para recuperação somente após regra aceita, mantendo sem `doPost`, sem Telegram e sem mutação de domínio.
 2. Implementar proximas fases locais/fake-first de `Pagamentos_Fatura` e reconciliacao somente apos regra aceita.
 3. **NAO executar** setup, seed, deploy, clasp, testes na planilha real, ou comandos Telegram sem aprovacao explicita.
 

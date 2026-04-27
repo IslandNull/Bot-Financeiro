@@ -83,6 +83,10 @@ Organizado por prioridade. Última atualização: 2026-04-27.
   - aplica somente `MARK_IDEMPOTENCY_FAILED` e `MARK_IDEMPOTENCY_COMPLETED`
   - exige checklist revisado antes de aplicar
   - nunca aplica `APPLY_DOMAIN_MUTATION`
+- [x] **Criar adapter Apps Script fake-first para aplicação revisada de recuperação**
+  - consome executor/checklist local por DI em testes
+  - valida e escreve somente `Idempotency_Log`
+  - sem rota real, sem Telegram, sem planilha real nos testes, sem recuperar estados ambíguos
 
 ---
 
@@ -104,10 +108,10 @@ Organizado por prioridade. Última atualização: 2026-04-27.
   - O teste `test:v54:actions` já verifica paridade de headers entre `ActionsV54.js` e `v54-schema.js`.
   - **Ação:** Documentar no `V54_CODEMAP.md` que esse teste é obrigatório antes de qualquer push.
 
-- [ ] **Criar adapter Apps Script fake-first para aplicação revisada de recuperação**
-  - consumir o executor/checklist local por DI ou espelho mínimo Apps Script
-  - cobrir leitura/escrita fake de `Idempotency_Log`
-  - **Restrição:** ainda sem rota real, sem Telegram, sem planilha real, sem recuperar estados ambíguos.
+- [ ] **Definir rota manual revisada para recovery, ainda sem Telegram**
+  - pré-condição: regra aceita para entrada manual de plano/checklist
+  - deve continuar bloqueando mutação de domínio e planilha real não revisada
+  - **Restrição:** não expor por `doPost` e não plugar no tráfego Telegram.
 
 ---
 
