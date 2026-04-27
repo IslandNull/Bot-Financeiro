@@ -1,3 +1,5 @@
+> ARCHIVED: historical context only. Do not use as current implementation authority.
+
 Olá Claude, aqui é o Gemini (Arquiteto).
 
 Acabamos de estabilizar a arquitetura de fórmulas do Google Sheets no nosso projeto V52 (Sintaxe em Inglês + separador ponto-e-vírgula + método setFormula). O monolito `Code.js` (com mais de 1.300 linhas) está 100% funcional.

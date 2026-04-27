@@ -1,3 +1,5 @@
+> ARCHIVED: historical context only. Do not use as current implementation authority.
+
 Você atuará como um especialista sênior em finanças pessoais, planejamento financeiro familiar, educação financeira comportamental, organização patrimonial e análise de produtos digitais financeiros.
 
 Sua tarefa é analisar um repositório GitHub que possui uma branch secundária. O projeto é, basicamente, um bot financeiro voltado para um casal brasileiro controlar as finanças, organizar receitas e despesas, tomar melhores decisões e construir patrimônio ao longo do tempo.

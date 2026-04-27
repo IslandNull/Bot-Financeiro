@@ -9,12 +9,8 @@ Bot de Telegram para gestão financeira doméstica, integrado ao Google Sheets v
 > Não use este README antigo como guia de arquitetura.
 
 ## Documentação Autoritativa (Para IAs e Devs)
-Antes de iniciar qualquer tarefa, leia obrigatoriamente:
-1. `AGENTS.md`
-2. `.ai_shared/ACTIVE_CONTEXT.md`
-3. `.ai_shared/DECISIONS.md`
-4. `docs/MASTERPLAN_PRODUCAO_V54.md`
-5. `docs/V54_DOMAIN_DECISIONS.md`
+Antes de iniciar qualquer tarefa, o ponto de partida central para a leitura da documentação é:
+1. `docs/V54_DOCS_INDEX.md`
 
 ## Funcionalidades (Visão Geral)
 - **Lançamento por linguagem natural** — "52 ifood luana cartão"

@@ -1,3 +1,5 @@
+> ARCHIVED: historical context only. Do not use as current implementation authority.
+
 # Handoff - V54 Masterplan Producao
 
 Date: 2026-04-25

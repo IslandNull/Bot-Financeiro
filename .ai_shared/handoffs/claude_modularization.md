@@ -1,3 +1,5 @@
+> ARCHIVED: historical context only. Do not use as current implementation authority.
+
 # MISSÃO PARA CLAUDE 4.7 OPUS: Modularização Segura do Code.js
 
 **Status Atual:** O `Code.js` foi auditado e está funcional. As fórmulas agora seguem um padrão estrito (Inglês + ; separator).

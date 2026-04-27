@@ -11,10 +11,14 @@ Before changing code, always inspect the real repository state:
    - `cat package.json`
    - `ls`
 2. Read:
-   - `.ai_shared/ACTIVE_CONTEXT.md`
+   - `docs/V54_DOCS_INDEX.md` (documentation authority map)
+   - `.ai_shared/ACTIVE_CONTEXT.md` (current state and next safe step)
+   - `.ai_shared/DECISIONS.md` (accepted decisions; do not override)
+3. For formula, spreadsheet, setup, seed, Apps Script mutation, or reporting tasks, also read:
    - `.ai_shared/FORMULA_STANDARD.md`
    - `.ai_shared/KNOWN_ISSUES.md`
-3. Do not claim a feature exists unless verified in files or command output.
+   - `.ai_shared/SHEET_SCHEMA.md`
+4. Do not claim a feature exists unless verified in files or command output.
 
 ## Truth policy
 Use these labels:
@@ -50,3 +54,4 @@ After code changes:
 3. Explain what remains unverified.
 4. Update `.ai_shared/ACTIVE_CONTEXT.md` if task status changed.
 5. Update `.ai_shared/DECISIONS.md` if a technical decision changed.
+6. Update `docs/V54_DOCS_INDEX.md` if documentation authority changed.
