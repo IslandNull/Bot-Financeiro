@@ -59,10 +59,14 @@ Organizado por prioridade. Última atualização: 2026-04-27.
   - sem planilha real
   - sem doPost
   - sem Apps Script real
-- [ ] **Integrar contrato de Idempotency_Log ao futuro write path V54**
+- [x] **Integrar contrato de Idempotency_Log ao futuro write path V54 local**
   - ainda sem Telegram real
   - ainda sem alterar roteamento
   - bloquear duplicidade antes de qualquer append financeiro
+- [ ] **Criar adapter Apps Script fake-first para write path idempotente**
+  - consumir o boundary local em `recordEntryV54`
+  - ainda sem Telegram real
+  - ainda sem alterar roteamento
 
 ---
 
@@ -83,6 +87,12 @@ Organizado por prioridade. Última atualização: 2026-04-27.
 - [ ] **Documentar headers parity test como CI gate**
   - O teste `test:v54:actions` já verifica paridade de headers entre `ActionsV54.js` e `v54-schema.js`.
   - **Ação:** Documentar no `V54_CODEMAP.md` que esse teste é obrigatório antes de qualquer push.
+
+- [ ] **Definir política de recuperação de idempotência**
+  - Janela A: log `processing` inserido, row financeiro ausente.
+  - Janela B: row financeiro inserido, log ainda não marcado `completed`.
+  - **Ação:** definir timeout/retry/mark-completed manual antes de qualquer tráfego real.
+  - **Restrição:** não recuperar automaticamente sem regra aceita.
 
 ---
 

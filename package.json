@@ -20,7 +20,7 @@
     "test:v54:card-purchase": "node scripts/test-v54-card-purchase-contract.js",
     "test:v54:installment-schedule": "node scripts/test-v54-installment-schedule-contract.js",
     "test:v54:faturas": "node scripts/test-v54-faturas-expected-upsert.js",
-    "test:v54:idempotency": "node scripts/test-v54-idempotency.js",
+    "test:v54:idempotency": "node scripts/test-v54-idempotency.js && node scripts/test-v54-idempotent-write-path.js",
     "test:v54:actions": "node scripts/test-v54-actions-mvp.js",
     "test:v54:reporting": "node scripts/test-v54-reporting-contracts.js",
     "test:v54:card-cycle": "node scripts/test-v54-card-invoice-cycle.js",
