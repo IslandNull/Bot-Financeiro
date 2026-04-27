@@ -54,11 +54,15 @@ Organizado por prioridade. Última atualização: 2026-04-27.
 
 ## NOW
 
-- [ ] **Modelar Idempotency_Log local/fake-first**
+- [x] **Modelar Idempotency_Log local/fake-first**
   - sem Telegram
   - sem planilha real
   - sem doPost
   - sem Apps Script real
+- [ ] **Integrar contrato de Idempotency_Log ao futuro write path V54**
+  - ainda sem Telegram real
+  - ainda sem alterar roteamento
+  - bloquear duplicidade antes de qualquer append financeiro
 
 ---
 

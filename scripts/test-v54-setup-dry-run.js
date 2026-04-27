@@ -179,6 +179,7 @@ failed += test('planSetupV54_schema_contains_key_decisions', () => {
     assert.ok(body.includes("Config_Fontes: ['id_fonte', 'nome', 'tipo', 'titular', 'ativo']"));
     assert.ok(body.includes("Cartoes: ['id_cartao', 'id_fonte', 'nome', 'titular', 'fechamento_dia', 'vencimento_dia', 'limite', 'ativo']"));
     assert.ok(body.includes("Pagamentos_Fatura: ['id_pagamento', 'id_fatura'"));
+    assert.ok(body.includes("Idempotency_Log: ['idempotency_key', 'source'"));
     assert.ok(body.includes("Parcelas_Agenda: ['id_parcela', 'id_compra'"));
     assert.ok(body.includes("Lancamentos_V54: ['id_lancamento', 'data', 'competencia', 'tipo_evento', 'id_categoria', 'valor', 'id_fonte', 'pessoa', 'escopo', 'id_cartao', 'id_fatura', 'id_compra', 'id_parcela', 'afeta_dre', 'afeta_acerto', 'afeta_patrimonio', 'visibilidade'"));
     assert.ok(body.includes("Dividas: ['id_divida', 'nome', 'credor'"));
@@ -195,9 +196,9 @@ failed += test('planSetupV54_reports_create_sheet_for_empty_state', () => {
     const { planSetupV54ForState } = loadPlanningFunctions();
     const plan = planSetupV54ForState({});
     assert.strictEqual(plan.ok, true);
-    assert.strictEqual(plan.summary.createSheet, 14);
+    assert.strictEqual(plan.summary.createSheet, Object.keys(V54_HEADERS).length);
     assert.strictEqual(plan.summary.blocked, 0);
-    assert.strictEqual(plan.actions.length, 14);
+    assert.strictEqual(plan.actions.length, Object.keys(V54_HEADERS).length);
     assert.ok(plan.actions.every((action) => action.action === 'CREATE_SHEET'));
 });
 
@@ -206,7 +207,7 @@ failed += test('planSetupV54_reports_ok_for_perfect_state', () => {
     const state = stateWithAllSheets((_, headers) => [...headers]);
     const plan = planSetupV54ForState(state);
     assert.strictEqual(plan.ok, true);
-    assert.strictEqual(plan.summary.ok, 14);
+    assert.strictEqual(plan.summary.ok, Object.keys(V54_HEADERS).length);
     assert.strictEqual(plan.summary.blocked, 0);
     assert.ok(plan.actions.every((action) => action.action === 'OK'));
 });
@@ -370,9 +371,9 @@ failed += test('applySetupV54_creates_only_missing_v54_sheets_with_headers', () 
     assert.strictEqual(result.ok, true);
     assert.strictEqual(result.applied, true);
     assert.strictEqual(result.appliedActions.length, Object.keys(schema).length);
-    assert.strictEqual(fakeSpreadsheet.mutations.filter((mutation) => mutation.type === 'insertSheet').length, 14);
-    assert.strictEqual(fakeSpreadsheet.mutations.filter((mutation) => mutation.type === 'setValues').length, 14);
-    assert.strictEqual(fakeSpreadsheet.mutations.filter((mutation) => mutation.type === 'setFrozenRows').length, 14);
+    assert.strictEqual(fakeSpreadsheet.mutations.filter((mutation) => mutation.type === 'insertSheet').length, Object.keys(schema).length);
+    assert.strictEqual(fakeSpreadsheet.mutations.filter((mutation) => mutation.type === 'setValues').length, Object.keys(schema).length);
+    assert.strictEqual(fakeSpreadsheet.mutations.filter((mutation) => mutation.type === 'setFrozenRows').length, Object.keys(schema).length);
     assert.ok(fakeSpreadsheet.mutations.every((mutation) => !['Config', 'Lancamentos', 'Dashboard', 'Investimentos', 'Parcelas'].includes(mutation.sheet)));
 });
 

@@ -35,6 +35,7 @@ Existem duas gerações de código convivendo no mesmo runtime:
 | `scripts/lib/v54-card-purchase-contract.js` | Contrato de compra de cartão V54 | `V54_LOCAL_CONTRACT` | Sim | Ciclo de fatura + mapeamento para Lancamentos. |
 | `scripts/lib/v54-installment-schedule-contract.js` | Contrato de parcelamento V54 | `V54_LOCAL_CONTRACT` | Sim | Schedule de parcelas + ciclos de fatura. |
 | `scripts/lib/v54-card-invoice-cycle.js` | Ciclo de fatura de cartão (fechamento/vencimento) | `V54_LOCAL_CONTRACT` | Sim | Determinístico, usado por compra e parcelamento. |
+| `scripts/lib/v54-idempotency-contract.js` | Contrato local de idempotência V54 | `V54_LOCAL_CONTRACT` | Sim | Planeja `Idempotency_Log` sem Apps Script, Telegram real, rede ou planilha real. |
 | `scripts/lib/v54-reporting-contracts.js` | Contratos de relatório V54 (DRE, reserva, patrimônio, acerto) | `V54_LOCAL_CONTRACT` | Sim | Pure local, sem spreadsheet. |
 | `docs/V54_DOCS_INDEX.md` | Índice da documentação V54 | `DOCS_ONLY` | N/A | Ponto de entrada para agentes. |
 | `docs/V54_RUNTIME_MAP.md` | Mapa de entrypoints e estado de runtime | `DOCS_ONLY` | N/A | Limites V53/V54. |
@@ -77,6 +78,7 @@ Contratos locais Node.js (scripts/lib/):
   v54-installment-schedule-contract.js ← parcelamento + schedule
   v54-card-invoice-cycle.js     ← cálculo determinístico de ciclo
   v54-reporting-contracts.js    ← DRE, reserva, patrimônio, acerto
+  v54-idempotency-contract.js   ← retry técnico e Idempotency_Log local
 
 Adapter Apps Script:
   src/ActionsV54.js
@@ -91,7 +93,7 @@ Adapter Apps Script:
 
 **`recordEntryV54` NÃO é chamado por `doPost`.**
 Para que V54 processe tráfego real do Telegram, é preciso:
-1. Implementar `Idempotency_Log` (D038).
+1. Integrar o contrato local de `Idempotency_Log` ao futuro write path V54 (D038), ainda sem rotear Telegram real.
 2. Criar `ParserV54` produtivo (usando LLM real).
 3. Criar `ViewsV54` produtivo (respostas Telegram).
 4. Alterar `doPost` para rotear para V54 (via `ROUTING_MODES`).
@@ -119,4 +121,4 @@ Para que V54 processe tráfego real do Telegram, é preciso:
 | Sem bundler | Não é possível usar `require()` em Apps Script — forçando duplicação. | LATER (avaliar clasp + esbuild ou rollup) |
 | Sem `ParserV54` produtivo | V54 não pode processar mensagens do Telegram até existir um parser que chame LLM real. | Próxima fase de feature. |
 | Sem `ViewsV54` produtivo | V54 não pode responder no Telegram até existir. | Próxima fase de feature. |
-| Sem `Idempotency_Log` | Bloqueio para rotear Telegram para V54 — risco de duplicação por retry do webhook. | Próxima fase antes do roteamento. |
+| `Idempotency_Log` ainda não integrado ao write path | Bloqueio para rotear Telegram para V54 — schema e contrato local existem, mas `recordEntryV54` ainda não consome idempotência. | Próxima fase antes do roteamento. |

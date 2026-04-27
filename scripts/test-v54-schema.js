@@ -29,6 +29,7 @@ failed += test('all_required_v54_sheets_are_declared', () => {
         'Cartoes',
         'Faturas',
         'Pagamentos_Fatura',
+        'Idempotency_Log',
         'Compras_Parceladas',
         'Parcelas_Agenda',
         'Orcamento_Futuro_Casa',
@@ -69,6 +70,20 @@ failed += test('parcelas_agenda_has_stable_key_referenced_by_lancamentos', () =>
 failed += test('analysis_consolidation_schema_decisions_are_present', () => {
     assert.ok(getV54Headers(V54_SHEETS.PAGAMENTOS_FATURA).includes('id_pagamento'));
     assert.ok(getV54Headers(V54_SHEETS.PAGAMENTOS_FATURA).includes('afeta_patrimonio'));
+    assert.deepStrictEqual(getV54Headers(V54_SHEETS.IDEMPOTENCY_LOG), [
+        'idempotency_key',
+        'source',
+        'telegram_update_id',
+        'telegram_message_id',
+        'chat_id',
+        'payload_hash',
+        'status',
+        'result_ref',
+        'created_at',
+        'updated_at',
+        'error_code',
+        'observacao',
+    ]);
     assert.ok(getV54Headers(V54_SHEETS.DIVIDAS).includes('saldo_devedor'));
     assert.ok(getV54Headers(V54_SHEETS.DIVIDAS).includes('estrategia'));
     assert.ok(getV54Headers(V54_SHEETS.FECHAMENTOS_MENSAIS).includes('taxa_poupanca'));

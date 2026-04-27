@@ -22,7 +22,7 @@ The source of truth for the V54 schema is:
 - `src/Setup.js` mirror
 
 ### V54 Real Sheets
-As of the snapshot generated at `2026-04-26 15:27:14`, the real spreadsheet contains all 14 V54 sheets with header rows matching `scripts/lib/v54-schema.js`:
+As of the snapshot generated at `2026-04-26 15:27:14`, the real spreadsheet contains the previous 14 V54 sheets with header rows matching the schema from that time. VERIFIED in code on 2026-04-27: local schema now also includes `Idempotency_Log`, but this has not been verified in the real spreadsheet because setup/sync/deploy were intentionally not run in this phase.
 `Config_Categorias`, `Config_Fontes`, `Rendas`, `Cartoes`, `Faturas`, `Pagamentos_Fatura`, `Compras_Parceladas`, `Parcelas_Agenda`, `Orcamento_Futuro_Casa`, `Lancamentos_V54`, `Patrimonio_Ativos`, `Dividas`, `Acertos_Casal`, `Fechamentos_Mensais`.
 
 Clean seed data was applied. Formulas, dropdowns, and full transaction write paths are in development.

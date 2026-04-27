@@ -5,6 +5,7 @@ const V54_SHEETS = {
     CARTOES: 'Cartoes',
     FATURAS: 'Faturas',
     PAGAMENTOS_FATURA: 'Pagamentos_Fatura',
+    IDEMPOTENCY_LOG: 'Idempotency_Log',
     COMPRAS_PARCELADAS: 'Compras_Parceladas',
     PARCELAS_AGENDA: 'Parcelas_Agenda',
     ORCAMENTO_FUTURO_CASA: 'Orcamento_Futuro_Casa',
@@ -84,6 +85,20 @@ const V54_HEADERS = {
         'status',
         'observacao',
         'created_at',
+    ],
+    [V54_SHEETS.IDEMPOTENCY_LOG]: [
+        'idempotency_key',
+        'source',
+        'telegram_update_id',
+        'telegram_message_id',
+        'chat_id',
+        'payload_hash',
+        'status',
+        'result_ref',
+        'created_at',
+        'updated_at',
+        'error_code',
+        'observacao',
     ],
     [V54_SHEETS.COMPRAS_PARCELADAS]: [
         'id_compra',
@@ -198,6 +213,7 @@ const V54_HEADERS = {
 const V54_ENUMS = {
     escopo: ['Casal', 'Gustavo', 'Luana', 'Fora orcamento'],
     visibilidade: ['detalhada', 'resumo', 'privada'],
+    idempotency_status: ['processing', 'completed', 'failed'],
     tipo_fonte: ['conta', 'cartao', 'beneficio', 'dinheiro', 'investimento'],
     classe_dre_excluded_from_operational: ['Investimento', 'Reserva', 'Fatura', 'Transferencia', 'Patrimonio', 'Divida'],
 };
@@ -249,8 +265,28 @@ function validateV54Schema() {
         }
     });
 
-    ['Pagamentos_Fatura', 'Dividas', 'Fechamentos_Mensais'].forEach((sheetName) => {
+    ['Pagamentos_Fatura', 'Idempotency_Log', 'Dividas', 'Fechamentos_Mensais'].forEach((sheetName) => {
         if (!names.includes(sheetName)) errors.push(`V54 must include ${sheetName}`);
+    });
+
+    const idempotencyLog = V54_HEADERS[V54_SHEETS.IDEMPOTENCY_LOG] || [];
+    [
+        'idempotency_key',
+        'source',
+        'telegram_update_id',
+        'telegram_message_id',
+        'chat_id',
+        'payload_hash',
+        'status',
+        'result_ref',
+        'created_at',
+        'updated_at',
+        'error_code',
+        'observacao',
+    ].forEach((field) => {
+        if (!idempotencyLog.includes(field)) {
+            errors.push(`Idempotency_Log must include ${field}`);
+        }
     });
 
     if (!V54_HEADERS[V54_SHEETS.COMPRAS_PARCELADAS].includes('visibilidade')) {
