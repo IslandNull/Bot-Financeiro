@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-27
 Branch: feat/v54-production-readiness
-Status: PROPOSTA - pending human review
+Status: ACEITA - Approved with adjustments 2026-04-27
 Planning premise: V54-only MVP. V53 is deprecated prototype, not production and not fallback.
 
 ## 1. Purpose

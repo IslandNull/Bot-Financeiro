@@ -52,7 +52,7 @@ const V54_SEED_DATA = {
         { id_renda: 'REN_LU_SALARIO_LIQUIDO', pessoa: 'Luana', tipo: 'salario_liquido', valor: 3500, recorrente: true, dia_recebimento: 5, uso_restrito: false, afeta_rateio: true, afeta_dre: true, obs: 'Recebe no 5o dia do mes.' },
         { id_renda: 'REN_GU_ALELO', pessoa: 'Gustavo', tipo: 'beneficio_va_vr', valor: 1500, recorrente: true, dia_recebimento: 5, uso_restrito: true, afeta_rateio: false, afeta_dre: true, obs: 'Alelo cambiavel pelo app; uso 100% casal, majoritariamente mercado.' },
         { id_renda: 'REN_LU_VA', pessoa: 'Luana', tipo: 'beneficio_va', valor: 300, recorrente: true, dia_recebimento: 5, uso_restrito: true, afeta_rateio: false, afeta_dre: true, obs: 'VA Luana; uso 100% casal.' },
-        { id_renda: 'REN_GU_AUX_COMBUSTIVEL', pessoa: 'Gustavo', tipo: 'auxilio_combustivel', valor: 1200, recorrente: true, dia_recebimento: 5, uso_restrito: false, afeta_rateio: true, afeta_dre: true, obs: 'Tratado como salario normal; gasto moto esperado 150-160/mes e manutencao periodica separada.' },
+        // REN_GU_AUX_COMBUSTIVEL removido: os R$ 1.200 ja estao inclusos nos R$ 3.400 do salario liquido.
     ],
     [V54_SHEETS.CARTOES]: [
         { id_cartao: 'CARD_NUBANK_GU', id_fonte: 'FONTE_NUBANK_GU', nome: 'Nubank Gustavo', titular: 'Gustavo', fechamento_dia: 30, vencimento_dia: 7, limite: 10550, ativo: true },

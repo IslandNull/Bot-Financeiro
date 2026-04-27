@@ -420,3 +420,93 @@ Rejected:
 - Requiring V53 fallback gates before V54 MVP work.
 - Building new V53 features.
 - Framing V54 work as a migration from production V53.
+
+## D032 - V54 Income Base And Rateio
+Status: Accepted
+Date: 2026-04-27
+
+Decision:
+The rateio base uses only unrestricted recurring incomes. Gustavo's fuel allowance (R$ 1.200) is already included in his base salary of R$ 3.400. Therefore, the MVP base is Gustavo: 3400 (49.28%) and Luana: 3500 (50.72%). The rateio must be computed from the `Rendas` snapshot valid for the closing month.
+
+Reason:
+Using a deterministic base prevents rateio drift. Excluding restricted benefits ensures they don't overstate free cash.
+
+## D033 - V54 Benefit Resources (VA/VR/Alelo)
+Status: Accepted
+Date: 2026-04-27
+
+Decision:
+Treat VA/VR/Alelo as restricted household resources. They do not enter the rateio base, emergency reserve, or investment capacity. They do not generate personal credit for the holder in the couple's acerto. When used for eligible shared expenses, they simply reduce the shared amount that needs to be settled with cash.
+
+Reason:
+This respects the restricted nature of the benefits and avoids one partner owing the other just because a shared meal was paid with a meal voucher.
+
+## D034 - V54 "Fora orcamento" Disabled
+Status: Accepted
+Date: 2026-04-27
+
+Decision:
+Disable the `Fora orcamento` scope in the MVP. Private tracking must use `escopo=Gustavo` or `escopo=Luana` with `visibilidade=privada` and `afeta_acerto=false`. Explicit events like investments or debt payments must use their proper DRE class.
+
+Reason:
+`Fora orcamento` is ambiguous and risks hiding shared expenses, leaking private ones, or corrupting reports.
+
+## D035 - V54 Home-Earmarked Assets Taxonomy
+Status: Accepted
+Date: 2026-04-27
+
+Decision:
+Maintain `Itens da casa` as the canonical taxonomy in `Patrimonio_Ativos.destinacao` for funds earmarked for furniture and initial home setup. These funds must not be counted as emergency reserve. Emergency reserve only counts if explicitly flagged with `conta_reserva_emergencia=true`.
+
+Reason:
+Prevents the false sense of security that occurs when home savings are accidentally reported as emergency liquidity.
+
+## D036 - V54 Fatura Payment Prepayment Blocked
+Status: Accepted
+Date: 2026-04-27
+
+Decision:
+Block invoice prepayments in the MVP. A `pagamento_fatura` can only be registered if the invoice status is `fechada` and it has a `valor_fechado`.
+
+Reason:
+Prepayments complicate the minimum viable state machine for invoices.
+
+## D037 - V54 Acerto Allocation by Fatura Competence
+Status: Accepted
+Date: 2026-04-27
+
+Decision:
+Invoice payments must be attributed to the invoice's competence for the couple's acerto, even if the cash payment occurs in the following calendar month. The payment date affects cash flow; the invoice competence affects the acerto.
+
+Reason:
+This decouples cash-flow reality from the accrual-based acerto, preventing duplicated or shifted obligations.
+
+## D038 - V54 Idempotency Log
+Status: Accepted
+Date: 2026-04-27
+
+Decision:
+Create an `Idempotency_Log` entity/sheet before routing Telegram traffic to V54. Repeating the same Telegram message/update must not create a duplicate financial row. Semantic deduplication must warn or block, but never silently merge.
+
+Reason:
+Prevents double-spending when network issues cause Telegram to retry webhook deliveries.
+
+## D039 - V54 Future Fatura Refunds
+Status: Accepted
+Date: 2026-04-27
+
+Decision:
+A refund posted on a future invoice affects that future invoice's competence and references the original launch. Closed months are not reopened automatically. Corrections to closed months require an explicit `ajuste` with a stated reason.
+
+Reason:
+Keeps historical monthly closings immutable and auditable.
+
+## D040 - V54 Debt Payments as Cash Obligations
+Status: Partially Accepted
+Date: 2026-04-27
+
+Decision:
+For the MVP, debt payments (Caixa, Vasco) are tracked as cash outflows and non-DRE obligations, without requiring a principal/interest split on day one. They must reference an `id_divida`, reduce cash, and affect acerto if it's a shared debt. Amortization recommendations are blocked until full debt parameters are available. A dedicated `Pagamentos_Divida` entity is preferred for a later phase.
+
+Reason:
+Unblocks the tracking of cash outflows without forcing the user to invent interest/principal splits before the banking data is confirmed.

@@ -16,12 +16,10 @@ Branch: feat/v54-production-readiness
 ## O que está bloqueado / Risco Atual
 - **Segurança:** O Telegram E2E path (do webhook real para o script atualizado) precisa de testes finais.
 - GET mutantes protegidos por token na URL devem ser extintos.
-- Falta aceitar e implementar propostas do `docs/V54_DOMAIN_DECISIONS.md`.
 
 ## Próximo passo seguro
-1. Revisar `docs/V54_DOMAIN_DECISIONS.md` e aguardar aprovação humana para aceitar propostas.
-2. Registrar decisões aprovadas em `.ai_shared/DECISIONS.md`.
-3. Continuar a implementar FASE 1 e FASE 2 do MVP V54, focando em Faturas e Pagamentos.
-4. **NÃO executar** setup, seed, deploy, clasp, testes na planilha real, ou comandos Telegram sem aprovação explícita.
+1. Iniciar **Phase 4D: Faturas expected upsert local/fake-first**.
+2. Criar modelagem de `Idempotency_Log` para garantir write-safety antes de plugar o webhook de produção.
+3. **NÃO executar** setup, seed, deploy, clasp, testes na planilha real, ou comandos Telegram sem aprovação explícita.
 
 *(Histórico anterior detalhado movido para .ai_shared/HISTORY.md)*

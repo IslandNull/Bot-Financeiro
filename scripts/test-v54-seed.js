@@ -187,7 +187,6 @@ failed += test('v54_seed_contains_reviewed_household_facts', () => {
     assert.strictEqual(incomes.REN_GU_ALELO.valor, 1500);
     assert.strictEqual(incomes.REN_GU_ALELO.afeta_rateio, false);
     assert.strictEqual(incomes.REN_LU_VA.valor, 300);
-    assert.strictEqual(incomes.REN_GU_AUX_COMBUSTIVEL.valor, 1200);
 
     V54_SEED_DATA.Patrimonio_Ativos.forEach((asset) => {
         assert.strictEqual(asset.destinacao, 'Itens da casa');
