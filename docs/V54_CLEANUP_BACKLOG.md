@@ -87,6 +87,11 @@ Organizado por prioridade. Última atualização: 2026-04-27.
   - consome executor/checklist local por DI em testes
   - valida e escreve somente `Idempotency_Log`
   - sem rota real, sem Telegram, sem planilha real nos testes, sem recuperar estados ambíguos
+- [x] **Criar skeleton runtime V54 desabilitado**
+  - `ParserV54`, `HandlerV54`, `ViewsV54` em `src/`
+  - handler recebe update Telegram-like e chama `recordEntryV54` idempotente por DI
+  - formatador retorna texto seguro
+  - sem `doPost`, sem Telegram real, sem OpenAI real, sem planilha real nos testes
 
 ---
 
@@ -112,6 +117,11 @@ Organizado por prioridade. Última atualização: 2026-04-27.
   - pré-condição: regra aceita para entrada manual de plano/checklist
   - deve continuar bloqueando mutação de domínio e planilha real não revisada
   - **Restrição:** não expor por `doPost` e não plugar no tráfego Telegram.
+
+- [ ] **Substituir skeleton por ParserV54 produtivo atrás da interface injetada**
+  - usar contrato local existente de prompt/JSON/validação
+  - chamar LLM real somente após gate explícito e testes negativos
+  - **Restrição:** não rotear Telegram para V54 nesta etapa sem decisão/gate separado.
 
 ---
 

@@ -16,6 +16,7 @@
     "test:v54:snapshot": "node scripts/test-v54-snapshot.js",
     "test:v54:contract": "node scripts/test-v54-parsed-entry-contract.js",
     "test:v54:parser": "node scripts/test-v54-parser-contract.js",
+    "test:v54:handler": "node scripts/test-v54-handler-runtime.js",
     "test:v54:lancamentos-mapper": "node scripts/test-v54-lancamentos-mapper.js",
     "test:v54:card-purchase": "node scripts/test-v54-card-purchase-contract.js",
     "test:v54:installment-schedule": "node scripts/test-v54-installment-schedule-contract.js",
