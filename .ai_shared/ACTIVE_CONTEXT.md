@@ -119,6 +119,8 @@ Branch: feat/v54-production-readiness
 - V54 Phase 4B-contract tests were added locally in `scripts/test-v54-card-purchase-contract.js` with npm script `test:v54:card-purchase`; the contract remains local-only and is not wired into Apps Script write paths, Telegram routing, spreadsheet mutation, Faturas writes, installment writes, invoice payments, or reconciliation.
 - V54 Phase 4B-actions fake write path for single card purchase is coded locally: `src/ActionsV54.js` now accepts `compra_cartao` in `recordEntryV54(parsedEntry, options)` by using injectable `mapSingleCardPurchaseContract` and still appends exactly one `Lancamentos_V54` row under the same fake-first lock/dependency pattern.
 - `cmd /c npm run test:v54:actions`, `cmd /c npm run test:v54:card-purchase`, `cmd /c npm run test:v54:card-cycle`, `cmd /c npm run test:v54:lancamentos-mapper`, `cmd /c npm run test:v54:contract`, `cmd /c npm run test:v54:parser`, `cmd /c npm run test:v54:reporting`, `cmd /c npm run test:v54:schema`, `cmd /c npm run test:v53`, `cmd /c npm run test:routing-mode`, and `cmd /c npm run test:security-locks` passed on 2026-04-27 after Phase 4B-actions local changes.
+- V54 Phase 4B-actions-hardening restored and expanded local fake-spreadsheet regression coverage in `scripts/test-v54-actions-mvp.js`: missing `Lancamentos_V54`, header mismatch, simple-event row width, optional link empty strings, canonical required-field/boolean-string parity, `compra_cartao` flag preservation, no auxiliary card/invoice/installment writes, card rejection failures with no append, and unsupported `compra_parcelada`/`pagamento_fatura`.
+- `node --check src\ActionsV54.js`, `node --check scripts\test-v54-actions-mvp.js`, `node --check scripts\lib\v54-card-purchase-contract.js`, `cmd /c npm run test:v54:actions`, `cmd /c npm run test:v54:card-purchase`, `cmd /c npm run test:v54:card-cycle`, `cmd /c npm run test:v54:lancamentos-mapper`, `cmd /c npm run test:v54:contract`, `cmd /c npm run test:v54:parser`, `cmd /c npm run test:v54:reporting`, `cmd /c npm run test:v54:schema`, `cmd /c npm run test:v53`, `cmd /c npm run test:routing-mode`, and `cmd /c npm run test:security-locks` passed on 2026-04-27 after Phase 4B-actions-hardening local test changes.
 
 ## Unverified claims
 - Negative webhook security behavior is not yet production-tested: POST without secret, POST with invalid secret, and valid secret with unauthorized chat should not write anything.
@@ -129,10 +131,10 @@ Branch: feat/v54-production-readiness
 - V53 sheets are safe to remove or rename. They are not: current production code still depends on them until V54 write paths replace V53.
 
 ## Current task
-Execute V54 safely in small phases. Current phase: V54 Phase 4B-actions fake write path for single card purchases (local-only, fake spreadsheet tests only, no real writes).
+Execute V54 safely in small phases. Current phase: V54 Phase 4B-actions-hardening is local test-only coverage for single card purchase fake writes; no real writes and no production routing.
 
 ## Next safe action
-1. Review/push the Phase 4B-actions fake write path commit after local tests pass.
+1. Review/push the Phase 4B-actions-hardening test commit after local tests pass.
 2. Do not start parcelado, Faturas writes, invoice payments, reconciliation, routing/Telegram wiring, deploy, or real spreadsheet mutation yet.
 3. Keep `Parser.js`, `Actions.js`, `Commands.js`, `Views.js`, `doPost`, and V53 routing unchanged unless a later phase explicitly authorizes integration.
 4. Keep using local fake-spreadsheet tests and deterministic contracts before any production mutation phase.

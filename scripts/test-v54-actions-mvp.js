@@ -191,6 +191,11 @@ function assertError(result, code, field) {
     }), `Expected ${code}${field ? ` on ${field}` : ''}, got ${JSON.stringify(result.errors)}`);
 }
 
+function assertNoAppend(fakeSpreadsheet) {
+    assert.strictEqual(fakeSpreadsheet.writes.length, 0);
+    assert.strictEqual(fakeSpreadsheet.rows.length, 0);
+}
+
 function assertMatchingErrors(actualErrors, expectedErrors) {
     const actualPairs = JSON.parse(JSON.stringify(actualErrors)).map((error) => `${error.code}:${error.field}`).sort();
     const expectedPairs = expectedErrors.map((error) => `${error.code}:${error.field}`).sort();
@@ -377,6 +382,68 @@ failed += test('valid_despesa_appends_one_row', () => {
     assert.deepStrictEqual(JSON.parse(JSON.stringify(locks)), ['recordEntryV54']);
 });
 
+failed += test('missing_lancamentos_sheet_returns_structured_error_and_appends_nothing', () => {
+    const fake = makeFakeSpreadsheet({ missingSheet: true });
+    const result = record(baseEntry(), fake, []);
+
+    assertError(result, 'MISSING_SHEET', V54_SHEETS.LANCAMENTOS_V54);
+    assertNoAppend(fake);
+});
+
+failed += test('header_mismatch_returns_structured_error_and_appends_nothing', () => {
+    const headers = [...V54_HEADERS[V54_SHEETS.LANCAMENTOS_V54]];
+    headers[3] = 'tipo_incorreto';
+    const fake = makeFakeSpreadsheet({ headers });
+    const result = record(baseEntry(), fake, []);
+
+    assertError(result, 'HEADER_MISMATCH', V54_SHEETS.LANCAMENTOS_V54);
+    assertNoAppend(fake);
+});
+
+failed += test('generic_simple_event_row_width_matches_lancamentos_v54_schema', () => {
+    Object.values(validSimpleEntriesByMvpType()).forEach((entry) => {
+        const result = assertOk(record(entry, makeFakeSpreadsheet(), []));
+
+        assert.strictEqual(result.rowValues.length, V54_HEADERS[V54_SHEETS.LANCAMENTOS_V54].length);
+        assert.strictEqual(result.rowValues.length, 19);
+    });
+});
+
+failed += test('generic_simple_event_optional_link_fields_become_empty_strings', () => {
+    const result = assertOk(record(validSimpleEntriesByMvpType().transferencia, makeFakeSpreadsheet(), []));
+
+    ['id_categoria', 'id_cartao', 'id_fatura', 'id_compra', 'id_parcela'].forEach((field) => {
+        assert.strictEqual(result.rowObject[field], '', field);
+        assert.strictEqual(result.rowValues[V54_HEADERS[V54_SHEETS.LANCAMENTOS_V54].indexOf(field)], '', field);
+    });
+    assert.strictEqual(result.rowValues.includes(undefined), false);
+});
+
+failed += test('missing_required_simple_event_fields_match_canonical_validation_errors', () => {
+    const entry = baseEntry({
+        data: undefined,
+        valor: undefined,
+        descricao: undefined,
+        id_categoria: undefined,
+        id_fonte: undefined,
+    });
+    const { canonical, actions } = assertCanonicalValidationParity(entry);
+
+    ['data', 'valor', 'descricao', 'id_categoria', 'id_fonte'].forEach((field) => {
+        assertError(canonical, field === 'id_categoria' || field === 'id_fonte' ? 'REQUIRED_FOR_EVENT' : 'REQUIRED_FIELD', field);
+        assertError(actions, field === 'id_categoria' || field === 'id_fonte' ? 'REQUIRED_FOR_EVENT' : 'REQUIRED_FIELD', field);
+    });
+});
+
+failed += test('boolean_string_flag_rejection_matches_canonical_contract', () => {
+    ['afeta_dre', 'afeta_acerto', 'afeta_patrimonio'].forEach((field) => {
+        const { canonical, actions } = assertCanonicalValidationParity(baseEntry({ [field]: 'true' }));
+
+        assertError(actions, 'INVALID_BOOLEAN', field);
+        assertError(canonical, 'INVALID_BOOLEAN', field);
+    });
+});
+
 failed += test('compra_cartao_before_closing_appends_one_lancamento_with_current_cycle_id_fatura', () => {
     const fake = makeFakeSpreadsheet();
     const locks = [];
@@ -403,6 +470,43 @@ failed += test('compra_cartao_before_closing_appends_one_lancamento_with_current
     assert.strictEqual(result.rowValues.length, V54_HEADERS[V54_SHEETS.LANCAMENTOS_V54].length);
     assert.strictEqual(result.rowValues.includes(undefined), false);
     assert.deepStrictEqual(JSON.parse(JSON.stringify(locks)), ['recordEntryV54']);
+});
+
+failed += test('compra_cartao_preserves_dre_and_patrimonio_true_flags', () => {
+    const result = assertOk(record(
+        baseCardPurchaseEntry({
+            afeta_dre: true,
+            afeta_patrimonio: true,
+        }),
+        makeFakeSpreadsheet(),
+        [],
+        { mapSingleCardPurchaseContract },
+    ));
+
+    assert.strictEqual(result.rowObject.afeta_dre, true);
+    assert.strictEqual(result.rowObject.afeta_patrimonio, true);
+});
+
+failed += test('compra_cartao_preserves_acerto_true_when_input_says_true', () => {
+    const result = assertOk(record(
+        baseCardPurchaseEntry({ afeta_acerto: true }),
+        makeFakeSpreadsheet(),
+        [],
+        { mapSingleCardPurchaseContract },
+    ));
+
+    assert.strictEqual(result.rowObject.afeta_acerto, true);
+});
+
+failed += test('compra_cartao_preserves_acerto_false_when_input_says_false', () => {
+    const result = assertOk(record(
+        baseCardPurchaseEntry({ afeta_acerto: false }),
+        makeFakeSpreadsheet(),
+        [],
+        { mapSingleCardPurchaseContract },
+    ));
+
+    assert.strictEqual(result.rowObject.afeta_acerto, false);
 });
 
 failed += test('compra_cartao_on_closing_day_uses_same_cycle_id_fatura', () => {
@@ -466,7 +570,7 @@ failed += test('compra_cartao_conflicting_id_fonte_fails_and_appends_nothing', (
         { mapSingleCardPurchaseContract },
     );
     assertError(result, 'CARD_SOURCE_CONFLICT', 'id_fonte');
-    assert.strictEqual(fake.writes.length, 0);
+    assertNoAppend(fake);
 });
 
 failed += test('compra_cartao_unknown_card_fails_and_appends_nothing', () => {
@@ -480,7 +584,7 @@ failed += test('compra_cartao_unknown_card_fails_and_appends_nothing', () => {
         { mapSingleCardPurchaseContract },
     );
     assertError(result, 'UNKNOWN_CARD', 'id_cartao');
-    assert.strictEqual(fake.writes.length, 0);
+    assertNoAppend(fake);
 });
 
 failed += test('compra_cartao_inactive_card_fails_and_appends_nothing', () => {
@@ -500,7 +604,7 @@ failed += test('compra_cartao_inactive_card_fails_and_appends_nothing', () => {
         },
     );
     assertError(result, 'INACTIVE_CARD', 'id_cartao');
-    assert.strictEqual(fake.writes.length, 0);
+    assertNoAppend(fake);
 });
 
 failed += test('unsupported_compra_parcelada_and_pagamento_fatura_still_rejected', () => {
