@@ -23,6 +23,25 @@ Organizado por prioridade. Última atualização: 2026-04-27.
 
 ---
 
+## NOW (Phase 4H — Context Load Reduction — CONCLUÍDA)
+
+- [x] **Deletar documentação obsoleta/redundante**
+  - Deletados: `AI_WORKFLOW.md`, `.ai_shared/HANDOFF_PROTOCOL.md`, `.ai_shared/registry.json`, `.ai_shared/tools/`, `.ai_shared/skills/` (9 arquivos), `.ai_shared/handoffs/` (3 arquivos), `.ai_shared/archive/ANALISE_A_SER_CONSIDERADA.MD`, `docs/IMPLEMENTATION_PLAN.md`, `docs/archive/` (2 arquivos V52/pre-D031), `docs/superpowers/`.
+  - Total: 19 arquivos/diretórios removidos.
+
+- [x] **Mover HISTORY.md para docs/archive/**
+  - `.ai_shared/HISTORY.md` → `docs/archive/HISTORY.md`
+  - Referências atualizadas em `ACTIVE_CONTEXT.md`.
+
+- [x] **Reescrever V54_DOCS_INDEX.md com categorias rígidas**
+  - `MANDATORY_STARTUP` (4 arquivos), `CODE_TASKS` (3 arquivos), `TASK_SPECIFIC_REFERENCE` (6 arquivos), `AGENT_WRAPPER` (2 arquivos), `DO_NOT_USE_AS_AUTHORITY`.
+  - Agentes não devem ler archive/handoffs como contexto atual.
+
+- [x] **Limpar referências quebradas em docs ativos**
+  - Removida referência stale a `docs/MASTERPLAN_REFATORACAO_V54.md` no MASTERPLAN.
+
+---
+
 ## NEXT (Próximas iterações de limpeza — sem feature financeira nova)
 
 - [ ] **Reduzir duplicação de schema**

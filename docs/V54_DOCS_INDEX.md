@@ -1,36 +1,49 @@
 # V54_DOCS_INDEX.md
 
-Este é o índice oficial da documentação do projeto Bot Financeiro (V54 MVP).
-Todos os agentes devem usar esta estrutura para saber onde ler as regras.
+Índice oficial da documentação do projeto Bot Financeiro (V54 MVP).
 
-## 1. ACTIVE_AUTHORITY (Leitura Obrigatória para Implementação)
-- `AGENTS.md`: Contrato principal de agentes, regras de repo, e ponto de entrada.
-- `.ai_shared/ACTIVE_CONTEXT.md`: Estado atual, próximo passo seguro, bloqueios.
-- `.ai_shared/DECISIONS.md`: Decisões técnicas e de negócio aceitas. Não invente novas decisões; leia o arquivo atual.
-- `docs/MASTERPLAN_PRODUCAO_V54.md`: O plano principal do MVP V54-only.
-- `docs/V54_DOMAIN_DECISIONS.md`: Referência de domínio V54. Use somente quando não conflitar com `.ai_shared/DECISIONS.md`; decisões aceitas em `DECISIONS.md` prevalecem.
-- `.ai_shared/SHEET_SCHEMA.md`: Snapshot/referência estrutural. O arquivo `scripts/lib/v54-schema.js` é a autoridade de headers V54 em código/testes.
-- `.ai_shared/FORMULA_STANDARD.md`: Regras de injeção de fórmulas Apps Script.
+**Regra:** agentes devem ler SOMENTE o que a sua tarefa exige. Não ler tudo.
 
-## 2. ACTIVE_REFERENCE (Consulta Adicional)
-- `.ai_shared/SPREADSHEET_STATE.md`: Snapshot gerado da planilha. Não editar manualmente. Use apenas quando a tarefa exigir estado real da planilha.
-- `docs/V54_RUNTIME_MAP.md`: Mapeamento de entrypoints, limites entre legacy e V54.
-- `docs/V54_CODEMAP.md`: Mapa de arquivos, papéis, fluxos e dívidas técnicas. Orientação para humanos e agentes.
-- `docs/V54_CLEANUP_BACKLOG.md`: Backlog de limpeza priorizado (NOW/NEXT/LATER/DO NOT DO YET).
-- `.ai_shared/KNOWN_ISSUES.md`: Problemas e riscos ativos.
-- `.ai_shared/HISTORY.md`: Log de ações passadas (não é fonte de decisão futura).
-- `README.md`: Visão geral do projeto para humanos.
+## 1. MANDATORY_STARTUP (Sempre ler antes de qualquer tarefa)
 
-## 3. AGENT_WRAPPER (Apenas Apontamentos)
-- `GEMINI.md`: Wrapper para o Gemini. Aponta para `AGENTS.md`.
-- `CLAUDE.md`: Wrapper para o Claude. Aponta para `AGENTS.md`.
+| Arquivo | Papel |
+|---|---|
+| `AGENTS.md` | Contrato principal de agentes, regras de repo, ponto de entrada. |
+| `docs/V54_DOCS_INDEX.md` | Este arquivo. Mapa de leitura. |
+| `.ai_shared/ACTIVE_CONTEXT.md` | Estado atual, próximo passo seguro, bloqueios. |
+| `.ai_shared/DECISIONS.md` | Decisões técnicas e de negócio aceitas. Não invente novas decisões; leia o arquivo atual. |
 
-## 4. OBSOLETE_REMOVE_CANDIDATE & HISTORICAL_ARCHIVE (NÃO USE COMO CONTEXTO)
-Os seguintes documentos e pastas são mantidos apenas para histórico e NÃO devem guiar novas implementações:
-- `AI_WORKFLOW.md` (redundante com AGENTS.md e este índice)
-- `.ai_shared/HANDOFF_PROTOCOL.md`
-- `.ai_shared/registry.json`
-- Qualquer arquivo em `.ai_shared/handoffs/`
-- Qualquer arquivo em `.ai_shared/archive/`
-- Qualquer arquivo em `docs/archive/`
-- Scripts/habilidades em `.ai_shared/skills/` que não estejam sendo ativamente chamados.
+## 2. CODE_TASKS (Ler somente se a tarefa envolver código)
+
+| Arquivo | Papel |
+|---|---|
+| `docs/V54_CODEMAP.md` | Mapa de arquivos, papéis, fluxos e dívidas técnicas. |
+| `docs/V54_RUNTIME_MAP.md` | Mapeamento de entrypoints e limites V53/V54. |
+| `docs/V54_CLEANUP_BACKLOG.md` | Backlog de limpeza priorizado (NOW/NEXT/LATER/DO NOT DO YET). |
+
+## 3. TASK_SPECIFIC_REFERENCE (Ler somente quando a tarefa exigir)
+
+| Arquivo | Quando ler |
+|---|---|
+| `.ai_shared/FORMULA_STANDARD.md` | Tarefas de fórmula ou injeção de fórmulas Apps Script. |
+| `.ai_shared/SHEET_SCHEMA.md` | Tarefas de schema, snapshot, ou verificação de planilha. |
+| `.ai_shared/KNOWN_ISSUES.md` | Debugging, troubleshooting, ou avaliação de riscos. |
+| `.ai_shared/SPREADSHEET_STATE.md` | Estado real da planilha (gerado por `npm run sync`, não editar). |
+| `docs/MASTERPLAN_PRODUCAO_V54.md` | Planejamento geral do MVP V54. |
+| `docs/V54_DOMAIN_DECISIONS.md` | Regras de domínio financeiro propostas/aceitas. Decisões aceitas em `DECISIONS.md` prevalecem. |
+
+## 4. AGENT_WRAPPER (Apenas apontamentos)
+
+| Arquivo | Papel |
+|---|---|
+| `GEMINI.md` | Wrapper para o Gemini. Aponta para `AGENTS.md`. |
+| `CLAUDE.md` | Wrapper para o Claude. Aponta para `AGENTS.md`. |
+
+## 5. DO_NOT_USE_AS_AUTHORITY
+
+Os seguintes locais contêm apenas material histórico e **nunca devem ser usados como contexto para implementação atual**:
+
+- `docs/archive/` — contém apenas `HISTORY.md` (log histórico de ações passadas).
+- Qualquer documento arquivado nunca prevalece sobre `.ai_shared/DECISIONS.md`.
+- Agentes **não devem** ler `docs/archive/` como parte do startup ou de tarefas normais.
+- Se precisar de auditoria histórica, consulte `docs/archive/HISTORY.md` ou o `git log`.

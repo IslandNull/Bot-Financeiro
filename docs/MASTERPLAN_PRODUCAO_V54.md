@@ -415,4 +415,3 @@ V53 may still remain in the repository temporarily as deprecated reference code,
 - `scripts/lib/v54-schema.js`
 - `scripts/lib/v54-seed.js`
 - `src/ActionsV54.js`
-- `docs/MASTERPLAN_REFATORACAO_V54.md`

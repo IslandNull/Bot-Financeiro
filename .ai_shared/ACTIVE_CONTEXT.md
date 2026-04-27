@@ -15,6 +15,7 @@ Branch: feat/v54-production-readiness
 - Protecao de seguranca parcial: `WEBHOOK_SECRET` exigido no doPost localmente; `LockService` mapeado.
 - Phase 4E-docs: Limpeza de autoridade documental realizada. Criado `docs/V54_DOCS_INDEX.md` e `docs/V54_RUNTIME_MAP.md`. Arquivos obsoletos marcados como arquivados. Wrapper mínimo no `GEMINI.md` e `CLAUDE.md`.
 - Phase 4F: Codebase Human Readability & Architecture Guardrails. Criado `docs/V54_CODEMAP.md`, `docs/V54_CLEANUP_BACKLOG.md`, `scripts/test-v54-architecture-guardrails.js` (29 asserts, todos passando). Runtime map disambiguado. Nenhuma feature nova, nenhuma mudança de comportamento.
+- Phase 4H: Context Load Reduction. Deletados 19 arquivos/diretórios obsoletos (AI_WORKFLOW.md, HANDOFF_PROTOCOL.md, registry.json, skills/, tools/, handoffs/, archive/, IMPLEMENTATION_PLAN.md, superpowers/, docs/archive V52+pre-D031). Movido HISTORY.md para `docs/archive/HISTORY.md`. Reescrito V54_DOCS_INDEX.md com categorias rígidas. Redução de 36 para 17 arquivos de documentação.
 
 ## O que esta bloqueado / Risco Atual
 - **Seguranca:** O Telegram E2E path (do webhook real para o script atualizado) precisa de testes finais.
@@ -25,4 +26,4 @@ Branch: feat/v54-production-readiness
 2. Implementar proximas fases locais/fake-first de `Pagamentos_Fatura` e reconciliacao somente apos regra aceita.
 3. **NAO executar** setup, seed, deploy, clasp, testes na planilha real, ou comandos Telegram sem aprovacao explicita.
 
-*(Historico anterior detalhado movido para .ai_shared/HISTORY.md)*
+*(Historico anterior detalhado movido para docs/archive/HISTORY.md)*
