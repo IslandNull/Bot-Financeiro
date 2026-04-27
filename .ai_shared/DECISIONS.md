@@ -251,13 +251,13 @@ Rejected:
 - Mutating webhook configuration as part of diagnostics.
 
 ## D021 - V54 Fresh Start With V53 Temporary Fallback
-Status: Accepted
+Status: Superseded by D031 for the V53 fallback premise; clean-start/no-history-migration decision remains accepted
 Date: 2026-04-26
 
 Decision:
-Treat V54 as a clean production start instead of migrating V53 historical data by default. V53 remains the temporary production/fallback flow until V54 has reviewed seed/config data, V54 write paths, reports, and Telegram validation.
+Treat V54 as a clean production start instead of migrating V53 historical data by default.
 
-Do not delete, rename, or hide V53 sheets yet, because current Apps Script commands still read from and write to V53 sheets such as `Config`, `Lancamentos`, `Dashboard`, `Investimentos`, and `Parcelas`.
+Historical note before D031: this decision originally treated V53 as a temporary production/fallback flow and warned not to delete, rename, or hide V53 sheets because current Apps Script commands still reference V53-era sheets such as `Config`, `Lancamentos`, `Dashboard`, `Investimentos`, and `Parcelas`. D031 supersedes that fallback premise. Cleanup/removal is still a separate refactor because code references remain, but V53 is no longer a product fallback requirement.
 
 Reason:
 The user confirmed that V53 does not contain meaningful valid historical data. Migrating it would add semantic risk without value, especially around categories, investments, installments, invoices, and DRE behavior. A fresh V54 seed keeps the model cleaner and reduces migration work.
@@ -266,6 +266,9 @@ Rejected:
 - Migrating V53 transaction history by default.
 - Deleting or renaming V53 sheets before V54 write paths are production-ready.
 - Treating visual duplication between V53 and V54 sheets as a schema error during the transition.
+
+Superseded note:
+On 2026-04-27, the user corrected the planning premise: the project is still in development, V53 was never used as real production, and V53 no longer needs to be preserved as a mandatory fallback. The clean-start/no-history-migration part remains accepted. The fallback/cutover/sunset framing is superseded by D031.
 
 
 ## D022 - V54 Clean Seed Data Implementation
@@ -337,7 +340,7 @@ Date: 2026-04-26
 Decision:
 Create `src/ActionsV54.js` as an isolated MVP write-path module for simple V54 events only: `despesa`, `receita`, `transferencia`, and `aporte`. The MVP validates and maps entries to one canonical 19-column `Lancamentos_V54` row, appends through injectable spreadsheet/sheet dependencies, and requires an injectable lock wrapper around the append.
 
-Unsupported financial events (`compra_cartao`, `compra_parcelada`, `pagamento_fatura`, `divida_pagamento`, and `ajuste`) are rejected explicitly until their own card, invoice, debt, and reconciliation phases exist. The module is not wired into `doPost`, routing, Telegram, `Parser.js`, or V53 production flow.
+Unsupported financial events (`compra_cartao`, `compra_parcelada`, `pagamento_fatura`, `divida_pagamento`, and `ajuste`) are rejected explicitly until their own card, invoice, debt, and reconciliation phases exist. The module is not wired into `doPost`, routing, Telegram, `Parser.js`, or the legacy V53 flow.
 
 Reason:
 The first Apps Script-facing V54 action should prove the write boundary with fake-spreadsheet tests before touching the real spreadsheet. Keeping all production dependencies injectable lets local tests verify row shape, header matching, lock usage, deterministic ID/timestamp behavior, and V53 isolation without `SpreadsheetApp` mutation.
@@ -399,3 +402,21 @@ Default `id_compra` generation is deterministic and can collide for identical pu
 
 Reason:
 Deterministic split remains the single source of truth while ambiguity around parser-provided parcel value is removed. Explicitly documenting deterministic default ID collisions prevents accidental duplicate-key assumptions in future write phases.
+
+## D031 - V54-Only MVP Premise
+Status: Accepted
+Date: 2026-04-27
+
+Decision:
+Treat V54 as the only target architecture for the MVP. V53 is a deprecated historical prototype, not active production and not a mandatory fallback. Do not add new V53 features. Do not use V53 cutover, rollback, or sunset gates as blockers for V54 MVP delivery.
+
+V53 code, scripts, and sheets may remain temporarily as legacy reference or cleanup targets, but future implementation work should move directly toward V54-only behavior unless a task explicitly asks for V53 cleanup.
+
+Reason:
+The user clarified that the project is still in development and V53 was never used in production. Keeping V53 as mandatory fallback would add unnecessary architecture, documentation, and testing overhead, and would keep future agents optimizing for a false production constraint.
+
+Rejected:
+- Treating `V53_CURRENT` as the production baseline for V54 planning.
+- Requiring V53 fallback gates before V54 MVP work.
+- Building new V53 features.
+- Framing V54 work as a migration from production V53.

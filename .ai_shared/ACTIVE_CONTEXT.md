@@ -87,7 +87,8 @@ Branch: feat/v54-production-readiness
 - Telegram/Val.town positive production path was tested on 2026-04-26: `/saldo` returned data from the real spreadsheet, a controlled `R$ 1,00` `Restaurante casal` launch through Telegram was written, `/hoje` showed it, `/desfazer` removed it, and a final `/hoje` returned no launches for 2026-04-26.
 - `cmd /c npm run sync` passed after the Telegram write/desfazer test and refreshed `.ai_shared/SPREADSHEET_STATE.md` with generation time `2026-04-26 15:55:22`; searching the snapshot did not find the test description or `R$ 1,00` test residue.
 - V54 sheet/schema audit concluded that the current sheet list is OK but visually confusing because V53 and V54 coexist. The apparent duplicates (`Config` vs `Config_Categorias`/`Config_Fontes`, `Parcelas` vs `Compras_Parceladas`/`Parcelas_Agenda`, `Lancamentos` vs `Lancamentos_V54`, `Investimentos` vs `Patrimonio_Ativos`) are expected during transition.
-- User confirmed V53 has no meaningful valid historical data to preserve. Decision D021 was accepted: V54 will be a clean start with reviewed seed/config data, not a default migration of V53 history. V53 remains temporary fallback until V54 write paths and reports are verified.
+- User confirmed V53 has no meaningful valid historical data to preserve. The clean-start/no-history-migration part of D021 remains accepted: V54 will start from reviewed seed/config/opening data, not from default V53 historical migration.
+- User corrected the planning premise on 2026-04-27: the project is still in development, V53 was never used as real production, and V53 no longer needs to be preserved as a mandatory fallback. Decision D031 supersedes the V53 fallback/cutover/sunset framing. V53 is now treated as a deprecated historical prototype with no new features.
 - V54 seed data payload (`getV54SeedData()`) was implemented locally for `Config_Categorias`, `Config_Fontes`, `Rendas`, `Cartoes`, `Patrimonio_Ativos`, `Dividas`, and `Orcamento_Futuro_Casa` in `src/Setup.js`.
 - V54 seed mechanism (`planSeedV54ForState` and `applySeedV54`) is implemented as dry-run-first and non-migrating (clean start).
 - `applySeedV54` was added to `isBlockedMutatingGetAction_` in `src/Main.js` to block mutating GET calls.
@@ -131,6 +132,7 @@ Branch: feat/v54-production-readiness
 - Phase 4C-actions injects `makeCompraId` into installment scheduling and does not rely on the contract default deterministic `id_compra`; duplicate same-day/card/description purchases are disambiguated when unique `makeCompraId` is injected.
 - Phase 4C-actions does not append `Lancamentos_V54`, `Faturas`, or `Pagamentos_Fatura` rows for `compra_parcelada`; `pagamento_fatura` remains unsupported.
 - `node --check src/ActionsV54.js`, `node --check scripts/test-v54-actions-mvp.js`, `cmd /c npm run test:v54:actions`, `cmd /c npm run test:v54:installment-schedule`, `cmd /c npm run test:v54:card-purchase`, `cmd /c npm run test:v54:card-cycle`, `cmd /c npm run test:v54:contract`, `cmd /c npm run test:v54:schema`, and `cmd /c npm run test:v53` passed on 2026-04-27 after Phase 4C-actions local changes.
+- `docs/MASTERPLAN_PRODUCAO_V54.md` was rewritten on 2026-04-27 as a concise V54-only MVP plan. It removes V53 production/fallback/cutover/sunset gates and preserves the real remaining V54 risks: rateio, benefits, faturas, payments, idempotency, dedupe, adjustments, refunds/chargebacks/cancellations, protected real spreadsheet tests, and Telegram V54 E2E.
 
 ## Unverified claims
 - Negative webhook security behavior is not yet production-tested: POST without secret, POST with invalid secret, and valid secret with unauthorized chat should not write anything.
@@ -138,13 +140,13 @@ Branch: feat/v54-production-readiness
 - A replacement protected POST maintenance path for mutating actions exists. Current local code blocks mutating GET instead.
 - V54 Phase 1 domain helpers are integrated with Apps Script write paths. They are local Node.js planning/test helpers only.
 - V54 sheets contain migrated transactions. Currently, they only contain seed data.
-- V53 sheets are safe to remove or rename. They are not: current production code still depends on them until V54 write paths replace V53.
+- V53 code/sheets are safe to remove or rename immediately. They are deprecated under D031, but removal is still UNVERIFIED because current code and scripts still reference V53-era files/sheets. Treat removal as a separate cleanup/refactor phase, not as a production fallback requirement.
 
 ## Current task
-Execute V54 safely in small phases. Current phase: V54 Phase 4C-actions fake write path for installment purchases is local-only and tested; no real writes and no production routing.
+Execute V54 as a V54-only MVP in small phases. Current phase: documentation reset is complete locally; next implementation work should not add V53 features and should focus on V54 domain decisions, local/fake-first transaction completion, protected real V54 tests, Telegram V54, and deterministic reports.
 
 ## Next safe action
-1. Review/push the Phase 4C-actions fake write path commit after local tests pass.
-2. Do not start routing/Telegram wiring, deploy, or real spreadsheet mutation yet.
+1. Review the V54-only masterplan rewrite and D031 decision.
+2. Resolve Phase 1 domain decisions: opening date, rateio/income base, benefits, fatura state machine, payment/acerto rule, ID/idempotency/dedupe, adjustments/refunds/cancellations, and debt payment semantics.
 3. Keep `pagamento_fatura` unsupported until dedicated fatura/payment/reconciliation phases.
-4. Keep `Parser.js`, `Actions.js`, `Commands.js`, `Views.js`, `doPost`, and V53 routing unchanged unless a later phase explicitly authorizes integration.
+4. Do not run setup, seed, deploy, clasp, real spreadsheet tests, Telegram mutation, or production writes without explicit later approval.
