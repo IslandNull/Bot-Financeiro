@@ -105,14 +105,21 @@ Organizado por prioridade. Última atualização: 2026-04-27.
   - falha fechado sem `getSpreadsheet`, `withLock`, validator, boundary idempotente e parser fake ou `fetchJson` + `apiKey`
   - cobre `despesa`, `compra_cartao` e `compra_parcelada` em teste local com dependencias fake
   - sem `doPost`, sem Telegram real, sem OpenAI real, sem planilha real, sem setup/seed/deploy
+- [x] **Criar gate explicito para uso manual/shadow revisado**
+  - `src/RunnerV54Gate.js` aceita somente envelope manual com checklist
+  - exige `reviewed`, `manualOnly`, `doPostUnchanged`, `telegramSendDisabled`
+  - `real_manual` exige `realRunApproved`; `dry_run` valida sem chamar runner
+  - rejeita objetos com formato de evento web Apps Script
+  - sem `doPost`, sem `doGet`, sem Telegram real, sem OpenAI real, sem planilha real nos testes
 
 ---
 
 ## NEXT (Próximas iterações de limpeza — sem feature financeira nova)
 
-- [ ] **Definir gate explicito para uso manual/shadow revisado**
-  - revisar quem pode chamar `runV54ManualShadow` e com quais dependencias
-  - manter `doPost` inalterado ate decisao separada de roteamento
+- [ ] **Definir politica de execucao manual real, se necessaria**
+  - revisar quem pode chamar `invokeV54ManualShadowGate` em Apps Script e com quais dependencias reais
+  - exigir snapshot/diagnostico antes de qualquer execucao `real_manual`
+  - manter `doPost` e `doGet` inalterados ate decisao separada de roteamento/manutencao
   - **Restrição:** sem envio Telegram, sem OpenAI/planilha real sem revisao explicita
 
 - [ ] **Reduzir duplicação de schema**

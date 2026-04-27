@@ -558,3 +558,21 @@ Rejected:
 - Relying on random IDs being regenerated the same way.
 - Applying recovery plans without a reviewed checklist.
 - Letting the recovery executor apply `APPLY_DOMAIN_MUTATION` or any non-idempotency-log update.
+
+## D044 - V54 Manual Shadow Runner Gate
+Status: Accepted
+Date: 2026-04-27
+
+Decision:
+`runV54ManualShadow` may only be invoked through a reviewed manual gate, not from `doPost`, `doGet`, Telegram routing, or any web event object. The gate accepts an explicit manual envelope with `mode`, `checklist`, `update`, and optional `runnerOptions`. The default mode is `fake_shadow`; `dry_run` validates the gate without calling the runner; `real_manual` is blocked unless `checklist.realRunApproved === true`.
+
+The required checklist fields are `reviewed === true`, `manualOnly === true`, `doPostUnchanged === true`, and `telegramSendDisabled === true`. The gate must reject input shaped like Apps Script web events (`postData`, `parameter`, `parameters`, `queryString`, or equivalent request metadata) and must return structured results/errors.
+
+Reason:
+The manual/shadow runner composes parser, context, handler, idempotency, and write-path dependencies. A separate reviewed gate prevents accidental exposure through webhook or GET/POST routes while still allowing controlled fake-first review scenarios.
+
+Rejected:
+- Calling the V54 runner from `doPost` or `doGet`.
+- Treating the gate as production readiness.
+- Allowing real manual execution without explicit `realRunApproved`.
+- Sending Telegram messages from the gate.
