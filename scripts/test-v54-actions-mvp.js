@@ -8,6 +8,7 @@ const { V54_SEED_DATA } = require('./lib/v54-seed');
 const { validateParsedEntryV54 } = require('./lib/v54-parsed-entry-contract');
 const { mapParsedEntryToLancamentoV54 } = require('./lib/v54-lancamentos-mapper');
 const { mapSingleCardPurchaseContract } = require('./lib/v54-card-purchase-contract');
+const { mapInstallmentScheduleContract } = require('./lib/v54-installment-schedule-contract');
 
 const actionsV54Path = path.join(__dirname, '..', 'src', 'ActionsV54.js');
 const actionsV54Source = fs.readFileSync(actionsV54Path, 'utf8');
@@ -93,6 +94,27 @@ function baseCardPurchaseEntry(overrides) {
     }, overrides || {});
 }
 
+function baseInstallmentEntry(overrides) {
+    return Object.assign({
+        tipo_evento: 'compra_parcelada',
+        data: '2026-04-29',
+        competencia: '2099-12',
+        valor: 1200,
+        descricao: 'Geladeira',
+        pessoa: 'Gustavo',
+        escopo: 'Casal',
+        visibilidade: 'detalhada',
+        id_categoria: 'OPEX_CASA_ITENS',
+        id_cartao: 'CARD_NUBANK_GU',
+        afeta_dre: true,
+        afeta_acerto: true,
+        afeta_patrimonio: true,
+        parcelamento: {
+            parcelas_total: 3,
+        },
+    }, overrides || {});
+}
+
 function makeFakeSheet(name, headers, rows, writes, writesBySheet) {
     return {
         getLastRow() {
@@ -111,7 +133,9 @@ function makeFakeSheet(name, headers, rows, writes, writesBySheet) {
                     writes.push(write);
                     if (!writesBySheet[name]) writesBySheet[name] = [];
                     writesBySheet[name].push(write);
-                    rows.push([...values[0]]);
+                    values.forEach((valueRow) => {
+                        rows.push([...valueRow]);
+                    });
                 },
             };
         },
@@ -120,30 +144,54 @@ function makeFakeSheet(name, headers, rows, writes, writesBySheet) {
 
 function makeFakeSpreadsheet(options) {
     const source = options || {};
-    const headers = source.headers === undefined
+    const lancamentosHeaders = source.headers === undefined
         ? [...V54_HEADERS[V54_SHEETS.LANCAMENTOS_V54]]
         : source.headers;
-    const rows = source.rows ? source.rows.map((row) => [...row]) : [];
+    const lancamentosRows = source.rows ? source.rows.map((row) => [...row]) : [];
     const requestedSheets = [];
     const writes = [];
     const writesBySheet = {};
-    const lancamentosSheet = makeFakeSheet(V54_SHEETS.LANCAMENTOS_V54, headers, rows, writes, writesBySheet);
-    const auxSheets = {};
+    const rowsBySheet = {};
+    const sheetByName = {};
+
+    function registerSheet(sheetName, headers, rows) {
+        const targetRows = rows || [];
+        rowsBySheet[sheetName] = targetRows;
+        sheetByName[sheetName] = makeFakeSheet(sheetName, headers, targetRows, writes, writesBySheet);
+    }
+
+    registerSheet(V54_SHEETS.LANCAMENTOS_V54, lancamentosHeaders, lancamentosRows);
+
+    if (source.installmentSheets) {
+        const compraRows = source.installmentSheets.comprasRows
+            ? source.installmentSheets.comprasRows.map((row) => [...row])
+            : [];
+        const parcelaRows = source.installmentSheets.parcelasRows
+            ? source.installmentSheets.parcelasRows.map((row) => [...row])
+            : [];
+        const compraHeaders = source.installmentSheets.comprasHeaders || [...V54_HEADERS[V54_SHEETS.COMPRAS_PARCELADAS]];
+        const parcelaHeaders = source.installmentSheets.parcelasHeaders || [...V54_HEADERS[V54_SHEETS.PARCELAS_AGENDA]];
+        registerSheet(V54_SHEETS.COMPRAS_PARCELADAS, compraHeaders, compraRows);
+        registerSheet(V54_SHEETS.PARCELAS_AGENDA, parcelaHeaders, parcelaRows);
+    }
 
     (source.extraSheets || []).forEach((sheetName) => {
-        auxSheets[sheetName] = makeFakeSheet(sheetName, ['id'], [], writes, writesBySheet);
+        if (sheetByName[sheetName]) return;
+        registerSheet(sheetName, ['id'], []);
     });
 
     return {
-        rows,
+        rows: lancamentosRows,
         requestedSheets,
         writes,
         writesBySheet,
+        rowsBySheet,
         getSheetByName(name) {
             requestedSheets.push(name);
             if (source.missingSheet && name === V54_SHEETS.LANCAMENTOS_V54) return null;
-            if (name === V54_SHEETS.LANCAMENTOS_V54) return lancamentosSheet;
-            if (auxSheets[name]) return auxSheets[name];
+            if (source.missingSheet === V54_SHEETS.COMPRAS_PARCELADAS && name === V54_SHEETS.COMPRAS_PARCELADAS) return null;
+            if (source.missingSheet === V54_SHEETS.PARCELAS_AGENDA && name === V54_SHEETS.PARCELAS_AGENDA) return null;
+            if (sheetByName[name]) return sheetByName[name];
             if (source.throwOnUnknownSheet === false) return null;
             throw new Error(`Unexpected sheet requested: ${name}`);
         },
@@ -160,7 +208,9 @@ function deterministicDeps(fakeSpreadsheet, lockCalls, overrides) {
         },
         now: source.now || (() => '2026-04-26T22:00:00.000Z'),
         makeId: source.makeId || (() => 'LAN_V54_TEST_ACTION_0001'),
+        makeCompraId: source.makeCompraId || null,
         mapSingleCardPurchaseContract: source.mapSingleCardPurchaseContract || null,
+        mapInstallmentScheduleContract: source.mapInstallmentScheduleContract || null,
         cards: source.cards ? source.cards.map((card) => ({ ...card })) : undefined,
     };
 }
@@ -278,22 +328,6 @@ function validSimpleEntriesByMvpType() {
 
 function unsupportedCanonicalAcceptedEntries() {
     return {
-        compra_parcelada: baseEntry({
-            tipo_evento: 'compra_parcelada',
-            valor: 600,
-            descricao: 'Compra parcelada',
-            id_categoria: 'OPEX_CASA_CASAL',
-            id_fonte: undefined,
-            id_cartao: 'CARD_NUBANK_GU',
-            afeta_dre: true,
-            afeta_acerto: true,
-            afeta_patrimonio: false,
-            parcelamento: {
-                parcelas_total: 3,
-                numero_parcela: 1,
-                valor_parcela: 200,
-            },
-        }),
         pagamento_fatura: baseEntry({
             tipo_evento: 'pagamento_fatura',
             valor: 1200,
@@ -341,8 +375,8 @@ failed += test('actions_v54_headers_and_supported_events_match_phase_4b_contract
     const loaded = loadActionsV54();
     assert.deepStrictEqual(JSON.parse(JSON.stringify(loaded.V54_LANCAMENTOS_HEADERS)), V54_HEADERS[V54_SHEETS.LANCAMENTOS_V54]);
     assert.strictEqual(loaded.V54_LANCAMENTOS_HEADERS.length, 19);
-    assert.deepStrictEqual(JSON.parse(JSON.stringify(loaded.V54_ACTIONS_MVP_SUPPORTED_EVENTS)), ['despesa', 'receita', 'transferencia', 'aporte', 'compra_cartao']);
-    assert.deepStrictEqual(JSON.parse(JSON.stringify(loaded.V54_ACTIONS_UNSUPPORTED_EVENTS)), ['compra_parcelada', 'pagamento_fatura', 'divida_pagamento', 'ajuste']);
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(loaded.V54_ACTIONS_MVP_SUPPORTED_EVENTS)), ['despesa', 'receita', 'transferencia', 'aporte', 'compra_cartao', 'compra_parcelada']);
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(loaded.V54_ACTIONS_UNSUPPORTED_EVENTS)), ['pagamento_fatura', 'divida_pagamento', 'ajuste']);
 });
 
 failed += test('valid_simple_events_still_match_canonical_mapper_key_fields', () => {
@@ -607,18 +641,110 @@ failed += test('compra_cartao_inactive_card_fails_and_appends_nothing', () => {
     assertNoAppend(fake);
 });
 
-failed += test('unsupported_compra_parcelada_and_pagamento_fatura_still_rejected', () => {
-    ['compra_parcelada', 'pagamento_fatura'].forEach((tipo_evento) => {
-        const fake = makeFakeSpreadsheet();
-        const result = record(baseEntry({
-            tipo_evento,
-            id_cartao: 'CARD_NUBANK_GU',
-            id_fatura: 'FAT_TEST',
-            afeta_dre: false,
-        }), fake, [], { mapSingleCardPurchaseContract });
-        assertError(result, 'UNSUPPORTED_EVENT', 'tipo_evento');
-        assert.strictEqual(fake.writes.length, 0);
+failed += test('valid_compra_parcelada_appends_one_compra_and_n_parcelas_without_lancamentos', () => {
+    const fake = makeFakeSpreadsheet({
+        installmentSheets: {},
+        extraSheets: [V54_SHEETS.FATURAS, V54_SHEETS.PAGAMENTOS_FATURA],
     });
+    const locks = [];
+    const result = assertOk(record(
+        baseInstallmentEntry({ parcelamento: { parcelas_total: 3 } }),
+        fake,
+        locks,
+        {
+            mapInstallmentScheduleContract,
+            makeCompraId: () => 'CP_ACTION_0001',
+        },
+    ));
+
+    assert.strictEqual(result.sheet, V54_SHEETS.COMPRAS_PARCELADAS);
+    assert.strictEqual(result.compra.rowObject.id_compra, 'CP_ACTION_0001');
+    assert.strictEqual(result.parcelas.rowCount, 3);
+    assert.deepStrictEqual(result.parcelas.rowObjects.map((row) => row.id_compra), ['CP_ACTION_0001', 'CP_ACTION_0001', 'CP_ACTION_0001']);
+    assert.strictEqual((fake.writesBySheet[V54_SHEETS.COMPRAS_PARCELADAS] || []).length, 1);
+    assert.strictEqual((fake.writesBySheet[V54_SHEETS.PARCELAS_AGENDA] || []).length, 1);
+    assert.strictEqual((fake.writesBySheet[V54_SHEETS.LANCAMENTOS_V54] || []).length, 0);
+    assert.strictEqual((fake.writesBySheet[V54_SHEETS.FATURAS] || []).length, 0);
+    assert.strictEqual((fake.writesBySheet[V54_SHEETS.PAGAMENTOS_FATURA] || []).length, 0);
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(locks)), ['recordEntryV54']);
+});
+
+failed += test('duplicate_same_day_card_description_installments_get_distinct_injected_id_compra', () => {
+    let seq = 0;
+    const makeCompraId = (entry) => {
+        seq += 1;
+        return `CP_UNIQUE_${entry.id_cartao}_${entry.data}_${String(seq).padStart(2, '0')}`;
+    };
+
+    const firstFake = makeFakeSpreadsheet({ installmentSheets: {} });
+    const secondFake = makeFakeSpreadsheet({ installmentSheets: {} });
+    const first = assertOk(record(baseInstallmentEntry({
+        data: '2026-04-29',
+        id_cartao: 'CARD_NUBANK_GU',
+        descricao: 'Mercado Assai',
+    }), firstFake, [], { mapInstallmentScheduleContract, makeCompraId }));
+    const second = assertOk(record(baseInstallmentEntry({
+        data: '2026-04-29',
+        id_cartao: 'CARD_NUBANK_GU',
+        descricao: 'Mercado Assai',
+    }), secondFake, [], { mapInstallmentScheduleContract, makeCompraId }));
+
+    assert.notStrictEqual(first.compra.rowObject.id_compra, second.compra.rowObject.id_compra);
+});
+
+failed += test('compra_parcelada_inconsistent_valor_parcela_fails_and_appends_nothing', () => {
+    const fake = makeFakeSpreadsheet({ installmentSheets: {} });
+    const result = record(baseInstallmentEntry({
+        valor: 1200,
+        parcelamento: { parcelas_total: 3, valor_parcela: 399.99 },
+    }), fake, [], { mapInstallmentScheduleContract, makeCompraId: () => 'CP_ACTION_MISMATCH' });
+
+    assertError(result, 'PARCEL_VALUE_MISMATCH', 'parcelamento.valor_parcela');
+    assert.strictEqual((fake.writesBySheet[V54_SHEETS.COMPRAS_PARCELADAS] || []).length, 0);
+    assert.strictEqual((fake.writesBySheet[V54_SHEETS.PARCELAS_AGENDA] || []).length, 0);
+    assert.strictEqual((fake.writesBySheet[V54_SHEETS.LANCAMENTOS_V54] || []).length, 0);
+});
+
+failed += test('compra_parcelada_unknown_inactive_and_conflicting_card_fail_and_append_nothing', () => {
+    const cards = V54_SEED_DATA[V54_SHEETS.CARTOES].map((card) => (
+        card.id_cartao === 'CARD_NUBANK_GU' ? { ...card, ativo: false } : { ...card }
+    ));
+
+    [
+        { entry: baseInstallmentEntry({ id_cartao: 'CARD_UNKNOWN' }), code: 'UNKNOWN_CARD', field: 'id_cartao', options: {} },
+        { entry: baseInstallmentEntry({ id_cartao: 'CARD_NUBANK_GU' }), code: 'INACTIVE_CARD', field: 'id_cartao', options: { cards } },
+        {
+            entry: baseInstallmentEntry({ id_cartao: 'CARD_NUBANK_GU', id_fonte: 'FONTE_CONTA_GU' }),
+            code: 'CARD_SOURCE_CONFLICT',
+            field: 'id_fonte',
+            options: {},
+        },
+    ].forEach(({ entry, code, field, options }) => {
+        const fake = makeFakeSpreadsheet({ installmentSheets: {} });
+        const result = record(entry, fake, [], Object.assign({
+            mapInstallmentScheduleContract,
+            makeCompraId: () => 'CP_ACTION_FAIL',
+        }, options));
+        assertError(result, code, field);
+        assert.strictEqual((fake.writesBySheet[V54_SHEETS.COMPRAS_PARCELADAS] || []).length, 0);
+        assert.strictEqual((fake.writesBySheet[V54_SHEETS.PARCELAS_AGENDA] || []).length, 0);
+        assert.strictEqual((fake.writesBySheet[V54_SHEETS.LANCAMENTOS_V54] || []).length, 0);
+    });
+});
+
+failed += test('pagamento_fatura_remains_unsupported', () => {
+    const fake = makeFakeSpreadsheet({ installmentSheets: {} });
+    const result = record(baseEntry({
+        tipo_evento: 'pagamento_fatura',
+        id_fatura: 'FAT_TEST',
+        afeta_dre: false,
+    }), fake, [], {
+        mapSingleCardPurchaseContract,
+        mapInstallmentScheduleContract,
+    });
+
+    assertError(result, 'UNSUPPORTED_EVENT', 'tipo_evento');
+    assert.strictEqual(fake.writes.length, 0);
 });
 
 failed += test('no_fake_rows_appended_to_faturas_pagamentos_or_installments', () => {

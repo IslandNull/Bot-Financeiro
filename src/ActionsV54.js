@@ -7,8 +7,10 @@
 // here and covered by local parity tests against scripts/lib/v54-schema.js.
 
 var V54_LANCAMENTOS_SHEET = 'Lancamentos_V54';
-var V54_ACTIONS_MVP_SUPPORTED_EVENTS = ['despesa', 'receita', 'transferencia', 'aporte', 'compra_cartao'];
-var V54_ACTIONS_UNSUPPORTED_EVENTS = ['compra_parcelada', 'pagamento_fatura', 'divida_pagamento', 'ajuste'];
+var V54_COMPRAS_PARCELADAS_SHEET = 'Compras_Parceladas';
+var V54_PARCELAS_AGENDA_SHEET = 'Parcelas_Agenda';
+var V54_ACTIONS_MVP_SUPPORTED_EVENTS = ['despesa', 'receita', 'transferencia', 'aporte', 'compra_cartao', 'compra_parcelada'];
+var V54_ACTIONS_UNSUPPORTED_EVENTS = ['pagamento_fatura', 'divida_pagamento', 'ajuste'];
 var V54_LANCAMENTOS_HEADERS = [
     'id_lancamento',
     'data',
@@ -29,6 +31,29 @@ var V54_LANCAMENTOS_HEADERS = [
     'visibilidade',
     'descricao',
     'created_at',
+];
+var V54_COMPRAS_PARCELADAS_HEADERS = [
+    'id_compra',
+    'data_compra',
+    'id_cartao',
+    'descricao',
+    'id_categoria',
+    'valor_total',
+    'parcelas_total',
+    'responsavel',
+    'escopo',
+    'visibilidade',
+    'status',
+];
+var V54_PARCELAS_AGENDA_HEADERS = [
+    'id_parcela',
+    'id_compra',
+    'numero_parcela',
+    'competencia',
+    'valor_parcela',
+    'id_fatura',
+    'status',
+    'id_lancamento',
 ];
 
 var V54_ALLOWED_TIPO_EVENTO = [
@@ -74,14 +99,18 @@ function recordEntryV54(parsedEntry, options) {
     var input = cloneV54PlainObject_(parsedEntry);
 
     if (input && V54_ACTIONS_UNSUPPORTED_EVENTS.indexOf(input.tipo_evento) !== -1) {
-        return makeActionsV54Failure_('UNSUPPORTED_EVENT', 'tipo_evento', 'Phase 4B-actions does not support ' + input.tipo_evento + '.', null);
+        return makeActionsV54Failure_('UNSUPPORTED_EVENT', 'tipo_evento', 'Phase 4C-actions does not support ' + input.tipo_evento + '.', null);
     }
 
     if (!input || V54_ACTIONS_MVP_SUPPORTED_EVENTS.indexOf(input.tipo_evento) === -1) {
-        return makeActionsV54Failure_('UNSUPPORTED_EVENT', 'tipo_evento', 'Phase 4B-actions supports only despesa, receita, transferencia, aporte, and compra_cartao.', null);
+        return makeActionsV54Failure_('UNSUPPORTED_EVENT', 'tipo_evento', 'Phase 4C-actions supports only despesa, receita, transferencia, aporte, compra_cartao, and compra_parcelada.', null);
     }
 
     return deps.withLock('recordEntryV54', function() {
+        if (input.tipo_evento === 'compra_parcelada') {
+            return writeInstallmentPurchaseRows_(input, deps);
+        }
+
         var mapping = mapEntryForRecordV54_(input, deps);
         var mapped = mapping.mapped;
 
@@ -142,8 +171,14 @@ function normalizeActionsV54Deps_(options) {
         makeId: typeof source.makeId === 'function'
             ? source.makeId
             : makeDefaultLancamentoV54Id_,
+        makeCompraId: typeof source.makeCompraId === 'function'
+            ? source.makeCompraId
+            : makeDefaultCompraV54Id_,
         mapSingleCardPurchaseContract: typeof source.mapSingleCardPurchaseContract === 'function'
             ? source.mapSingleCardPurchaseContract
+            : null,
+        mapInstallmentScheduleContract: typeof source.mapInstallmentScheduleContract === 'function'
+            ? source.mapInstallmentScheduleContract
             : null,
         cards: cloneV54Cards_(source.cards),
     };
@@ -209,6 +244,190 @@ function buildCardPurchaseContractOptions_(deps) {
     return options;
 }
 
+function getInstallmentScheduleContractMapper_(deps) {
+    if (deps && typeof deps.mapInstallmentScheduleContract === 'function') {
+        return deps.mapInstallmentScheduleContract;
+    }
+    if (typeof mapInstallmentScheduleContract === 'function') {
+        return mapInstallmentScheduleContract;
+    }
+    return null;
+}
+
+function buildInstallmentScheduleContractOptions_(deps) {
+    var options = {
+        makeCompraId: deps.makeCompraId,
+    };
+    if (Array.isArray(deps.cards)) {
+        options.cards = cloneV54Cards_(deps.cards);
+    }
+    return options;
+}
+
+function writeInstallmentPurchaseRows_(input, deps) {
+    var scheduleMapper = getInstallmentScheduleContractMapper_(deps);
+    if (!scheduleMapper) {
+        return makeActionsV54FailureWithSheet_(
+            V54_COMPRAS_PARCELADAS_SHEET,
+            'INSTALLMENT_CONTRACT_UNAVAILABLE',
+            'tipo_evento',
+            'mapInstallmentScheduleContract dependency is required for compra_parcelada in Phase 4C-actions.',
+            null,
+            []
+        );
+    }
+
+    var schedule = scheduleMapper(input, buildInstallmentScheduleContractOptions_(deps));
+    if (!schedule || typeof schedule !== 'object') {
+        return makeActionsV54FailureWithSheet_(
+            V54_COMPRAS_PARCELADAS_SHEET,
+            'INSTALLMENT_CONTRACT_INVALID_RESULT',
+            'result',
+            'Installment schedule contract returned an invalid result.',
+            null,
+            []
+        );
+    }
+
+    if (schedule.ok !== true) {
+        return makeActionsV54FailureWithSheet_(
+            V54_COMPRAS_PARCELADAS_SHEET,
+            null,
+            null,
+            null,
+            null,
+            Array.isArray(schedule.errors) ? schedule.errors : []
+        );
+    }
+
+    var compras = schedule.compras && typeof schedule.compras === 'object' ? schedule.compras : null;
+    var parcelas = schedule.parcelas && typeof schedule.parcelas === 'object' ? schedule.parcelas : null;
+    var compraRowValues = compras && Array.isArray(compras.rowValues) ? compras.rowValues : [];
+    var compraRowObjects = compras && Array.isArray(compras.rowObjects) ? compras.rowObjects : [];
+    var parcelaRowValues = parcelas && Array.isArray(parcelas.rowValues) ? parcelas.rowValues : [];
+    var parcelaRowObjects = parcelas && Array.isArray(parcelas.rowObjects) ? parcelas.rowObjects : [];
+
+    if (compraRowValues.length !== 1 || compraRowObjects.length !== 1) {
+        return makeActionsV54FailureWithSheet_(
+            V54_COMPRAS_PARCELADAS_SHEET,
+            'INVALID_INSTALLMENT_ROWS',
+            'compras',
+            'Installment contract must return exactly one Compras_Parceladas row.',
+            null,
+            []
+        );
+    }
+    if (parcelaRowValues.length <= 0 || parcelaRowValues.length !== parcelaRowObjects.length) {
+        return makeActionsV54FailureWithSheet_(
+            V54_PARCELAS_AGENDA_SHEET,
+            'INVALID_INSTALLMENT_ROWS',
+            'parcelas',
+            'Installment contract must return one or more Parcelas_Agenda rows.',
+            null,
+            []
+        );
+    }
+
+    if (compraRowValues[0].length !== V54_COMPRAS_PARCELADAS_HEADERS.length) {
+        return makeActionsV54FailureWithSheet_(
+            V54_COMPRAS_PARCELADAS_SHEET,
+            'ROW_WIDTH_MISMATCH',
+            'compras.rowValues',
+            'Compras_Parceladas row must match V54 schema width.',
+            null,
+            []
+        );
+    }
+    for (var i = 0; i < parcelaRowValues.length; i++) {
+        if (parcelaRowValues[i].length !== V54_PARCELAS_AGENDA_HEADERS.length) {
+            return makeActionsV54FailureWithSheet_(
+                V54_PARCELAS_AGENDA_SHEET,
+                'ROW_WIDTH_MISMATCH',
+                'parcelas.rowValues',
+                'Parcelas_Agenda row must match V54 schema width.',
+                null,
+                []
+            );
+        }
+    }
+
+    var spreadsheet = deps.getSpreadsheet();
+    var comprasSheet = spreadsheet && spreadsheet.getSheetByName(V54_COMPRAS_PARCELADAS_SHEET);
+    if (!comprasSheet) {
+        return makeActionsV54FailureWithSheet_(
+            V54_COMPRAS_PARCELADAS_SHEET,
+            'MISSING_SHEET',
+            V54_COMPRAS_PARCELADAS_SHEET,
+            'Compras_Parceladas sheet was not found.',
+            null,
+            []
+        );
+    }
+    var parcelasSheet = spreadsheet && spreadsheet.getSheetByName(V54_PARCELAS_AGENDA_SHEET);
+    if (!parcelasSheet) {
+        return makeActionsV54FailureWithSheet_(
+            V54_PARCELAS_AGENDA_SHEET,
+            'MISSING_SHEET',
+            V54_PARCELAS_AGENDA_SHEET,
+            'Parcelas_Agenda sheet was not found.',
+            null,
+            []
+        );
+    }
+
+    var comprasHeaderCheck = validateSheetHeaders_(comprasSheet, V54_COMPRAS_PARCELADAS_HEADERS, V54_COMPRAS_PARCELADAS_SHEET);
+    if (!comprasHeaderCheck.ok) {
+        return makeActionsV54FailureWithSheet_(
+            V54_COMPRAS_PARCELADAS_SHEET,
+            comprasHeaderCheck.code,
+            comprasHeaderCheck.field,
+            comprasHeaderCheck.message,
+            null,
+            []
+        );
+    }
+    var parcelasHeaderCheck = validateSheetHeaders_(parcelasSheet, V54_PARCELAS_AGENDA_HEADERS, V54_PARCELAS_AGENDA_SHEET);
+    if (!parcelasHeaderCheck.ok) {
+        return makeActionsV54FailureWithSheet_(
+            V54_PARCELAS_AGENDA_SHEET,
+            parcelasHeaderCheck.code,
+            parcelasHeaderCheck.field,
+            parcelasHeaderCheck.message,
+            null,
+            []
+        );
+    }
+
+    var compraRowNumber = comprasSheet.getLastRow() + 1;
+    comprasSheet.getRange(compraRowNumber, 1, 1, V54_COMPRAS_PARCELADAS_HEADERS.length).setValues([compraRowValues[0]]);
+    var parcelasStartRow = parcelasSheet.getLastRow() + 1;
+    parcelasSheet.getRange(parcelasStartRow, 1, parcelaRowValues.length, V54_PARCELAS_AGENDA_HEADERS.length).setValues(parcelaRowValues);
+
+    return {
+        ok: true,
+        sheet: V54_COMPRAS_PARCELADAS_SHEET,
+        rowNumber: compraRowNumber,
+        id_lancamento: '',
+        rowObject: null,
+        rowValues: [],
+        compra: {
+            sheet: V54_COMPRAS_PARCELADAS_SHEET,
+            rowNumber: compraRowNumber,
+            rowObject: compraRowObjects[0],
+            rowValues: compraRowValues[0],
+        },
+        parcelas: {
+            sheet: V54_PARCELAS_AGENDA_SHEET,
+            startRow: parcelasStartRow,
+            rowCount: parcelaRowValues.length,
+            rowObjects: parcelaRowObjects,
+            rowValues: parcelaRowValues,
+        },
+        cycles: Array.isArray(schedule.cycles) ? schedule.cycles : [],
+        errors: [],
+    };
+}
+
 function normalizeCardPurchaseContractResult_(result) {
     if (!result || typeof result !== 'object') {
         return {
@@ -270,14 +489,18 @@ function normalizeCardPurchaseContractResult_(result) {
 }
 
 function validateLancamentosV54SheetHeaders_(sheet) {
-    var headers = sheet.getRange(1, 1, 1, V54_LANCAMENTOS_HEADERS.length).getValues()[0];
-    for (var i = 0; i < V54_LANCAMENTOS_HEADERS.length; i++) {
-        if (headers[i] !== V54_LANCAMENTOS_HEADERS[i]) {
+    return validateSheetHeaders_(sheet, V54_LANCAMENTOS_HEADERS, V54_LANCAMENTOS_SHEET);
+}
+
+function validateSheetHeaders_(sheet, expectedHeaders, sheetName) {
+    var headers = sheet.getRange(1, 1, 1, expectedHeaders.length).getValues()[0];
+    for (var i = 0; i < expectedHeaders.length; i++) {
+        if (headers[i] !== expectedHeaders[i]) {
             return {
                 ok: false,
                 code: 'HEADER_MISMATCH',
-                field: V54_LANCAMENTOS_SHEET,
-                message: 'Lancamentos_V54 headers do not match the V54 schema.',
+                field: sheetName,
+                message: sheetName + ' headers do not match the V54 schema.',
             };
         }
     }
@@ -343,6 +566,13 @@ function makeDefaultLancamentoV54Id_(entry) {
     var randomPart = Math.floor(Math.random() * 1000000000).toString(36).toUpperCase();
     var stamp = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 17);
     return 'LAN_V54_' + String(entry.tipo_evento || 'entry').toUpperCase() + '_' + stamp + '_' + randomPart;
+}
+
+function makeDefaultCompraV54Id_(entry) {
+    var stamp = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 17);
+    var randomPart = Math.floor(Math.random() * 1000000000).toString(36).toUpperCase();
+    var card = String(entry && entry.id_cartao ? entry.id_cartao : 'CARD').replace(/[^A-Z0-9_]/gi, '').toUpperCase();
+    return 'CP_V54_' + (card || 'CARD') + '_' + stamp + '_' + randomPart;
 }
 
 function validateParsedEntryV54ForActions_(input) {
@@ -523,6 +753,23 @@ function makeActionsV54FailureFromMapped_(mapped) {
         rowObject: mapped.rowObject,
         rowValues: mapped.rowValues,
         errors: mapped.errors,
+    };
+}
+
+function makeActionsV54FailureWithSheet_(sheetName, code, field, message, rowObject, errors) {
+    var normalizedErrors = Array.isArray(errors) ? errors.filter(function(error) { return error && typeof error === 'object'; }) : [];
+    if (normalizedErrors.length === 0 && code) {
+        normalizedErrors = [makeV54ContractError_(code, field, message)];
+    }
+
+    return {
+        ok: false,
+        sheet: sheetName,
+        rowNumber: null,
+        id_lancamento: '',
+        rowObject: rowObject || null,
+        rowValues: [],
+        errors: normalizedErrors,
     };
 }
 
