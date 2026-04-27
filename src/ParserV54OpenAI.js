@@ -94,6 +94,17 @@ function getParserV54OpenAIContext_(runtimeContext, deps) {
         } catch (error) {
             return makeParserV54OpenAIFailure_('PARSER_V54_CONTEXT_FAILED', 'getParserContext', 'ParserV54 context lookup failed safely.');
         }
+        if (context && context.ok === false) {
+            return {
+                ok: false,
+                parsedEntry: null,
+                normalized: null,
+                errors: normalizeParserV54OpenAIErrors_(context.errors, 'PARSER_V54_CONTEXT_FAILED', 'getParserContext', 'ParserV54 context lookup failed safely.'),
+            };
+        }
+        if (context && context.ok === true && context.context && typeof context.context === 'object') {
+            context = context.context;
+        }
     }
     return { ok: true, context: normalizeParserV54OpenAIContext_(context, deps), errors: [] };
 }

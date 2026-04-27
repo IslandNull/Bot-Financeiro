@@ -96,6 +96,10 @@ Organizado por prioridade. Última atualização: 2026-04-27.
   - `src/ParserV54OpenAI.js` cria prompt V54 canônico e retorna `{ ok, parsedEntry, normalized, errors }`
   - chamadas OpenAI ficam atrás de `fetchJson`/`urlFetch`; testes usam fake fetch
   - sem `doPost`, sem Telegram real, sem planilha real nos testes
+- [x] **Criar provider fake-first de contexto canônico ParserV54**
+  - `src/ParserV54Context.js` lê `Config_Categorias`, `Config_Fontes` e `Cartoes` por DI
+  - valida headers, filtra `ativo=false`, remove campos sensíveis/unrelated e retorna contexto seguro
+  - sem `doPost`, sem OpenAI real, sem Telegram real, sem mutação de planilha nos testes
 
 ---
 

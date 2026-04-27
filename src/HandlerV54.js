@@ -59,6 +59,9 @@ function normalizeHandlerV54Deps_(options) {
         user: source.user || null,
         usersByChatId: source.usersByChatId || null,
         parseTextV54: typeof source.parseTextV54 === 'function' ? source.parseTextV54 : null,
+        parserOptions: source.parserOptions && typeof source.parserOptions === 'object'
+            ? copyHandlerV54RecordOptions_(source.parserOptions)
+            : {},
         validateParsedEntryV54: typeof source.validateParsedEntryV54 === 'function' ? source.validateParsedEntryV54 : null,
         recordEntryV54: typeof source.recordEntryV54 === 'function' ? source.recordEntryV54 : (
             typeof recordEntryV54 === 'function' ? recordEntryV54 : null

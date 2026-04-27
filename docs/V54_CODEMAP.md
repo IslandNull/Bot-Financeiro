@@ -25,6 +25,7 @@ Existem duas gerações de código convivendo no mesmo runtime:
 | `src/ActionsV54Idempotency.js` | Adapter Apps Script fake-first para idempotência em `recordEntryV54` via DI | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Consome planner local injetado, guarda grupos de mutação V54, sem `require()` e sem roteamento Telegram. |
 | `src/ActionsV54Recovery.js` | Adapter Apps Script fake-first para aplicar planos revisados de recuperação em `Idempotency_Log` via DI | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Consome executor/checklist local injetado em testes, escreve somente `Idempotency_Log`, sem rota Telegram e sem mutação de domínio. |
 | `src/ParserV54.js` | Skeleton Apps Script do parser V54 via DI | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Não chama OpenAI; exige parser injetado e normaliza resultado/erro para o handler. |
+| `src/ParserV54Context.js` | Provider Apps Script fake-first de contexto canônico do ParserV54 | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Lê `Config_Categorias`, `Config_Fontes` e `Cartoes` por planilha injetada, valida headers, filtra inativos, remove campos sensíveis e não é chamado por `doPost`. |
 | `src/ParserV54OpenAI.js` | Adapter Apps Script produtivo do ParserV54 para OpenAI, atrás de DI | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Constrói prompt V54 canônico, chama OpenAI por `fetchJson`/`urlFetch` injetado ou fallback Apps Script, valida ParsedEntryV54 e não é chamado por `doPost`. |
 | `src/HandlerV54.js` | Skeleton Apps Script do handler V54 Telegram-like via DI | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Extrai update/message, valida contexto de usuário, chama parser injetado, valida ParsedEntryV54, chama `recordEntryV54` idempotente e retorna resultado estruturado; não é chamado por `doPost`. |
 | `src/ViewsV54.js` | Skeleton de formatadores seguros V54 | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Gera texto seguro para sucesso, duplicidade, retry, parser/validação/unsupported/error; não envia Telegram. |
@@ -38,6 +39,7 @@ Existem duas gerações de código convivendo no mesmo runtime:
 | `scripts/lib/v54-parsed-entry-contract.js` | Contrato de entrada parseada V54 | `V54_LOCAL_CONTRACT` | Sim | Validação estrita do ParsedEntryV54. |
 | `scripts/lib/v54-parser-contract.js` | Parser adapter V54 local | `V54_LOCAL_CONTRACT` | Sim | Prompt builder + JSON parser, sem chamar OpenAI real. |
 | `scripts/test-v54-parser-openai-adapter.js` | Testes locais do adapter produtivo OpenAI V54 | `V54_LOCAL_TEST` | Sim | Usa fake fetch e validator injetado; garante sem OpenAI real, sem planilha, sem Telegram e sem alteração de `doPost`. |
+| `scripts/test-v54-parser-context-provider.js` | Testes locais do provider de contexto ParserV54 | `V54_LOCAL_TEST` | Sim | Usa planilhas fake; verifica headers contra schema, filtro de inativos, remoção de segredos e consumo pelo adapter OpenAI/handler por DI. |
 | `scripts/lib/v54-lancamentos-mapper.js` | Mapper de parsed entry → row Lancamentos_V54 | `V54_LOCAL_CONTRACT` | Sim | Pure function, injeção de deps para id/timestamp. |
 | `scripts/lib/v54-card-purchase-contract.js` | Contrato de compra de cartão V54 | `V54_LOCAL_CONTRACT` | Sim | Ciclo de fatura + mapeamento para Lancamentos. |
 | `scripts/lib/v54-installment-schedule-contract.js` | Contrato de parcelamento V54 | `V54_LOCAL_CONTRACT` | Sim | Schedule de parcelas + ciclos de fatura. |
@@ -123,6 +125,14 @@ Adapter Apps Script:
       → retorna `{ ok, parsedEntry, normalized, errors }`
       → não escreve em planilhas, não envia Telegram e não é roteado
 
+  src/ParserV54Context.js
+    → getParserContextV54(runtimeContext, options)
+      → lê `Config_Categorias`, `Config_Fontes` e `Cartoes` por `getSpreadsheet` injetado
+      → valida headers contra cópia mínima do schema V54 canônico
+      → filtra linhas inativas quando existe `ativo`
+      → retorna somente `categories`, `fontes`, `cartoes`, `defaultPessoa`, `defaultEscopo`, `referenceDate`
+      → remove campos sensíveis/unrelated, não chama OpenAI, não envia Telegram e não muta planilhas
+
   src/HandlerV54.js
     → handleTelegramUpdateV54(update, options)
       → extrai `chat_id`, `message_id`, `update_id`, texto e contexto de usuário
@@ -160,7 +170,7 @@ Para que V54 processe tráfego real do Telegram, é preciso:
 | `ActionsV54.js` grande (1006 linhas) | Difícil de ler e revisar. Contém validação, mapeamento, escrita, helpers de fatura e utilities. | NEXT (extrair helpers sem mudar comportamento) |
 | V53 ainda no runtime | Código morto que pode confundir agentes e humanos. | LATER (remover somente após V54 Telegram MVP funcional) |
 | Sem bundler | Não é possível usar `require()` em Apps Script — forçando duplicação. | LATER (avaliar clasp + esbuild ou rollup) |
-| ParserV54 produtivo ainda não roteado | Existe adapter OpenAI por DI em `src/ParserV54OpenAI.js`, mas V54 ainda não processa Telegram real porque `doPost` não chama o handler/parser V54. | Próxima fase de gate de roteamento. |
+| ParserV54 produtivo ainda não roteado | Existem provider de contexto e adapter OpenAI por DI em `src/ParserV54Context.js`/`src/ParserV54OpenAI.js`, mas V54 ainda não processa Telegram real porque `doPost` não chama o handler/parser V54. | Próxima fase de gate de roteamento. |
 | `ViewsV54` ainda é skeleton | Existe formatador seguro mínimo; respostas produtivas completas ainda não existem. | Próxima fase de feature. |
 | `ActionsV54.js` grande | Ainda concentra validação, mapeamento e escrita base. | NEXT (extrair helpers sem mudar comportamento) |
 | Aplicação real/roteada dos planos de recuperação de idempotência | Adapter Apps Script fake-first existe, mas nenhum fluxo real, rota, Telegram ou planilha produtiva aplica planos revisados. | NEXT antes do roteamento real. |

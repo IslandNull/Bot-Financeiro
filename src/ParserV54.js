@@ -20,7 +20,7 @@ function parseTextWithParserV54_(text, context, deps) {
     }
 
     try {
-        var result = parser(String(text || ''), context || {});
+        var result = parser(String(text || ''), context || {}, source.parserOptions || {});
         return normalizeParserV54Result_(result);
     } catch (error) {
         return {
