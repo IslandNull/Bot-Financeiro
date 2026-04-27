@@ -92,6 +92,10 @@ Organizado por prioridade. Última atualização: 2026-04-27.
   - handler recebe update Telegram-like e chama `recordEntryV54` idempotente por DI
   - formatador retorna texto seguro
   - sem `doPost`, sem Telegram real, sem OpenAI real, sem planilha real nos testes
+- [x] **Substituir skeleton por ParserV54 produtivo atrás da interface injetada**
+  - `src/ParserV54OpenAI.js` cria prompt V54 canônico e retorna `{ ok, parsedEntry, normalized, errors }`
+  - chamadas OpenAI ficam atrás de `fetchJson`/`urlFetch`; testes usam fake fetch
+  - sem `doPost`, sem Telegram real, sem planilha real nos testes
 
 ---
 
@@ -117,11 +121,6 @@ Organizado por prioridade. Última atualização: 2026-04-27.
   - pré-condição: regra aceita para entrada manual de plano/checklist
   - deve continuar bloqueando mutação de domínio e planilha real não revisada
   - **Restrição:** não expor por `doPost` e não plugar no tráfego Telegram.
-
-- [ ] **Substituir skeleton por ParserV54 produtivo atrás da interface injetada**
-  - usar contrato local existente de prompt/JSON/validação
-  - chamar LLM real somente após gate explícito e testes negativos
-  - **Restrição:** não rotear Telegram para V54 nesta etapa sem decisão/gate separado.
 
 ---
 

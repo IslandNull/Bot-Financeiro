@@ -24,13 +24,14 @@ Branch: feat/v54-production-readiness
 - Phase 4O: Referências determinísticas do caminho idempotente aceitas em D043. `planV54IdempotentWrite` deriva `id_lancamento`/`id_compra` do `idempotency_key` para que retry após crash entre mutação de domínio e `MARK_IDEMPOTENCY_COMPLETED` consiga localizar a mutação já escrita sem depender de ID aleatório. Criado executor/checklist local `scripts/lib/v54-idempotency-recovery-executor.js`, que aplica somente `MARK_IDEMPOTENCY_FAILED` ou `MARK_IDEMPOTENCY_COMPLETED` em memória e nunca aplica mutação de domínio.
 - Phase 4P: Adapter Apps Script fake-first de recuperação revisada criado em `src/ActionsV54Recovery.js`. Ele exige `getSpreadsheet`, `withLock`, `applyReviewedIdempotencyRecovery` e checklist por DI, valida `Idempotency_Log`/headers, lê linhas existentes, e escreve somente a linha correspondente em `Idempotency_Log`. Não é chamado por `doPost`, não chama Telegram, não usa planilha real nos testes e não aplica mutação de domínio.
 - Phase 4Q: Skeleton runtime V54 criado em `src/ParserV54.js`, `src/HandlerV54.js` e `src/ViewsV54.js`. O handler recebe update Telegram-like, exige contexto de usuário, chama parser injetado, valida ParsedEntryV54, chama `recordEntryV54` com `idempotency.enabled=true` e retorna resultado/resposta seguros. Não é chamado por `doPost`, não chama Telegram, não chama OpenAI real e não usa planilha real nos testes.
+- Phase 4R: Adapter produtivo ParserV54 OpenAI criado em `src/ParserV54OpenAI.js`, ainda desabilitado do roteamento. `parseTextV54OpenAI` aceita texto/contexto/opções injetadas, monta prompt V54 canônico sem segredos, chama OpenAI somente por `fetchJson`/`urlFetch` injetado ou fallback Apps Script para uso futuro revisado, interpreta JSON, valida ParsedEntryV54 e retorna `{ ok, parsedEntry, normalized, errors }`. Testes locais usam fake fetch; sem planilha real, sem Telegram real e sem alteração em `doPost`.
 
 ## O que esta bloqueado / Risco Atual
 - **Seguranca:** O Telegram E2E path (do webhook real para o script atualizado) precisa de testes finais.
 - GET mutantes protegidos por token na URL devem ser extintos.
 
 ## Proximo passo seguro
-1. Definir ParserV54 produtivo atrás da interface injetada, ainda sem alterar `doPost`, ou definir gate explícito de roteamento V54.
+1. Definir gate explícito de roteamento V54 ou shadow/manual runner revisado, ainda sem alterar `doPost` sem decisão separada.
 2. Definir uma rota/manual runner revisado para recuperação somente após regra aceita, mantendo sem `doPost`, sem Telegram e sem mutação de domínio.
 3. Implementar proximas fases locais/fake-first de `Pagamentos_Fatura` e reconciliacao somente apos regra aceita.
 3. **NAO executar** setup, seed, deploy, clasp, testes na planilha real, ou comandos Telegram sem aprovacao explicita.

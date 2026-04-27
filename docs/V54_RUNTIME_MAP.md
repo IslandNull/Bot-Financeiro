@@ -24,13 +24,14 @@ Mapeamento de entrypoints e estado de runtime da transição V53 -> V54.
   - Executor/checklist de recuperação: `scripts/lib/v54-idempotency-recovery-executor.js` aplica somente planos revisados `MARK_IDEMPOTENCY_FAILED` e `MARK_IDEMPOTENCY_COMPLETED` em memória local; não aplica mutações de domínio.
   - Adapter Apps Script de recuperação: `src/ActionsV54Recovery.js` aplica planos revisados somente em `Idempotency_Log` por dependências injetadas (`getSpreadsheet`, `withLock`, `applyReviewedIdempotencyRecovery`, `readIdempotencyRows`, `checklist`); não é chamado por `doPost`, não chama Telegram, não usa planilha real nos testes e não aplica mutação de domínio.
   - Skeleton runtime V54: `src/ParserV54.js`, `src/HandlerV54.js`, e `src/ViewsV54.js` modelam parser/handler/view com dependências injetadas. O handler recebe update Telegram-like, exige contexto de usuário, valida ParsedEntryV54, chama `recordEntryV54` com idempotência ligada e retorna resposta segura. Ele não é chamado por `doPost`, não chama Telegram e não chama OpenAI real.
+  - Adapter produtivo de parser V54: `src/ParserV54OpenAI.js` implementa `parseTextV54OpenAI(text, runtimeContext, options)` atrás de DI. Ele constrói prompt V54 canônico, chama OpenAI somente via `fetchJson`/`urlFetch` injetado ou fallback Apps Script para uso futuro revisado, interpreta JSON, valida ParsedEntryV54 e retorna `{ ok, parsedEntry, normalized, errors }`. Não é chamado por `doPost`, não escreve em planilhas e não envia Telegram.
   - Usa injeção de dependências para `spreadsheetApp`, `lockService`, etc., permitindo testes locais.
 - **V53 Legacy (deprecated/obsoleto):**
   - Módulos: `src/Actions.js`, `src/Commands.js`, `src/Parser.js`, `src/Views.js`, `src/SetupLegacy.js`.
   - **NÃO ADICIONAR NOVAS FEATURES NESTES ARQUIVOS.**
 
 ## 3. O que ainda não está roteado
-- O ParserV54 ainda não processa mensagens do Telegram em produção.
+- O ParserV54 OpenAI adapter existe, mas ainda não processa mensagens do Telegram em produção porque não está conectado ao handler roteado.
 - `ActionsV54.recordEntryV54` ainda não é chamado por `doPost`.
 - `HandlerV54.handleTelegramUpdateV54` ainda não é chamado por `doPost`.
 - `ActionsV54Recovery.applyReviewedIdempotencyRecoveryV54` ainda não é chamado por `doPost` nem por rota de manutenção real.
