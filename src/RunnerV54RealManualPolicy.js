@@ -63,6 +63,9 @@ function evaluateV54RealManualPolicy(input, options) {
     var sheetDiagnostics = evaluateV54RealManualSheets_(deps, errors);
     passed = passed.concat(sheetDiagnostics.passed);
 
+    var evidenceDiagnostic = evaluateV54RealManualEvidence_(deps, source, errors);
+    if (evidenceDiagnostic) passed.push(evidenceDiagnostic);
+
     var contextDiagnostic = evaluateV54RealManualParserContext_(deps, source, diagnostics, errors);
     if (contextDiagnostic) passed.push(contextDiagnostic);
 
@@ -88,6 +91,7 @@ function normalizeV54RealManualPolicyDeps_(options) {
         getSpreadsheet: typeof source.getSpreadsheet === 'function' ? source.getSpreadsheet : null,
         getParserContext: typeof source.getParserContext === 'function' ? source.getParserContext : null,
         now: typeof source.now === 'function' ? source.now : function() { return new Date().toISOString(); },
+        validateEvidenceEnvelope: typeof source.validateEvidenceEnvelope === 'function' ? source.validateEvidenceEnvelope : null,
     };
 }
 
@@ -163,6 +167,28 @@ function evaluateV54RealManualParserContext_(deps, input, diagnostics, errors) {
         errors.push(makeV54RealManualPolicyError_('V54_REAL_MANUAL_PARSER_CONTEXT_UNREADABLE', 'getParserContext', 'Parser context could not be read safely.'));
         return '';
     }
+}
+
+
+function evaluateV54RealManualEvidence_(deps, input, errors) {
+    if (!deps.validateEvidenceEnvelope) return '';
+
+    var result;
+    try {
+        result = deps.validateEvidenceEnvelope(input.evidence, {
+            requiredSheets: V54_REAL_MANUAL_REQUIRED_SHEETS.slice(),
+        });
+    } catch (error) {
+        errors.push(makeV54RealManualPolicyError_('V54_REAL_MANUAL_EVIDENCE_DIAGNOSTIC_FAILED', 'evidence', 'Real manual evidence diagnostics failed safely.'));
+        return '';
+    }
+
+    if (!result || result.ok !== true) {
+        errors.push(makeV54RealManualPolicyError_('V54_REAL_MANUAL_EVIDENCE_INVALID', 'evidence', 'Real manual evidence envelope is invalid.'));
+        return '';
+    }
+
+    return 'evidence_envelope_valid';
 }
 
 function requireV54RealManualPolicyCheck_(condition, errors, passed, code, field, passedLabel) {
