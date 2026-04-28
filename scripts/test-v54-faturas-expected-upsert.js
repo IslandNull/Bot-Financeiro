@@ -91,6 +91,33 @@ function plan(expectedItems, existingRows, headers) {
     });
 }
 
+function productionFaturaRow(overrides) {
+    return Object.assign({
+        _rowNumber: 7,
+        id_fatura: 'FAT_CARD_NUBANK_GU_2026_04',
+        id_cartao: 'CARD_NUBANK_GU',
+        competencia: '2026-04',
+        data_fechamento: '2026-04-30',
+        data_vencimento: '2026-05-07',
+        valor_previsto: 1,
+        valor_fechado: '',
+        valor_pago: '',
+        fonte_pagamento: '',
+        status: 'prevista',
+    }, overrides || {});
+}
+
+function productionExpectedItem(overrides) {
+    return Object.assign({
+        id_fatura: 'FAT_CARD_NUBANK_GU_2026_04',
+        id_cartao: 'CARD_NUBANK_GU',
+        competencia: '2026-04',
+        data_fechamento: '2026-04-30',
+        data_vencimento: '2026-05-07',
+        valor: 1,
+    }, overrides || {});
+}
+
 function assertOk(result) {
     assert.strictEqual(result.ok, true, JSON.stringify(result.errors));
     assert.deepStrictEqual(result.errors, []);
@@ -150,6 +177,75 @@ failed += test('atualiza_e_soma_valor_previsto_em_fatura_existente_prevista', ()
     assert.strictEqual(result.rowObjects[0].valor_previsto, 125.5);
     assert.strictEqual(result.rowObjects[0].valor_fechado, '');
     assert.strictEqual(result.rowObjects[0].valor_pago, '');
+});
+
+failed += test('fatura_existente_com_strings_equivalentes_nao_gera_conflito_de_ciclo', () => {
+    const result = assertOk(plan([productionExpectedItem()], [productionFaturaRow()]));
+
+    assert.strictEqual(result.actions[0].type, 'update');
+    assert.strictEqual(result.rowObjects[0].valor_previsto, 2);
+});
+
+failed += test('fatura_existente_com_date_objects_equivalentes_nao_gera_conflito_de_ciclo', () => {
+    const existing = productionFaturaRow({
+        competencia: new Date(2026, 3, 1),
+        data_fechamento: new Date(2026, 3, 30),
+        data_vencimento: new Date(2026, 4, 7),
+    });
+
+    const result = assertOk(plan([productionExpectedItem()], [existing]));
+
+    assert.strictEqual(result.actions[0].type, 'update');
+    assert.strictEqual(result.rowObjects[0].competencia, '2026-04');
+    assert.strictEqual(result.rowObjects[0].data_fechamento, '2026-04-30');
+    assert.strictEqual(result.rowObjects[0].data_vencimento, '2026-05-07');
+    assert.strictEqual(result.rowObjects[0].valor_previsto, 2);
+});
+
+failed += test('fatura_existente_com_valores_formatados_da_planilha_equivalentes_nao_gera_conflito_de_ciclo', () => {
+    const existing = productionFaturaRow({
+        competencia: '04/2026',
+        data_fechamento: '30/04/2026',
+        data_vencimento: '07/05/2026',
+        valor_previsto: '1',
+        status: ' prevista ',
+    });
+
+    const result = assertOk(plan([productionExpectedItem()], [existing]));
+
+    assert.strictEqual(result.actions[0].type, 'update');
+    assert.strictEqual(result.rowObjects[0].valor_previsto, 2);
+});
+
+failed += test('regressao_producao_mercado_semana_nubank_gustavo_planeja_update_ok', () => {
+    const existing = [productionFaturaRow()];
+    const result = assertOk(plan([productionExpectedItem()], existing));
+
+    assert.strictEqual(result.actions.length, 1);
+    assert.strictEqual(result.actions[0].type, 'update');
+    assert.strictEqual(result.actions[0].id_fatura, 'FAT_CARD_NUBANK_GU_2026_04');
+    assert.strictEqual(result.rowObjects[0].valor_previsto, 2);
+});
+
+failed += test('fatura_existente_com_mismatch_real_continua_bloqueando', () => {
+    [
+        { field: 'id_cartao', value: 'CARD_OUTRO' },
+        { field: 'competencia', value: '2026-05' },
+        { field: 'data_fechamento', value: '2026-05-01' },
+        { field: 'data_vencimento', value: '2026-05-08' },
+    ].forEach(({ field, value }) => {
+        const result = plan([productionExpectedItem()], [productionFaturaRow({ [field]: value })]);
+        assertError(result, 'FATURA_CYCLE_CONFLICT', field);
+        assert.strictEqual(result.actions[0].type, 'invalid_skip');
+    });
+});
+
+failed += test('fatura_existente_com_status_paga_ou_fechada_continua_protegida', () => {
+    ['paga', 'fechada'].forEach((status) => {
+        const result = plan([productionExpectedItem()], [productionFaturaRow({ status })]);
+        assertError(result, 'PROTECTED_FATURA_STATUS', 'status');
+        assert.strictEqual(result.actions[0].type, 'protected_skip');
+    });
 });
 
 failed += test('compras_no_mesmo_cartao_e_mesma_competencia_sao_agregadas_em_uma_fatura', () => {

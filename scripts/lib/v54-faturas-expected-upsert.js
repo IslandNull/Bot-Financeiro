@@ -128,14 +128,15 @@ function planExpectedFaturasUpsert(input) {
             return;
         }
 
-        const status = String(existing.row.status || '').trim();
+        const normalizedExistingRow = normalizeExistingFaturaRow(existing.row);
+        const status = normalizedExistingRow.status;
         if (PROTECTED_FATURA_STATUSES.includes(status)) {
             actions.push({
                 type: 'protected_skip',
                 rowNumber: existing.rowNumber,
                 id_fatura: item.id_fatura,
-                rowObject: cloneRowObject(existing.row),
-                rowValues: buildRowValues(existing.row),
+                rowObject: cloneRowObject(normalizedExistingRow),
+                rowValues: buildRowValues(normalizedExistingRow),
                 reason: `Fatura status ${status} is protected for expected upsert.`,
             });
             return;
@@ -146,32 +147,32 @@ function planExpectedFaturasUpsert(input) {
                 type: 'invalid_skip',
                 rowNumber: existing.rowNumber,
                 id_fatura: item.id_fatura,
-                rowObject: cloneRowObject(existing.row),
-                rowValues: buildRowValues(existing.row),
+                rowObject: cloneRowObject(normalizedExistingRow),
+                rowValues: buildRowValues(normalizedExistingRow),
                 reason: `Fatura status ${status || '(blank)'} is not eligible for expected upsert.`,
             });
             return;
         }
 
-        const consistencyErrors = validateExistingCycleMatches(existing.row, item);
+        const consistencyErrors = validateExistingCycleMatches(normalizedExistingRow, item);
         if (consistencyErrors.length > 0) {
             actions.push({
                 type: 'invalid_skip',
                 rowNumber: existing.rowNumber,
                 id_fatura: item.id_fatura,
-                rowObject: cloneRowObject(existing.row),
-                rowValues: buildRowValues(existing.row),
+                rowObject: cloneRowObject(normalizedExistingRow),
+                rowValues: buildRowValues(normalizedExistingRow),
                 errors: consistencyErrors,
             });
             return;
         }
 
         const updated = {
-            ...existing.row,
-            valor_previsto: centsToMoney(moneyToCents(existing.row.valor_previsto || 0) + item.valor_cents),
-            valor_fechado: normalizeBlank(existing.row.valor_fechado),
-            valor_pago: normalizeBlank(existing.row.valor_pago),
-            fonte_pagamento: normalizeBlank(existing.row.fonte_pagamento),
+            ...normalizedExistingRow,
+            valor_previsto: centsToMoney(moneyToCents(normalizedExistingRow.valor_previsto || 0) + item.valor_cents),
+            valor_fechado: normalizeBlank(normalizedExistingRow.valor_fechado),
+            valor_pago: normalizeBlank(normalizedExistingRow.valor_pago),
+            fonte_pagamento: normalizeBlank(normalizedExistingRow.fonte_pagamento),
             status: 'prevista',
         };
         delete updated._rowNumber;
@@ -181,7 +182,7 @@ function planExpectedFaturasUpsert(input) {
             id_fatura: item.id_fatura,
             rowObject: updated,
             rowValues: buildRowValues(updated),
-            previousRowObject: cloneRowObject(existing.row),
+            previousRowObject: cloneRowObject(normalizedExistingRow),
         });
         finalRows.push(updated);
     });
@@ -270,11 +271,73 @@ function normalizeExpectedItem(item, index) {
 function validateExistingCycleMatches(existing, item) {
     const errors = [];
     ['id_cartao', 'competencia', 'data_fechamento', 'data_vencimento'].forEach((field) => {
-        if (String(existing[field] || '').trim() !== item[field]) {
+        if (existing[field] !== item[field]) {
             errors.push(makeError('FATURA_CYCLE_CONFLICT', field, `Existing Faturas row conflicts with expected cycle for ${item.id_fatura}.`));
         }
     });
     return errors;
+}
+
+function normalizeExistingFaturaRow(row) {
+    const source = row && typeof row === 'object' ? row : {};
+    return {
+        ...source,
+        id_fatura: normalizeTrimmedString(source.id_fatura),
+        id_cartao: normalizeTrimmedString(source.id_cartao),
+        competencia: normalizeCompetenciaValue(source.competencia),
+        data_fechamento: normalizeIsoDateValue(source.data_fechamento),
+        data_vencimento: normalizeIsoDateValue(source.data_vencimento),
+        valor_previsto: normalizeFaturaMoneyValue(source.valor_previsto),
+        valor_fechado: normalizeFaturaMoneyValue(source.valor_fechado),
+        valor_pago: normalizeFaturaMoneyValue(source.valor_pago),
+        fonte_pagamento: normalizeTrimmedString(source.fonte_pagamento),
+        status: normalizeTrimmedString(source.status),
+    };
+}
+
+function normalizeTrimmedString(value) {
+    return value === undefined || value === null ? '' : String(value).trim();
+}
+
+function normalizeCompetenciaValue(value) {
+    if (isDateObject(value)) return formatCompetenciaLocal(value);
+    const text = normalizeTrimmedString(value);
+    if (!text) return '';
+    const isoDate = normalizeIsoDateValue(text);
+    if (/^\d{4}-\d{2}$/.test(text)) return text;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return isoDate.slice(0, 7);
+    const monthYear = text.match(/^(\d{1,2})\/(\d{4})$/);
+    if (monthYear) return `${monthYear[2]}-${String(Number(monthYear[1])).padStart(2, '0')}`;
+    return text;
+}
+
+function normalizeIsoDateValue(value) {
+    if (isDateObject(value)) return formatIsoDateLocal(value);
+    const text = normalizeTrimmedString(value);
+    if (!text) return '';
+    const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/);
+    if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+    const br = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (br) return `${br[3]}-${String(Number(br[2])).padStart(2, '0')}-${String(Number(br[1])).padStart(2, '0')}`;
+    return text;
+}
+
+function normalizeFaturaMoneyValue(value) {
+    if (value === undefined || value === null || value === '') return '';
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : normalizeTrimmedString(value);
+}
+
+function isDateObject(value) {
+    return Object.prototype.toString.call(value) === '[object Date]' && Number.isFinite(value.getTime());
+}
+
+function formatIsoDateLocal(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function formatCompetenciaLocal(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
 function buildNewFaturaRow(item) {

@@ -661,28 +661,29 @@ function planExpectedFaturasUpsert(input) {
             finalRows.push(rowObject);
             return;
         }
-        var status = String(existing.row.status || '').trim();
+        var normalizedExistingRow = normalizeExistingV54FaturaRow_(existing.row);
+        var status = normalizedExistingRow.status;
         if (V54_PROTECTED_FATURA_STATUSES.indexOf(status) !== -1) {
-            actions.push({ type: 'protected_skip', rowNumber: existing.rowNumber, id_fatura: item.id_fatura, rowObject: cloneV54ContractObject_(existing.row), rowValues: buildV54FaturaRowValues_(existing.row), reason: 'Fatura status ' + status + ' is protected for expected upsert.' });
+            actions.push({ type: 'protected_skip', rowNumber: existing.rowNumber, id_fatura: item.id_fatura, rowObject: cloneV54ContractObject_(normalizedExistingRow), rowValues: buildV54FaturaRowValues_(normalizedExistingRow), reason: 'Fatura status ' + status + ' is protected for expected upsert.' });
             return;
         }
         if (status !== 'prevista') {
-            actions.push({ type: 'invalid_skip', rowNumber: existing.rowNumber, id_fatura: item.id_fatura, rowObject: cloneV54ContractObject_(existing.row), rowValues: buildV54FaturaRowValues_(existing.row), reason: 'Fatura status ' + (status || '(blank)') + ' is not eligible for expected upsert.' });
+            actions.push({ type: 'invalid_skip', rowNumber: existing.rowNumber, id_fatura: item.id_fatura, rowObject: cloneV54ContractObject_(normalizedExistingRow), rowValues: buildV54FaturaRowValues_(normalizedExistingRow), reason: 'Fatura status ' + (status || '(blank)') + ' is not eligible for expected upsert.' });
             return;
         }
-        var consistencyErrors = validateExistingV54FaturaCycleMatches_(existing.row, item);
+        var consistencyErrors = validateExistingV54FaturaCycleMatches_(normalizedExistingRow, item);
         if (consistencyErrors.length > 0) {
-            actions.push({ type: 'invalid_skip', rowNumber: existing.rowNumber, id_fatura: item.id_fatura, rowObject: cloneV54ContractObject_(existing.row), rowValues: buildV54FaturaRowValues_(existing.row), errors: consistencyErrors });
+            actions.push({ type: 'invalid_skip', rowNumber: existing.rowNumber, id_fatura: item.id_fatura, rowObject: cloneV54ContractObject_(normalizedExistingRow), rowValues: buildV54FaturaRowValues_(normalizedExistingRow), errors: consistencyErrors });
             return;
         }
-        var updated = cloneV54ContractObject_(existing.row);
-        updated.valor_previsto = centsToV54ContractMoney_(moneyToV54ContractCents_(existing.row.valor_previsto || 0) + item.valor_cents);
-        updated.valor_fechado = normalizeV54FaturaBlank_(existing.row.valor_fechado);
-        updated.valor_pago = normalizeV54FaturaBlank_(existing.row.valor_pago);
-        updated.fonte_pagamento = normalizeV54FaturaBlank_(existing.row.fonte_pagamento);
+        var updated = cloneV54ContractObject_(normalizedExistingRow);
+        updated.valor_previsto = centsToV54ContractMoney_(moneyToV54ContractCents_(normalizedExistingRow.valor_previsto || 0) + item.valor_cents);
+        updated.valor_fechado = normalizeV54FaturaBlank_(normalizedExistingRow.valor_fechado);
+        updated.valor_pago = normalizeV54FaturaBlank_(normalizedExistingRow.valor_pago);
+        updated.fonte_pagamento = normalizeV54FaturaBlank_(normalizedExistingRow.fonte_pagamento);
         updated.status = 'prevista';
         delete updated._rowNumber;
-        actions.push({ type: 'update', rowNumber: existing.rowNumber, id_fatura: item.id_fatura, rowObject: updated, rowValues: buildV54FaturaRowValues_(updated), previousRowObject: cloneV54ContractObject_(existing.row) });
+        actions.push({ type: 'update', rowNumber: existing.rowNumber, id_fatura: item.id_fatura, rowObject: updated, rowValues: buildV54FaturaRowValues_(updated), previousRowObject: cloneV54ContractObject_(normalizedExistingRow) });
         finalRows.push(updated);
     });
 
@@ -766,11 +767,64 @@ function normalizeV54ExpectedFaturaItem_(item, index) {
 function validateExistingV54FaturaCycleMatches_(existing, item) {
     var errors = [];
     ['id_cartao', 'competencia', 'data_fechamento', 'data_vencimento'].forEach(function(field) {
-        if (String(existing[field] || '').trim() !== item[field]) {
+        if (existing[field] !== item[field]) {
             errors.push(makeCardContractsV54Error_('FATURA_CYCLE_CONFLICT', field, 'Existing Faturas row conflicts with expected cycle for ' + item.id_fatura + '.'));
         }
     });
     return errors;
+}
+
+function normalizeExistingV54FaturaRow_(row) {
+    var source = row && typeof row === 'object' ? row : {};
+    var normalized = cloneV54ContractObject_(source);
+    normalized.id_fatura = normalizeV54FaturaString_(source.id_fatura);
+    normalized.id_cartao = normalizeV54FaturaString_(source.id_cartao);
+    normalized.competencia = normalizeV54FaturaCompetencia_(source.competencia);
+    normalized.data_fechamento = normalizeV54FaturaIsoDate_(source.data_fechamento);
+    normalized.data_vencimento = normalizeV54FaturaIsoDate_(source.data_vencimento);
+    normalized.valor_previsto = normalizeV54FaturaMoney_(source.valor_previsto);
+    normalized.valor_fechado = normalizeV54FaturaMoney_(source.valor_fechado);
+    normalized.valor_pago = normalizeV54FaturaMoney_(source.valor_pago);
+    normalized.fonte_pagamento = normalizeV54FaturaString_(source.fonte_pagamento);
+    normalized.status = normalizeV54FaturaString_(source.status);
+    return normalized;
+}
+
+function normalizeV54FaturaString_(value) {
+    return value === undefined || value === null ? '' : String(value).trim();
+}
+
+function normalizeV54FaturaCompetencia_(value) {
+    if (isV54FaturaDateObject_(value)) return formatCompetenciaV54Contract_(value);
+    var text = normalizeV54FaturaString_(value);
+    if (!text) return '';
+    if (/^\d{4}-\d{2}$/.test(text)) return text;
+    var isoDate = normalizeV54FaturaIsoDate_(text);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return isoDate.slice(0, 7);
+    var monthYear = text.match(/^(\d{1,2})\/(\d{4})$/);
+    if (monthYear) return monthYear[2] + '-' + pad2V54Contract_(Number(monthYear[1]));
+    return text;
+}
+
+function normalizeV54FaturaIsoDate_(value) {
+    if (isV54FaturaDateObject_(value)) return formatIsoDateV54Contract_(value);
+    var text = normalizeV54FaturaString_(value);
+    if (!text) return '';
+    var iso = text.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/);
+    if (iso) return iso[1] + '-' + iso[2] + '-' + iso[3];
+    var br = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (br) return br[3] + '-' + pad2V54Contract_(Number(br[2])) + '-' + pad2V54Contract_(Number(br[1]));
+    return text;
+}
+
+function normalizeV54FaturaMoney_(value) {
+    if (value === undefined || value === null || value === '') return '';
+    var numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : normalizeV54FaturaString_(value);
+}
+
+function isV54FaturaDateObject_(value) {
+    return Object.prototype.toString.call(value) === '[object Date]' && Number.isFinite(value.getTime());
 }
 
 function buildNewV54FaturaRow_(item) {

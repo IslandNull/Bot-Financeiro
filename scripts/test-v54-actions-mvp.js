@@ -524,6 +524,70 @@ failed += test('compra_cartao_before_closing_appends_one_lancamento_with_current
     assert.deepStrictEqual(JSON.parse(JSON.stringify(locks)), ['recordEntryV54']);
 });
 
+failed += test('compra_cartao_atualiza_fatura_existente_com_datas_do_getValues_sem_conflito', () => {
+    const fake = makeFakeSpreadsheet({
+        faturasRows: [[
+            'FAT_CARD_NUBANK_GU_2026_04',
+            'CARD_NUBANK_GU',
+            new Date(2026, 3, 1),
+            new Date(2026, 3, 30),
+            new Date(2026, 4, 7),
+            1,
+            '',
+            '',
+            '',
+            'prevista',
+        ]],
+    });
+    const result = assertOk(record(
+        baseCardPurchaseEntry({
+            data: '2026-04-29',
+            valor: 1,
+            id_cartao: 'CARD_NUBANK_GU',
+            id_categoria: 'OPEX_MERCADO_SEMANA',
+            descricao: 'mercado semana',
+        }),
+        fake,
+        [],
+        { mapSingleCardPurchaseContract },
+    ));
+
+    assert.strictEqual(result.faturas.writes.length, 1);
+    assert.strictEqual(result.faturas.writes[0].type, 'update');
+    assert.strictEqual(result.faturas.writes[0].id_fatura, 'FAT_CARD_NUBANK_GU_2026_04');
+    assert.strictEqual(result.faturas.writes[0].rowObject.valor_previsto, 2);
+});
+
+failed += test('compra_cartao_fatura_existente_com_mismatch_real_continua_bloqueada', () => {
+    const fake = makeFakeSpreadsheet({
+        faturasRows: [[
+            'FAT_CARD_NUBANK_GU_2026_04',
+            'CARD_NUBANK_GU',
+            '2026-04',
+            '2026-05-01',
+            '2026-05-07',
+            1,
+            '',
+            '',
+            '',
+            'prevista',
+        ]],
+    });
+    const result = record(
+        baseCardPurchaseEntry({
+            data: '2026-04-29',
+            valor: 1,
+            id_cartao: 'CARD_NUBANK_GU',
+        }),
+        fake,
+        [],
+        { mapSingleCardPurchaseContract },
+    );
+
+    assertError(result, 'FATURA_CYCLE_CONFLICT', 'data_fechamento');
+    assert.strictEqual(fake.writes.length, 0);
+});
+
 failed += test('compra_cartao_preserves_dre_and_patrimonio_true_flags', () => {
     const result = assertOk(record(
         baseCardPurchaseEntry({
