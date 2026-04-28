@@ -2,80 +2,36 @@
 
 Bot de Telegram para gestão financeira doméstica, integrado ao Google Sheets via Google Apps Script.
 
-## Funcionalidades
+> ⚠️ **ATENÇÃO: PROJETO EM DESENVOLVIMENTO (V54 MVP)**
+> O projeto está em transição para uma nova arquitetura (V54-only).
+> A versão antiga (V53) agora é considerada um **protótipo legado/deprecated** e não deve receber novas features.
+> Branch atual de trabalho: `feat/v54-production-readiness`
+> Não use este README antigo como guia de arquitetura.
 
-- **Lançamento por linguagem natural** — "52 ifood luana cartão" → registra automaticamente
-- **Parse inteligente** — GPT classifica categoria, pagador e fonte de pagamento
-- **Dashboard em tempo real** — planejado vs realizado por categoria
-- **Acerto do casal** — calcula quanto a Luana transfere pro Gustavo
-- **Comandos rápidos** — `/resumo`, `/saldo`, `/hoje`, `/desfazer`, `/transferir`
+## Documentação Autoritativa (Para IAs e Devs)
+Antes de iniciar qualquer tarefa, o ponto de partida central para a leitura da documentação é:
+1. `docs/V54_DOCS_INDEX.md`
+
+## Funcionalidades (Visão Geral)
+- **Lançamento por linguagem natural** — "52 ifood luana cartão"
+- **Parse inteligente** — OpenAI GPT classifica dados
+- **Dashboard** — acompanhamento de categorias e faturas
+- **Acerto do casal** — cálculo proporcional
 
 ## Stack
-
-- **Runtime**: Google Apps Script (serverless)
+- **Runtime**: Google Apps Script (Node.js tooling local via `clasp`)
 - **AI**: OpenAI GPT (structured output)
 - **Interface**: Telegram Bot API (webhook)
-- **Dados**: Google Sheets (planilha)
-- **Tooling local**: Node.js + clasp (push/pull via terminal)
+- **Dados**: Google Sheets
 
-## Setup (primeira vez)
-
-### 1. Pré-requisitos
-- [Node.js](https://nodejs.org) instalado
-- Projeto Google Apps Script criado (anote o `scriptId`)
-
-### 2. Instalar e autenticar
-```bash
-npm install
-npx clasp login
-cp .clasp.json.template .clasp.json
-# edite .clasp.json e coloque o scriptId real
-```
-
-### 3. Configurar segredos
-No Apps Script Editor: **Project Settings → Script Properties → Add property**
-
-| Chave | Valor |
-|-------|-------|
-| `OPENAI_API_KEY` | chave da OpenAI |
-| `TELEGRAM_TOKEN` | token do BotFather |
-| `SPREADSHEET_ID` | ID da planilha Google Sheets |
-| `AUTHORIZED` | JSON: `{"CHAT_ID_G":{"nome":"Gustavo","pagador":"Gustavo"},"CHAT_ID_L":{"nome":"Luana","pagador":"Luana"}}` |
-
-> Para descobrir seu chat ID do Telegram: mande uma mensagem para [@userinfobot](https://t.me/userinfobot).
-
-### 4. Deploy
-```bash
-npm run push
-```
-1. No Apps Script Editor: **Deploy → New deployment → Web App**
-2. Execute `apontarWebhookProValTown()` uma vez no Editor
-
-## Fluxo do dia a dia
-
-```
-editar Code.js → git commit → npm run push
-```
-
-| Comando | O que faz |
-|---------|-----------|
-| `npm run push` | Envia `Code.js` para o Apps Script |
-| `npm run pull` | Baixa versão atual do Apps Script |
-| `npm run logs` | Stream de logs em tempo real |
-| `npm run open` | Abre o projeto no Apps Script Editor |
-
-## Estrutura
-
-```
-Code.js                  — Código do bot (sem chaves, versionado)
-appsscript.json          — Manifesto do Apps Script
-package.json             — Scripts npm (push/pull/logs/open)
-.clasp.json.template     — Template para criar .clasp.json local
-.claspignore             — Quais arquivos o clasp envia
-orcamento_casal_v2.xlsx  — Planilha modelo
-```
+## Estrutura Atual
+O código-fonte principal fica na pasta `src/`:
+- `src/Main.js` — Entrypoints e roteamento
+- `src/ActionsV54.js` / `src/Actions.js` — Lógicas de escrita (V54 vs Legacy)
+- `src/Parser.js` — Parser LLM
+- `src/Setup.js` / `src/SetupLegacy.js` — Scripts de setup
+- `scripts/` — Testes locais e scripts utilitários (ex: verificação de schema V54)
 
 ## ⚠️ Segurança
-
-- Segredos ficam no **Script Properties** do Apps Script, nunca no código
-- `.clasp.json` (com o `scriptId`) está no `.gitignore` — crie a partir do `.template`
+- Segredos ficam no **Script Properties** do Apps Script, nunca no código.
+- Nenhuma mutação de produção (V54) deve ser feita sem verificação de segurança (`LockService`, webhooks protegidos).

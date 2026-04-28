@@ -1,0 +1,28 @@
+name: V54 Safety
+
+on:
+  pull_request:
+  push:
+    branches:
+      - feat/v54-production-readiness
+
+permissions:
+  contents: read
+
+jobs:
+  local-fake-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies (lockfile present)
+        run: npm ci
+
+      - name: Run all V54 tests (Local/Fake-First)
+        run: npm run test:v54:all
