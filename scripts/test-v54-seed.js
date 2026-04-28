@@ -5,8 +5,11 @@ const vm = require('vm');
 
 const setupPath = path.join(__dirname, '..', 'src', 'Setup.js');
 const mainPath = path.join(__dirname, '..', 'src', 'Main.js');
+const schemaPath = path.join(__dirname, '..', 'src', '000_V54Schema.js');
 const setupSource = fs.readFileSync(setupPath, 'utf8');
 const mainSource = fs.readFileSync(mainPath, 'utf8');
+const schemaSource = fs.readFileSync(schemaPath, 'utf8');
+const setupRuntimeSource = `${schemaSource}\n${setupSource}`;
 
 const { V54_HEADERS } = require('./lib/v54-schema');
 const { V54_SEED_DATA, V54_SEED_KEY_FIELDS, validateV54SeedData } = require('./lib/v54-seed');
@@ -52,7 +55,6 @@ function loadSeedFunctions(stubs) {
     }, stubs || {});
 
     const functions = [
-        'getV54Schema',
         'getV54SeedData',
         'getV54SeedKeyFields_',
         'normalizeV54SeedValue_',
@@ -62,9 +64,9 @@ function loadSeedFunctions(stubs) {
         'planSeedV54ForState',
         'readV54SeedState_',
         'applySeedV54',
-    ].map((name) => extractFunction(setupSource, name)).join('\n');
+    ].map((name) => extractFunction(setupRuntimeSource, name)).join('\n');
 
-    vm.runInNewContext(`${functions}\nresult = { getV54Schema, getV54SeedData, planSeedV54ForState, applySeedV54 };`, sandbox);
+    vm.runInNewContext(`${schemaSource}\n${functions}\nresult = { getV54Schema, getV54SeedData, planSeedV54ForState, applySeedV54 };`, sandbox);
     return sandbox.result;
 }
 

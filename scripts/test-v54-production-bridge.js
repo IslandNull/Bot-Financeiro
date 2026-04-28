@@ -97,6 +97,19 @@ failed += test('bridge_returns_fetchJson_wrapper_that_uses_injected_urlfetch_onl
     assert.strictEqual(calls.fetch, 1);
 });
 
+failed += test('v54_primary_card_context_failure_fails_closed_without_empty_array_fallback', () => {
+    const { api } = loadBridge({
+        getParserContextV54: () => ({ ok: false, context: null, errors: [{ code: 'PARSER_CONTEXT_HEADER_MISMATCH' }] }),
+    });
+    const result = api.buildV54ProductionBridgeDeps_({ mode: 'V54_PRIMARY' }, {});
+    assert.strictEqual(result.ok, true);
+    assert.throws(
+        () => result.deps.recordOptions.getCardsV54(),
+        /card context failed safely/,
+        'V54_PRIMARY must not silently continue with [] when card context cannot be read',
+    );
+});
+
 failed += test('redaction_hides_sensitive_fields', () => {
     const { api } = loadBridge();
     const redacted = api.redactV54ProductionBridgeObject_({

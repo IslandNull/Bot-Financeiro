@@ -9,7 +9,9 @@ const { V54_HEADERS, V54_SHEETS } = require('./lib/v54-schema');
 const { IDEMPOTENCY_STATUSES } = require('./lib/v54-idempotency-contract');
 const { applyReviewedIdempotencyRecovery } = require('./lib/v54-idempotency-recovery-executor');
 
+const schemaSource = fs.readFileSync(path.join(__dirname, '..', 'src', '000_V54Schema.js'), 'utf8');
 const actionsSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'ActionsV54.js'), 'utf8');
+const actionsHelpersSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'ActionsV54Helpers.js'), 'utf8');
 const recoveryAdapterPath = path.join(__dirname, '..', 'src', 'ActionsV54Recovery.js');
 const recoveryAdapterSource = fs.readFileSync(recoveryAdapterPath, 'utf8');
 const mainSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'Main.js'), 'utf8');
@@ -29,7 +31,7 @@ function loadRecoveryAdapter() {
     const sandbox = { console, Date, Math, JSON, Number, String, Boolean, Object, Array, RegExp };
     vm.createContext(sandbox);
     vm.runInContext(
-        `${actionsSource}\n${recoveryAdapterSource}\nresult = { applyReviewedIdempotencyRecoveryV54 };`,
+        `${schemaSource}\n${actionsSource}\n${actionsHelpersSource}\n${recoveryAdapterSource}\nresult = { applyReviewedIdempotencyRecoveryV54 };`,
         sandbox,
     );
     return sandbox.result;

@@ -715,3 +715,18 @@ Rejected:
 - Retrying Telegram sends automatically from the V54_PRIMARY path.
 - Falling back to V53 when Telegram notification sending fails.
 - Storing raw secrets or unbounded message text in the sheet log.
+
+## D053 - V54 Apps Script Schema Mirror
+Status: Accepted
+Date: 2026-04-28
+
+Decision:
+Keep `scripts/lib/v54-schema.js` as the Node/local schema authority and use `src/000_V54Schema.js` as the single Apps Script runtime mirror while the project has no bundler. Apps Script modules must consume this mirror instead of maintaining independent header arrays in Setup, Actions, ParserContext, RealManualPolicy, or Telegram send observability.
+
+Reason:
+Google Apps Script does not consume the Node/CommonJS schema file directly in the current setup. A single runtime mirror reduces header drift without introducing a bundler or changing sheet names, headers, extra-column policy, or financial behavior.
+
+Rejected:
+- Duplicating V54 headers independently in each Apps Script module.
+- Introducing a bundler in this refactor.
+- Changing V54 sheet/header contracts as part of the mirror cleanup.

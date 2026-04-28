@@ -4,23 +4,26 @@ const path = require('path');
 const vm = require('vm');
 
 const setupPath = path.join(__dirname, '..', 'src', 'Setup.js');
+const schemaPath = path.join(__dirname, '..', 'src', '000_V54Schema.js');
 const source = fs.readFileSync(setupPath, 'utf8');
+const schemaSource = fs.readFileSync(schemaPath, 'utf8');
+const combinedSource = `${schemaSource}\n${source}`;
 const { V54_HEADERS } = require('./lib/v54-schema');
 
 function extractFunction(name) {
-    const start = source.indexOf(`function ${name}(`);
+    const start = combinedSource.indexOf(`function ${name}(`);
     if (start === -1) throw new Error(`Function not found: ${name}`);
 
     let depth = 0;
     let seenBody = false;
-    for (let i = start; i < source.length; i++) {
-        if (source[i] === '{') {
+    for (let i = start; i < combinedSource.length; i++) {
+        if (combinedSource[i] === '{') {
             depth++;
             seenBody = true;
         }
-        if (source[i] === '}') {
+        if (combinedSource[i] === '}') {
             depth--;
-            if (seenBody && depth === 0) return source.slice(start, i + 1);
+            if (seenBody && depth === 0) return combinedSource.slice(start, i + 1);
         }
     }
     throw new Error(`Could not parse function body: ${name}`);
@@ -42,11 +45,10 @@ function loadPlanningFunctions() {
     const functions = [
         'isBlankHeaderRow_',
         'hasExistingDataRows_',
-        'getV54Schema',
         'planSetupV54ForState',
     ].map(extractFunction).join('\n');
 
-    vm.runInNewContext(`${functions}\nresult = { getV54Schema, planSetupV54ForState };`, sandbox);
+    vm.runInNewContext(`${schemaSource}\n${functions}\nresult = { getV54Schema, planSetupV54ForState };`, sandbox);
     return sandbox.result;
 }
 
@@ -55,14 +57,13 @@ function loadApplyFunctions(stubs) {
     const functions = [
         'isBlankHeaderRow_',
         'hasExistingDataRows_',
-        'getV54Schema',
         'planSetupV54ForState',
         'readV54SetupState_',
         'writeV54Headers_',
         'applySetupV54',
     ].map(extractFunction).join('\n');
 
-    vm.runInNewContext(`${functions}\nresult = { getV54Schema, applySetupV54 };`, sandbox);
+    vm.runInNewContext(`${schemaSource}\n${functions}\nresult = { getV54Schema, applySetupV54 };`, sandbox);
     return sandbox.result;
 }
 
@@ -142,7 +143,7 @@ let failed = 0;
 failed += test('planSetupV54_exists', () => {
     assert.ok(source.includes('function planSetupV54()'));
     assert.ok(source.includes('function planSetupV54ForState(state)'));
-    assert.ok(source.includes('function getV54Schema()'));
+    assert.ok(schemaSource.includes('function getV54Schema()'));
     assert.ok(source.includes('function isBlankHeaderRow_(headers)'));
     assert.ok(source.includes('function hasExistingDataRows_(sheetState)'));
     assert.ok(source.includes('function readV54SetupState_(ss, schema)'));
@@ -174,17 +175,16 @@ failed += test('planSetupV54_does_not_call_mutating_sheet_apis', () => {
 });
 
 failed += test('planSetupV54_schema_contains_key_decisions', () => {
-    const body = extractFunction('getV54Schema');
-    assert.ok(body.includes("Config_Categorias: ['id_categoria', 'nome', 'grupo', 'tipo_movimento', 'classe_dre', 'escopo', 'comportamento_orcamento', 'afeta_acerto', 'afeta_dre', 'visibilidade_padrao', 'ativo']"));
-    assert.ok(body.includes("Config_Fontes: ['id_fonte', 'nome', 'tipo', 'titular', 'ativo']"));
-    assert.ok(body.includes("Cartoes: ['id_cartao', 'id_fonte', 'nome', 'titular', 'fechamento_dia', 'vencimento_dia', 'limite', 'ativo']"));
-    assert.ok(body.includes("Pagamentos_Fatura: ['id_pagamento', 'id_fatura'"));
-    assert.ok(body.includes("Idempotency_Log: ['idempotency_key', 'source'"));
-    assert.ok(body.includes("Telegram_Send_Log: ['id_notificacao', 'created_at', 'route', 'chat_id', 'phase', 'status', 'status_code', 'error', 'result_ref', 'id_lancamento', 'idempotency_key', 'text_preview', 'sent_at']"));
-    assert.ok(body.includes("Parcelas_Agenda: ['id_parcela', 'id_compra'"));
-    assert.ok(body.includes("Lancamentos_V54: ['id_lancamento', 'data', 'competencia', 'tipo_evento', 'id_categoria', 'valor', 'id_fonte', 'pessoa', 'escopo', 'id_cartao', 'id_fatura', 'id_compra', 'id_parcela', 'afeta_dre', 'afeta_acerto', 'afeta_patrimonio', 'visibilidade'"));
-    assert.ok(body.includes("Dividas: ['id_divida', 'nome', 'credor'"));
-    assert.ok(body.includes("Fechamentos_Mensais: ['competencia', 'status', 'receitas_operacionais'"));
+    assert.ok(schemaSource.includes("Config_Categorias: ['id_categoria', 'nome', 'grupo', 'tipo_movimento', 'classe_dre', 'escopo', 'comportamento_orcamento', 'afeta_acerto', 'afeta_dre', 'visibilidade_padrao', 'ativo']"));
+    assert.ok(schemaSource.includes("Config_Fontes: ['id_fonte', 'nome', 'tipo', 'titular', 'ativo']"));
+    assert.ok(schemaSource.includes("Cartoes: ['id_cartao', 'id_fonte', 'nome', 'titular', 'fechamento_dia', 'vencimento_dia', 'limite', 'ativo']"));
+    assert.ok(schemaSource.includes("Pagamentos_Fatura: ['id_pagamento', 'id_fatura'"));
+    assert.ok(schemaSource.includes("Idempotency_Log: ['idempotency_key', 'source'"));
+    assert.ok(schemaSource.includes("Telegram_Send_Log: ['id_notificacao', 'created_at', 'route', 'chat_id', 'phase', 'status', 'status_code', 'error', 'result_ref', 'id_lancamento', 'idempotency_key', 'text_preview', 'sent_at']"));
+    assert.ok(schemaSource.includes("Parcelas_Agenda: ['id_parcela', 'id_compra'"));
+    assert.ok(schemaSource.includes("Lancamentos_V54: ['id_lancamento', 'data', 'competencia', 'tipo_evento', 'id_categoria', 'valor', 'id_fonte', 'pessoa', 'escopo', 'id_cartao', 'id_fatura', 'id_compra', 'id_parcela', 'afeta_dre', 'afeta_acerto', 'afeta_patrimonio', 'visibilidade'"));
+    assert.ok(schemaSource.includes("Dividas: ['id_divida', 'nome', 'credor'"));
+    assert.ok(schemaSource.includes("Fechamentos_Mensais: ['competencia', 'status', 'receitas_operacionais'"));
 });
 
 failed += test('planSetupV54_schema_matches_local_v54_headers_exactly', () => {

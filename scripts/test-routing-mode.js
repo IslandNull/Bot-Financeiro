@@ -3,7 +3,12 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'Main.js'), 'utf8');
+const runtimeSources = [
+    'src/000_V54Schema.js',
+    'src/Main.js',
+    'src/TelegramNotification.js',
+    'src/TelegramSendLogV54.js',
+].map((file) => fs.readFileSync(path.join(__dirname, '..', file), 'utf8')).join('\n\n');
 
 function test(name, fn) {
     try {
@@ -82,7 +87,7 @@ function makeContext(overrides) {
 
     Object.assign(sandbox, overrides || {});
     const context = vm.createContext(sandbox);
-    vm.runInContext(main, context);
+    vm.runInContext(runtimeSources, context);
 
     return {
         context,

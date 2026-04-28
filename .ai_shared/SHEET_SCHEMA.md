@@ -18,8 +18,10 @@ VERIFIED current standard:
 
 ## 2. V54 Schema Authority
 The source of truth for the V54 schema is:
-- `scripts/lib/v54-schema.js`
-- `src/Setup.js` mirror
+- `scripts/lib/v54-schema.js` as the Node/local authority
+- `src/000_V54Schema.js` as the single Apps Script runtime mirror
+
+`src/Setup.js`, `src/ActionsV54.js`, `src/ParserV54Context.js`, `src/RunnerV54RealManualPolicy.js`, and `src/TelegramSendLogV54.js` consume the Apps Script mirror instead of maintaining separate header copies.
 
 ### V54 Real Sheets
 As of the snapshot generated at `2026-04-26 16:24:28`, the real spreadsheet contains V54 sheets through `Idempotency_Log` with header rows matching the schema from that time. VERIFIED in code on 2026-04-28: local schema/setup now also includes `Telegram_Send_Log`, but this has not been verified in the real spreadsheet because setup/sync/deploy were intentionally not run in this phase.

@@ -9,6 +9,7 @@ const { V54_HEADERS, V54_SHEETS } = require('./lib/v54-schema');
 const { validateV54RealManualEvidenceEnvelope } = require('./lib/v54-real-manual-evidence-contract');
 
 const root = path.join(__dirname, '..');
+const schemaSource = fs.readFileSync(path.join(root, 'src', '000_V54Schema.js'), 'utf8');
 const policySource = fs.readFileSync(path.join(root, 'src', 'RunnerV54RealManualPolicy.js'), 'utf8');
 const gateSource = fs.readFileSync(path.join(root, 'src', 'RunnerV54Gate.js'), 'utf8');
 const mainSource = fs.readFileSync(path.join(root, 'src', 'Main.js'), 'utf8');
@@ -27,14 +28,14 @@ function test(name, fn) {
 function loadPolicy(extraSandbox) {
     const sandbox = Object.assign({ console, Date, JSON, String, Object, Array }, extraSandbox || {});
     vm.createContext(sandbox);
-    vm.runInContext(`${policySource}\nresult = { evaluateV54RealManualPolicy, evaluateRunnerV54RealManualPolicy, V54_REAL_MANUAL_REQUIRED_SHEETS, V54_REAL_MANUAL_HEADERS };`, sandbox);
+    vm.runInContext(`${schemaSource}\n${policySource}\nresult = { evaluateV54RealManualPolicy, evaluateRunnerV54RealManualPolicy, V54_REAL_MANUAL_REQUIRED_SHEETS, V54_REAL_MANUAL_HEADERS };`, sandbox);
     return sandbox.result;
 }
 
 function loadGateWithPolicy(extraSandbox) {
     const sandbox = Object.assign({ console, Date, Math, JSON, Number, String, Boolean, Object, Array, RegExp }, extraSandbox || {});
     vm.createContext(sandbox);
-    vm.runInContext(`${policySource}\n${gateSource}\nresult = { invokeV54ManualShadowGate, evaluateRunnerV54RealManualPolicy, V54_REAL_MANUAL_REQUIRED_SHEETS, V54_REAL_MANUAL_HEADERS };`, sandbox);
+    vm.runInContext(`${schemaSource}\n${policySource}\n${gateSource}\nresult = { invokeV54ManualShadowGate, evaluateRunnerV54RealManualPolicy, V54_REAL_MANUAL_REQUIRED_SHEETS, V54_REAL_MANUAL_HEADERS };`, sandbox);
     return sandbox.result;
 }
 

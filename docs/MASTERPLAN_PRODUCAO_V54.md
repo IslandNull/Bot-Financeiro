@@ -1,7 +1,7 @@
 # MASTERPLAN PRODUCAO V54
 
-Last updated: 2026-04-27
-Branch: feat/v54-production-readiness
+Last updated: 2026-04-28
+Branch: main
 Status: MVP V54-only plan
 Planning premise: V54 is the target product. V53 is a deprecated historical prototype, not a mandatory production fallback.
 
@@ -15,11 +15,11 @@ VERIFIED: The repo still contains V53-era code, sheets, tests, and routing helpe
 
 VERIFIED: V54 sheets, headers, and clean seed/config data exist in the real spreadsheet snapshot according to `.ai_shared/ACTIVE_CONTEXT.md` and `.ai_shared/SPREADSHEET_STATE.md`.
 
-VERIFIED: V54 local/fake-first work exists for schema, seed, setup planner, parser contract, mapper, ActionsV54, reporting contracts, card cycle, single card purchase, and installment scheduling.
+VERIFIED: V54 local/fake-first work exists for schema, seed, setup planner, parser contract, mapper, ActionsV54, reporting contracts, card cycle, single card purchase, installment scheduling, idempotency, controlled production bridge, and Telegram send observability.
 
-VERIFIED: V54 is not wired end-to-end into Telegram routing yet. `recordEntryV54()` remains isolated from `doPost`, `Parser.js`, `Actions.js`, `Commands.js`, and Telegram production behavior.
+VERIFIED: `doPost` has controlled V54 routing through `V54_ROUTING_MODE`: default/missing/invalid use `V53_CURRENT`, `V54_SHADOW` keeps V53 user-facing and runs V54 no-write diagnostics, and `V54_PRIMARY` reaches V54 without automatic mutating fallback to V53. Real deploy/setup/sync/Telegram/OpenAI execution remains UNVERIFIED in this task.
 
-TODO: Build the MVP directly as V54-only instead of preserving V53 as a runtime fallback.
+TODO: Complete reviewed operational activation for V54 primary and keep rollback by removing or resetting `V54_ROUTING_MODE`.
 
 TODO: Treat V53 cleanup as technical-debt removal, not as a production cutover/sunset program.
 
@@ -50,10 +50,10 @@ Non-goals for MVP:
 
 | Area | State |
 |---|---|
-| Repository | VERIFIED: branch `feat/v54-production-readiness`; working tree clean at startup on 2026-04-27. |
+| Repository | VERIFIED: branch `main`; working tree was clean at startup on 2026-04-28 before this refactor. |
 | Package scripts | VERIFIED: local scripts exist for V53 and V54 tests. V53 scripts are legacy/deprecated under the new premise. |
 | Formula standard | VERIFIED: use `range.setFormula()` with English function names and semicolon separators. |
-| V54 schema | VERIFIED: `scripts/lib/v54-schema.js` declares 14 V54 sheets. |
+| V54 schema | VERIFIED: `scripts/lib/v54-schema.js` remains Node authority and `src/000_V54Schema.js` is the Apps Script mirror. |
 | Real V54 sheets | VERIFIED: V54 sheets and headers exist in the real spreadsheet snapshot. |
 | V54 seed | VERIFIED: clean seed/config data exists for categories, sources, incomes, cards, assets, debts, and future home forecast. |
 | V54 setup/seed | VERIFIED: dry-run-first, additive, lock-protected setup/seed mechanisms exist. Do not rerun without explicit task approval. |
@@ -61,11 +61,11 @@ Non-goals for MVP:
 | Mutating GET | VERIFIED: known mutating GET actions are blocked locally. |
 | Locking | VERIFIED: `withScriptLock()` exists and local tests cover current guarded write paths. |
 | V54 parser | VERIFIED: ParserV54 is local-only and contract-based; it does not call OpenAI. |
-| V54 actions | VERIFIED: `src/ActionsV54.js` supports fake-first writes for simple events, card purchase, and installment schedule. |
+| V54 actions | VERIFIED: `src/ActionsV54.js` supports fake-first writes for simple events, card purchase, and installment schedule; pure helpers live in `src/ActionsV54Helpers.js`. |
 | Faturas | VERIFIED: schema exists. TODO: production lifecycle is not implemented. |
 | Pagamentos_Fatura | VERIFIED: schema exists. TODO: `pagamento_fatura` remains unsupported in `ActionsV54`. |
 | Reporting | VERIFIED: local deterministic reporting contracts exist. TODO: not wired into Telegram/views. |
-| Telegram V54 | TODO: V54 Telegram end-to-end is not implemented or verified. |
+| Telegram V54 | VERIFIED local/fake-first: controlled routing and send logging exist. UNVERIFIED: real Telegram/OpenAI/Spreadsheet E2E activation. |
 | Production negative webhook tests | TODO: missing against real endpoint. |
 
 ## 4. Accepted Direction

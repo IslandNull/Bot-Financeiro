@@ -11,36 +11,9 @@ var V54_PARSER_CONTEXT_SHEETS = {
 };
 
 var V54_PARSER_CONTEXT_HEADERS = {
-    Config_Categorias: [
-        'id_categoria',
-        'nome',
-        'grupo',
-        'tipo_movimento',
-        'classe_dre',
-        'escopo',
-        'comportamento_orcamento',
-        'afeta_acerto',
-        'afeta_dre',
-        'visibilidade_padrao',
-        'ativo',
-    ],
-    Config_Fontes: [
-        'id_fonte',
-        'nome',
-        'tipo',
-        'titular',
-        'ativo',
-    ],
-    Cartoes: [
-        'id_cartao',
-        'id_fonte',
-        'nome',
-        'titular',
-        'fechamento_dia',
-        'vencimento_dia',
-        'limite',
-        'ativo',
-    ],
+    Config_Categorias: getV54Headers('Config_Categorias'),
+    Config_Fontes: getV54Headers('Config_Fontes'),
+    Cartoes: getV54Headers('Cartoes'),
 };
 
 var V54_PARSER_CONTEXT_SAFE_FIELDS = {

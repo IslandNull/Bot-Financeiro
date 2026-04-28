@@ -9,9 +9,11 @@ const { validateParsedEntryV54 } = require('./lib/v54-parsed-entry-contract');
 const { V54_HEADERS, V54_SHEETS } = require('./lib/v54-schema');
 
 const root = path.join(__dirname, '..');
+const schemaSource = fs.readFileSync(path.join(root, 'src', '000_V54Schema.js'), 'utf8');
 const contextSource = fs.readFileSync(path.join(root, 'src', 'ParserV54Context.js'), 'utf8');
 const openAiSource = fs.readFileSync(path.join(root, 'src', 'ParserV54OpenAI.js'), 'utf8');
 const actionsSource = fs.readFileSync(path.join(root, 'src', 'ActionsV54.js'), 'utf8');
+const actionsHelpersSource = fs.readFileSync(path.join(root, 'src', 'ActionsV54Helpers.js'), 'utf8');
 const parserSource = fs.readFileSync(path.join(root, 'src', 'ParserV54.js'), 'utf8');
 const viewsSource = fs.readFileSync(path.join(root, 'src', 'ViewsV54.js'), 'utf8');
 const handlerSource = fs.readFileSync(path.join(root, 'src', 'HandlerV54.js'), 'utf8');
@@ -43,7 +45,7 @@ function loadContext(extraSandbox) {
     }, extraSandbox || {});
     vm.createContext(sandbox);
     vm.runInContext(
-        `${contextSource}\nresult = { getParserContextV54, V54_PARSER_CONTEXT_HEADERS };`,
+        `${schemaSource}\n${contextSource}\nresult = { getParserContextV54, V54_PARSER_CONTEXT_HEADERS };`,
         sandbox,
     );
     return sandbox.result;
@@ -64,7 +66,7 @@ function loadOpenAiWithContext(extraSandbox) {
     }, extraSandbox || {});
     vm.createContext(sandbox);
     vm.runInContext(
-        `${contextSource}\n${openAiSource}\nresult = { parseTextV54OpenAI, getParserContextV54 };`,
+        `${schemaSource}\n${contextSource}\n${openAiSource}\nresult = { parseTextV54OpenAI, getParserContextV54 };`,
         sandbox,
     );
     return sandbox.result;
@@ -74,7 +76,7 @@ function loadHandler() {
     const sandbox = { console, Date, Math, JSON, Number, String, Boolean, Object, Array, RegExp };
     vm.createContext(sandbox);
     vm.runInContext(
-        `${actionsSource}\n${parserSource}\n${viewsSource}\n${handlerSource}\nresult = { handleTelegramUpdateV54 };`,
+        `${schemaSource}\n${actionsSource}\n${actionsHelpersSource}\n${parserSource}\n${viewsSource}\n${handlerSource}\nresult = { handleTelegramUpdateV54 };`,
         sandbox,
     );
     return sandbox.result;

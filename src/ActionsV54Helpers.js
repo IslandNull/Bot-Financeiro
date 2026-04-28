@@ -1,0 +1,365 @@
+// ============================================================
+// ACTIONS V54 HELPERS
+// Pure validation, mapping, and result-shaping helpers for ActionsV54.
+// ============================================================
+
+function normalizeCardPurchaseContractResult_(result) {
+    if (!result || typeof result !== 'object') {
+        return {
+            ok: false,
+            mapped: {
+                ok: false,
+                errors: [makeV54ContractError_('CARD_CONTRACT_INVALID_RESULT', 'result', 'Card purchase contract returned an invalid result.')],
+                rowObject: null,
+                rowValues: [],
+            },
+            cycle: null,
+        };
+    }
+
+    var mapped = result.mapped && typeof result.mapped === 'object'
+        ? result.mapped
+        : {
+            ok: false,
+            errors: [makeV54ContractError_('CARD_CONTRACT_MAPPED_MISSING', 'mapped', 'Card purchase contract did not return mapped payload.')],
+            rowObject: null,
+            rowValues: [],
+        };
+
+    if (result.ok !== true || mapped.ok !== true) {
+        var normalizedErrors = [];
+
+        if (Array.isArray(result.errors) && result.errors.length > 0) {
+            normalizedErrors = normalizedErrors.concat(result.errors);
+        }
+
+        if (Array.isArray(mapped.errors) && mapped.errors.length > 0) {
+            normalizedErrors = normalizedErrors.concat(mapped.errors);
+        }
+
+        if (normalizedErrors.length === 0) {
+            normalizedErrors.push(makeV54ContractError_('CARD_CONTRACT_REJECTED', 'compra_cartao', 'Card purchase contract rejected the entry.'));
+        }
+
+        mapped.ok = false;
+        mapped.errors = normalizedErrors;
+        mapped.rowObject = mapped.rowObject || null;
+        mapped.rowValues = Array.isArray(mapped.rowValues) ? mapped.rowValues : [];
+
+        return {
+            ok: false,
+            mapped: mapped,
+            cycle: result.cycle || null,
+        };
+    }
+
+    mapped.errors = Array.isArray(mapped.errors) ? mapped.errors : [];
+    mapped.rowValues = Array.isArray(mapped.rowValues) ? mapped.rowValues : [];
+
+    return {
+        ok: true,
+        mapped: mapped,
+        cycle: result.cycle || null,
+    };
+}
+
+function validateLancamentosV54SheetHeaders_(sheet) {
+    return validateSheetHeaders_(sheet, V54_LANCAMENTOS_HEADERS, V54_LANCAMENTOS_SHEET);
+}
+
+function validateSheetHeaders_(sheet, expectedHeaders, sheetName) {
+    var headers = sheet.getRange(1, 1, 1, expectedHeaders.length).getValues()[0];
+    for (var i = 0; i < expectedHeaders.length; i++) {
+        if (headers[i] !== expectedHeaders[i]) {
+            return {
+                ok: false,
+                code: 'HEADER_MISMATCH',
+                field: sheetName,
+                message: sheetName + ' headers do not match the V54 schema.',
+            };
+        }
+    }
+    return { ok: true };
+}
+
+function mapParsedEntryToLancamentoV54_(input, options) {
+    var validation = validateParsedEntryV54ForActions_(input);
+    if (!validation.ok) {
+        return {
+            ok: false,
+            errors: validation.errors,
+            validation: validation,
+            headers: getLancamentosV54Headers_(),
+            rowObject: null,
+            rowValues: [],
+        };
+    }
+
+    var deps = options || {};
+    var entry = validation.normalized;
+    var rowObject = {
+        id_lancamento: deps.makeId(entry),
+        data: entry.data,
+        competencia: entry.competencia,
+        tipo_evento: entry.tipo_evento,
+        id_categoria: optionalV54String_(entry.id_categoria),
+        valor: entry.valor,
+        id_fonte: optionalV54String_(entry.id_fonte),
+        pessoa: entry.pessoa,
+        escopo: entry.escopo,
+        id_cartao: optionalV54String_(entry.id_cartao),
+        id_fatura: optionalV54String_(entry.id_fatura),
+        id_compra: optionalV54String_(entry.id_compra),
+        id_parcela: optionalV54String_(entry.id_parcela),
+        afeta_dre: entry.afeta_dre,
+        afeta_acerto: entry.afeta_acerto,
+        afeta_patrimonio: entry.afeta_patrimonio,
+        visibilidade: entry.visibilidade,
+        descricao: entry.descricao,
+        created_at: deps.now(),
+    };
+    var headers = getLancamentosV54Headers_();
+    var rowValues = headers.map(function(header) {
+        return rowObject[header] === undefined || rowObject[header] === null ? '' : rowObject[header];
+    });
+
+    return {
+        ok: rowValues.length === headers.length,
+        errors: rowValues.length === headers.length ? [] : [makeV54ContractError_('ROW_WIDTH_MISMATCH', 'rowValues', 'Lancamentos_V54 row width mismatch.')],
+        validation: validation,
+        headers: headers,
+        rowObject: rowObject,
+        rowValues: rowValues,
+    };
+}
+
+function getLancamentosV54Headers_() {
+    return V54_LANCAMENTOS_HEADERS.slice();
+}
+
+function makeDefaultLancamentoV54Id_(entry) {
+    var randomPart = Math.floor(Math.random() * 1000000000).toString(36).toUpperCase();
+    var stamp = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 17);
+    return 'LAN_V54_' + String(entry.tipo_evento || 'entry').toUpperCase() + '_' + stamp + '_' + randomPart;
+}
+
+function makeDefaultCompraV54Id_(entry) {
+    var stamp = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 17);
+    var randomPart = Math.floor(Math.random() * 1000000000).toString(36).toUpperCase();
+    var card = String(entry && entry.id_cartao ? entry.id_cartao : 'CARD').replace(/[^A-Z0-9_]/gi, '').toUpperCase();
+    return 'CP_V54_' + (card || 'CARD') + '_' + stamp + '_' + randomPart;
+}
+
+function validateParsedEntryV54ForActions_(input) {
+    var errors = [];
+    var normalized = {};
+
+    if (!input || typeof input !== 'object' || Array.isArray(input)) {
+        return {
+            ok: false,
+            errors: [makeV54ContractError_('ENTRY_NOT_OBJECT', 'entry', 'ParsedEntryV54 must be an object.')],
+            normalized: normalized,
+        };
+    }
+
+    Object.keys(input).forEach(function(field) {
+        if (V54_ALLOWED_FIELDS.indexOf(field) === -1) {
+            errors.push(makeV54ContractError_('UNKNOWN_FIELD', field, 'Unknown ParsedEntryV54 field: ' + field));
+        }
+    });
+
+    normalizeV54StringField_(input, normalized, errors, 'tipo_evento', { required: true, allowed: V54_ALLOWED_TIPO_EVENTO });
+    normalizeV54StringField_(input, normalized, errors, 'data', { required: true, pattern: /^\d{4}-\d{2}-\d{2}$/ });
+    normalizeV54StringField_(input, normalized, errors, 'competencia', { required: true, pattern: /^\d{4}-\d{2}$/ });
+    normalizeV54StringField_(input, normalized, errors, 'descricao', { required: true });
+    normalizeV54StringField_(input, normalized, errors, 'pessoa', { required: true, allowed: V54_ALLOWED_PESSOA });
+    normalizeV54StringField_(input, normalized, errors, 'escopo', { required: true, allowed: V54_ALLOWED_ESCOPO });
+    normalizeV54StringField_(input, normalized, errors, 'visibilidade', { required: true, allowed: V54_ALLOWED_VISIBILIDADE });
+
+    ['id_categoria', 'id_fonte', 'id_cartao', 'id_fatura', 'id_compra', 'id_parcela', 'raw_text'].forEach(function(field) {
+        normalizeV54StringField_(input, normalized, errors, field, { required: false });
+    });
+
+    normalizeV54PositiveNumberField_(input, normalized, errors, 'valor', { required: true });
+    ['afeta_dre', 'afeta_acerto', 'afeta_patrimonio'].forEach(function(field) {
+        normalizeV54BooleanField_(input, normalized, errors, field, { required: true });
+    });
+    validateV54EventRules_(normalized, errors);
+
+    return {
+        ok: errors.length === 0,
+        errors: errors,
+        normalized: normalized,
+    };
+}
+
+function validateV54EventRules_(normalized, errors) {
+    var tipo = normalized.tipo_evento;
+    if (!tipo) return;
+
+    if (normalized.afeta_dre === true && !normalized.id_categoria) {
+        errors.push(makeV54ContractError_('REQUIRED_FOR_DRE', 'id_categoria', 'id_categoria is required when afeta_dre is true.'));
+    }
+
+    if (['despesa', 'receita', 'divida_pagamento'].indexOf(tipo) !== -1 && !normalized.id_categoria) {
+        errors.push(makeV54ContractError_('REQUIRED_FOR_EVENT', 'id_categoria', 'id_categoria is required for ' + tipo + '.'));
+    }
+
+    if (['despesa', 'receita', 'transferencia', 'aporte', 'pagamento_fatura', 'divida_pagamento'].indexOf(tipo) !== -1 && !normalized.id_fonte) {
+        errors.push(makeV54ContractError_('REQUIRED_FOR_EVENT', 'id_fonte', 'id_fonte is required for ' + tipo + '.'));
+    }
+
+    if (tipo === 'transferencia' || tipo === 'aporte') {
+        if (normalized.afeta_dre !== false) {
+            errors.push(makeV54ContractError_('INVALID_DRE_FLAG', 'afeta_dre', tipo + ' must not affect DRE.'));
+        }
+    }
+}
+
+function normalizeV54StringField_(input, normalized, errors, field, options) {
+    var value = input[field];
+    var required = Boolean(options && options.required);
+
+    if (value === undefined || value === null) {
+        if (required) errors.push(makeV54ContractError_('REQUIRED_FIELD', field, field + ' is required.'));
+        return;
+    }
+
+    if (typeof value !== 'string') {
+        errors.push(makeV54ContractError_('INVALID_STRING', field, field + ' must be a string.'));
+        return;
+    }
+
+    var trimmed = value.trim();
+    if (!trimmed) {
+        if (required) errors.push(makeV54ContractError_('REQUIRED_FIELD', field, field + ' is required.'));
+        return;
+    }
+
+    if (options && options.allowed && options.allowed.indexOf(trimmed) === -1) {
+        errors.push(makeV54ContractError_('INVALID_ENUM', field, field + ' has invalid value.'));
+    }
+
+    if (options && options.pattern && !options.pattern.test(trimmed)) {
+        errors.push(makeV54ContractError_('INVALID_FORMAT', field, field + ' has invalid format.'));
+    }
+
+    normalized[field] = trimmed;
+}
+
+function normalizeV54PositiveNumberField_(input, normalized, errors, field, options) {
+    var value = input[field];
+    var required = Boolean(options && options.required);
+
+    if (value === undefined || value === null || value === '') {
+        if (required) errors.push(makeV54ContractError_('REQUIRED_FIELD', field, field + ' is required.'));
+        return;
+    }
+
+    var numeric = parseV54ContractNumber_(value, field, errors);
+    if (numeric === null) return;
+    if (numeric <= 0) {
+        errors.push(makeV54ContractError_('INVALID_POSITIVE_NUMBER', field, field + ' must be greater than zero.'));
+    }
+    normalized[field] = numeric;
+}
+
+function normalizeV54BooleanField_(input, normalized, errors, field, options) {
+    var value = input[field];
+    var required = Boolean(options && options.required);
+
+    if (value === undefined || value === null) {
+        if (required) errors.push(makeV54ContractError_('REQUIRED_FIELD', field, field + ' is required.'));
+        return;
+    }
+
+    if (typeof value !== 'boolean') {
+        errors.push(makeV54ContractError_('INVALID_BOOLEAN', field, field + ' must be boolean.'));
+        return;
+    }
+
+    normalized[field] = value;
+}
+
+function parseV54ContractNumber_(value, field, errors) {
+    if (typeof value === 'number') {
+        if (!Number.isFinite(value)) {
+            errors.push(makeV54ContractError_('INVALID_NUMBER', field, field + ' must be a finite number.'));
+            return null;
+        }
+        return value;
+    }
+
+    if (typeof value === 'string') {
+        var trimmed = value.trim();
+        if (/^-?\d+(\.\d+)?$/.test(trimmed)) return Number(trimmed);
+        if (trimmed.indexOf(',') !== -1) {
+            errors.push(makeV54ContractError_('AMBIGUOUS_MONEY_STRING', field, field + ' must use a dot decimal separator, not comma.'));
+            return null;
+        }
+    }
+
+    errors.push(makeV54ContractError_('INVALID_NUMBER', field, field + ' must be a number or safe numeric string.'));
+    return null;
+}
+
+function optionalV54String_(value) {
+    return value === undefined || value === null ? '' : value;
+}
+
+function makeActionsV54Failure_(code, field, message, mapped) {
+    return {
+        ok: false,
+        sheet: V54_LANCAMENTOS_SHEET,
+        rowNumber: null,
+        id_lancamento: '',
+        rowObject: mapped && mapped.rowObject ? mapped.rowObject : null,
+        rowValues: mapped && mapped.rowValues ? mapped.rowValues : [],
+        errors: [makeV54ContractError_(code, field, message)],
+    };
+}
+
+function makeActionsV54FailureFromMapped_(mapped) {
+    return {
+        ok: false,
+        sheet: V54_LANCAMENTOS_SHEET,
+        rowNumber: null,
+        id_lancamento: '',
+        rowObject: mapped.rowObject,
+        rowValues: mapped.rowValues,
+        errors: mapped.errors,
+    };
+}
+
+function makeActionsV54FailureWithSheet_(sheetName, code, field, message, rowObject, errors) {
+    var normalizedErrors = Array.isArray(errors) ? errors.filter(function(error) { return error && typeof error === 'object'; }) : [];
+    if (normalizedErrors.length === 0 && code) {
+        normalizedErrors = [makeV54ContractError_(code, field, message)];
+    }
+
+    return {
+        ok: false,
+        sheet: sheetName,
+        rowNumber: null,
+        id_lancamento: '',
+        rowObject: rowObject || null,
+        rowValues: [],
+        errors: normalizedErrors,
+    };
+}
+
+function makeV54ContractError_(code, field, message) {
+    return { code: code, field: field, message: message };
+}
+
+function cloneV54PlainObject_(input) {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) return input;
+    return JSON.parse(JSON.stringify(input));
+}
+
+function cloneV54Cards_(cards) {
+    if (!Array.isArray(cards)) return null;
+    return cards.map(function(card) {
+        return cloneV54PlainObject_(card);
+    });
+}

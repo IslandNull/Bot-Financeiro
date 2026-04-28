@@ -115,7 +115,7 @@ function buildV54ProductionBridgeDeps_(runtimeContext, options) {
             if (ctxResult && ctxResult.ok && ctxResult.context && Array.isArray(ctxResult.context.cartoes)) {
                 return ctxResult.context.cartoes;
             }
-            return [];
+            throw new Error('V54 primary card context failed safely.');
         };
     }
 

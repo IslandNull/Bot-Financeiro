@@ -7,7 +7,9 @@ const vm = require('vm');
 
 const { validateParsedEntryV54 } = require('./lib/v54-parsed-entry-contract');
 
+const schemaSource = fs.readFileSync(path.join(__dirname, '..', 'src', '000_V54Schema.js'), 'utf8');
 const actionsSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'ActionsV54.js'), 'utf8');
+const actionsHelpersSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'ActionsV54Helpers.js'), 'utf8');
 const parserSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'ParserV54.js'), 'utf8');
 const viewsSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'ViewsV54.js'), 'utf8');
 const handlerSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'HandlerV54.js'), 'utf8');
@@ -28,7 +30,7 @@ function loadHandlerV54() {
     const sandbox = { console, Date, Math, JSON, Number, String, Boolean, Object, Array, RegExp };
     vm.createContext(sandbox);
     vm.runInContext(
-        `${actionsSource}\n${parserSource}\n${viewsSource}\n${handlerSource}\nresult = { handleTelegramUpdateV54, formatV54HandlerResponse_ };`,
+        `${schemaSource}\n${actionsSource}\n${actionsHelpersSource}\n${parserSource}\n${viewsSource}\n${handlerSource}\nresult = { handleTelegramUpdateV54, formatV54HandlerResponse_ };`,
         sandbox,
     );
     return sandbox.result;

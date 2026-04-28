@@ -14,7 +14,9 @@ const { mapSingleCardPurchaseContract } = require('./lib/v54-card-purchase-contr
 const { mapInstallmentScheduleContract } = require('./lib/v54-installment-schedule-contract');
 const { planExpectedFaturasUpsert } = require('./lib/v54-faturas-expected-upsert');
 
+const schemaSource = fs.readFileSync(path.join(__dirname, '..', 'src', '000_V54Schema.js'), 'utf8');
 const actionsSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'ActionsV54.js'), 'utf8');
+const actionsHelpersSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'ActionsV54Helpers.js'), 'utf8');
 const idempotencyAdapterSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'ActionsV54Idempotency.js'), 'utf8');
 const mainSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'Main.js'), 'utf8');
 const IDEMPOTENCY_KEY = 'telegram:telegram_update_id:91001';
@@ -34,7 +36,7 @@ function test(name, fn) {
 function loadActionsV54() {
     const sandbox = { console, Date, Math, JSON, Number, String, Boolean, Object, Array, RegExp };
     vm.createContext(sandbox);
-    vm.runInContext(`${actionsSource}\n${idempotencyAdapterSource}\nresult = { recordEntryV54 };`, sandbox);
+    vm.runInContext(`${schemaSource}\n${actionsSource}\n${actionsHelpersSource}\n${idempotencyAdapterSource}\nresult = { recordEntryV54 };`, sandbox);
     return sandbox.result;
 }
 

@@ -93,11 +93,16 @@ assert('codemap exists', codemap !== null, 'docs/V54_CODEMAP.md not found.');
 
 if (codemap) {
     assert('codemap mentions src/Main.js', codemap.includes('src/Main.js'), 'Codemap should reference src/Main.js.');
+    assert('codemap mentions schema mirror', codemap.includes('src/000_V54Schema.js'), 'Codemap should reference the Apps Script schema mirror.');
+    assert('codemap mentions notification boundary', codemap.includes('src/TelegramNotification.js'), 'Codemap should reference Telegram notification boundary.');
     assert('codemap mentions src/ActionsV54.js', codemap.includes('src/ActionsV54.js'), 'Codemap should reference src/ActionsV54.js.');
+    assert('codemap mentions ActionsV54Helpers', codemap.includes('src/ActionsV54Helpers.js'), 'Codemap should reference extracted ActionsV54 helpers.');
     assert('codemap mentions scripts/lib/v54-schema.js', codemap.includes('scripts/lib/v54-schema.js'), 'Codemap should reference scripts/lib/v54-schema.js.');
     assert('codemap mentions V53_LEGACY', codemap.includes('V53_LEGACY'), 'Codemap should include V53_LEGACY status.');
     assert('codemap mentions V54_LOCAL_CONTRACT', codemap.includes('V54_LOCAL_CONTRACT'), 'Codemap should include V54_LOCAL_CONTRACT status.');
     assert('codemap mentions V54_APPS_SCRIPT_ADAPTER', codemap.includes('V54_APPS_SCRIPT_ADAPTER'), 'Codemap should include V54_APPS_SCRIPT_ADAPTER status.');
+    assert('codemap has no stale V54 not routed claim', !codemap.includes('não roteado') && !codemap.includes('nÃ£o roteado'), 'Codemap must not claim V54 is not routed.');
+    assert('codemap has no stale doPost disconnected claim', !codemap.includes('não está conectado ao `doPost`') && !codemap.includes('nÃ£o estÃ¡ conectado ao `doPost`'), 'Codemap must not claim V54 is disconnected from doPost.');
 }
 
 // ============================================================

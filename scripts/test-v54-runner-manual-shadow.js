@@ -14,7 +14,9 @@ const { mapInstallmentScheduleContract } = require('./lib/v54-installment-schedu
 const { planExpectedFaturasUpsert } = require('./lib/v54-faturas-expected-upsert');
 
 const root = path.join(__dirname, '..');
+const schemaSource = fs.readFileSync(path.join(root, 'src', '000_V54Schema.js'), 'utf8');
 const actionsSource = fs.readFileSync(path.join(root, 'src', 'ActionsV54.js'), 'utf8');
+const actionsHelpersSource = fs.readFileSync(path.join(root, 'src', 'ActionsV54Helpers.js'), 'utf8');
 const idempotencySource = fs.readFileSync(path.join(root, 'src', 'ActionsV54Idempotency.js'), 'utf8');
 const parserSource = fs.readFileSync(path.join(root, 'src', 'ParserV54.js'), 'utf8');
 const contextSource = fs.readFileSync(path.join(root, 'src', 'ParserV54Context.js'), 'utf8');
@@ -51,7 +53,9 @@ function loadRunner(extraSandbox) {
     vm.createContext(sandbox);
     vm.runInContext(
         [
+            schemaSource,
             actionsSource,
+            actionsHelpersSource,
             idempotencySource,
             parserSource,
             contextSource,

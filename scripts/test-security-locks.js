@@ -3,10 +3,15 @@ const fs = require('fs');
 const path = require('path');
 
 const root = path.join(__dirname, '..');
+const schemaV54 = fs.readFileSync(path.join(root, 'src', '000_V54Schema.js'), 'utf8');
 const main = fs.readFileSync(path.join(root, 'src', 'Main.js'), 'utf8');
+const telegramNotification = fs.readFileSync(path.join(root, 'src', 'TelegramNotification.js'), 'utf8');
+const telegramSendLogV54 = fs.readFileSync(path.join(root, 'src', 'TelegramSendLogV54.js'), 'utf8');
+const mainRuntime = [schemaV54, main, telegramNotification, telegramSendLogV54].join('\n\n');
 const actions = fs.readFileSync(path.join(root, 'src', 'Actions.js'), 'utf8');
 const setup = fs.readFileSync(path.join(root, 'src', 'Setup.js'), 'utf8');
 const actionsV54 = fs.readFileSync(path.join(root, 'src', 'ActionsV54.js'), 'utf8');
+const actionsV54Helpers = fs.readFileSync(path.join(root, 'src', 'ActionsV54Helpers.js'), 'utf8');
 const parserV54 = fs.readFileSync(path.join(root, 'src', 'ParserV54.js'), 'utf8');
 const handlerV54 = fs.readFileSync(path.join(root, 'src', 'HandlerV54.js'), 'utf8');
 const bridgeV54 = fs.readFileSync(path.join(root, 'src', 'RunnerV54ProductionBridge.js'), 'utf8');
@@ -47,7 +52,11 @@ let failed = 0;
 failed += test('apps_script_files_parse_as_javascript', () => {
     [
         ['src/Main.js', main],
+        ['src/000_V54Schema.js', schemaV54],
+        ['src/TelegramNotification.js', telegramNotification],
+        ['src/TelegramSendLogV54.js', telegramSendLogV54],
         ['src/Actions.js', actions],
+        ['src/ActionsV54Helpers.js', actionsV54Helpers],
         ['src/Setup.js', setup],
         ['src/HandlerV54.js', handlerV54],
         ['src/ParserV54.js', parserV54],
@@ -168,7 +177,7 @@ failed += test('redaction_removes_telegram_bot_url_tokens', () => {
         ContentService: { createTextOutput: () => ({ setMimeType: () => {} }) },
         console: { log: () => {}, warn: () => {}, error: () => {} },
     });
-    vm.runInContext(main, context);
+    vm.runInContext(mainRuntime, context);
 
     const raw = 'url=https://api.telegram.org/bot123456789:ABCdef_SECRET-token/sendMessage';
     const redacted = context.redactSensitiveText_(raw);
@@ -183,7 +192,7 @@ failed += test('redaction_removes_token_fragments_api_keys_secrets_and_labeled_s
         ContentService: { createTextOutput: () => ({ setMimeType: () => {} }) },
         console: { log: () => {}, warn: () => {}, error: () => {} },
     });
-    vm.runInContext(main, context);
+    vm.runInContext(mainRuntime, context);
 
     const raw = [
         'bot123456789:ABCdef_SECRET-token',
@@ -225,7 +234,7 @@ failed += test('sendTelegram_failure_logs_redacted_diagnostics_only', () => {
         },
     };
     const context = vm.createContext(mockEnv);
-    vm.runInContext(main, context);
+    vm.runInContext(mainRuntime, context);
     context._loadSecrets();
 
     const result = context.sendTelegram('123', 'hello');
@@ -274,7 +283,7 @@ failed += test('routeV54PrimaryEntry_failure_sends_generic_fallback_and_redacted
         }),
     };
     const context = vm.createContext(mockEnv);
-    vm.runInContext(main, context);
+    vm.runInContext(mainRuntime, context);
 
     context.routeV54PrimaryEntry_(
         { update_id: 1, message: { message_id: 2, chat: { id: 123 }, text: 'x' } },
@@ -398,7 +407,7 @@ failed += test('routeV54PrimaryEntry_successful_v54_result_and_telegram_success_
             }
         }),
     });
-    vm.runInContext(main, context);
+    vm.runInContext(mainRuntime, context);
 
     const returned = context.routeV54PrimaryEntry_(
         { update_id: 1, message: { message_id: 2, chat: { id: 123 }, text: 'x' } },
@@ -455,7 +464,7 @@ failed += test('routeV54PrimaryEntry_successful_v54_result_and_telegram_failure_
             }
         }),
     });
-    vm.runInContext(main, context);
+    vm.runInContext(mainRuntime, context);
 
     const returned = context.routeV54PrimaryEntry_(
         { update_id: 1, message: { message_id: 2, chat: { id: 123 }, text: 'x' } },
@@ -505,7 +514,7 @@ failed += test('telegram_send_log_failure_does_not_change_v54_result', () => {
             }
         }),
     });
-    vm.runInContext(main, context);
+    vm.runInContext(mainRuntime, context);
 
     const returned = context.routeV54PrimaryEntry_(
         { update_id: 1, message: { message_id: 2, chat: { id: 123 }, text: 'x' } },
@@ -561,7 +570,7 @@ failed += test('telegram_send_log_redacts_and_truncates_text_preview_and_identif
             }
         }),
     });
-    vm.runInContext(main, context);
+    vm.runInContext(mainRuntime, context);
 
     context.routeV54PrimaryEntry_(
         { update_id: 1, message: { message_id: 2, chat: { id: 123 }, text: 'x' } },
@@ -634,7 +643,7 @@ failed += test('routeV54PrimaryEntry_logs_redacted_send_failure_after_success_wi
         }),
     };
     const context = vm.createContext(mockEnv);
-    vm.runInContext(main, context);
+    vm.runInContext(mainRuntime, context);
     context._loadSecrets();
 
     const returned = context.routeV54PrimaryEntry_(
@@ -672,7 +681,7 @@ failed += test('v54_user_facing_response_never_contains_raw_secret_or_stack_trac
         ContentService: { createTextOutput: () => ({ setMimeType: () => {} }) },
         console: { log: () => {}, warn: () => {}, error: () => {} },
     });
-    vm.runInContext([main, actionsV54, parserV54, viewsV54, handlerV54].join('\n'), context);
+    vm.runInContext([mainRuntime, actionsV54, actionsV54Helpers, parserV54, viewsV54, handlerV54].join('\n'), context);
 
     const result = context.handleTelegramUpdateV54(
         { update_id: 1, message: { message_id: 2, chat: { id: 123 }, text: 'x' } },
@@ -731,7 +740,7 @@ failed += test('doPost_rejects_unauthorized_webhooks_dynamically', () => {
     };
 
     const context = vm.createContext(mockEnv);
-    vm.runInContext(main, context);
+    vm.runInContext(mainRuntime, context);
 
     function resetMock() {
         routedToCommand = false;

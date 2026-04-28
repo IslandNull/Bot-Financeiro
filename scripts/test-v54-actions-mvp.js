@@ -12,7 +12,11 @@ const { mapInstallmentScheduleContract } = require('./lib/v54-installment-schedu
 const { planExpectedFaturasUpsert } = require('./lib/v54-faturas-expected-upsert');
 
 const actionsV54Path = path.join(__dirname, '..', 'src', 'ActionsV54.js');
+const schemaV54Path = path.join(__dirname, '..', 'src', '000_V54Schema.js');
+const actionsV54HelpersPath = path.join(__dirname, '..', 'src', 'ActionsV54Helpers.js');
 const actionsV54Source = fs.readFileSync(actionsV54Path, 'utf8');
+const schemaV54Source = fs.readFileSync(schemaV54Path, 'utf8');
+const actionsV54HelpersSource = fs.readFileSync(actionsV54HelpersPath, 'utf8');
 const cardPurchaseContractPath = path.join(__dirname, 'lib', 'v54-card-purchase-contract.js');
 const cardPurchaseContractSource = fs.readFileSync(cardPurchaseContractPath, 'utf8');
 const protectedProductionFiles = [
@@ -49,7 +53,7 @@ function loadActionsV54(globals) {
     }, globals || {});
     vm.createContext(sandbox);
     vm.runInContext(
-        `${actionsV54Source}\nresult = { recordEntryV54, V54_LANCAMENTOS_HEADERS, V54_ACTIONS_MVP_SUPPORTED_EVENTS, V54_ACTIONS_UNSUPPORTED_EVENTS };`,
+        `${schemaV54Source}\n${actionsV54Source}\n${actionsV54HelpersSource}\nresult = { recordEntryV54, V54_LANCAMENTOS_HEADERS, V54_ACTIONS_MVP_SUPPORTED_EVENTS, V54_ACTIONS_UNSUPPORTED_EVENTS };`,
         sandbox,
     );
     return sandbox.result;

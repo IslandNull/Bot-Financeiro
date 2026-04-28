@@ -6,13 +6,17 @@ const path = require('path');
 const vm = require('vm');
 
 const srcFiles = [
+    'src/000_V54Schema.js',
     'src/Main.js',
+    'src/TelegramNotification.js',
+    'src/TelegramSendLogV54.js',
     'src/RunnerV54ProductionBridge.js',
     'src/HandlerV54.js',
     'src/ParserV54.js',
     'src/ParserV54OpenAI.js',
     'src/ParserV54Context.js',
     'src/ActionsV54.js',
+    'src/ActionsV54Helpers.js',
     'src/CardContractsV54.js',
     'src/IdempotencyV54.js',
     'src/ActionsV54Idempotency.js',

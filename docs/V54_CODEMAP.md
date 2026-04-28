@@ -1,7 +1,7 @@
 # V54_CODEMAP.md
 
 Mapa do código-fonte do Bot Financeiro para orientar programadores humanos e agentes.
-Última atualização: 2026-04-27.
+Última atualização: 2026-04-28.
 
 ---
 
@@ -11,8 +11,8 @@ O projeto é um bot financeiro pessoal em **Google Apps Script** integrado ao **
 O runtime Apps Script carrega todos os arquivos `src/*.js` em escopo global compartilhado (não há bundler nem module system).
 
 Existem duas gerações de código convivendo no mesmo runtime:
-- **V53 (legacy/deprecated):** Fluxo produtivo ativo de Telegram — é o que o `doPost` roteia hoje.
-- **V54 (MVP em construção):** Contratos locais Node.js + adapter Apps Script (`ActionsV54.js`). Ainda **não** está conectado ao `doPost`.
+- **V53 (legacy/deprecated):** Fluxo Telegram legado ainda disponível como `V53_CURRENT` e como source-of-truth user-facing em `V54_SHADOW`.
+- **V54 (MVP em construção):** Contratos locais Node.js + adapters Apps Script. `doPost` já possui ponte controlada por `V54_ROUTING_MODE`; `V54_PRIMARY` é explícito, fail-closed e sem fallback mutante automático para V53.
 
 ---
 
@@ -20,8 +20,12 @@ Existem duas gerações de código convivendo no mesmo runtime:
 
 | Arquivo | Papel | Status | Pode receber feature nova? | Observação |
 |---|---|---|---|---|
-| `src/Main.js` | Entry points (`doPost`, `doGet`), CONFIG, utilitários (`sendTelegram`, `formatBRL`, `withScriptLock`), routing mode enum | `SHARED_INFRA` | Não sem aprovação explícita | Roteia para V53 hoje. Futuro roteamento V54 será adicionado aqui. |
-| `src/ActionsV54.js` | Adapter Apps Script V54: `recordEntryV54`, validação, mapeamento, escrita fake-first em Lancamentos/Compras/Parcelas/Faturas | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Contém duplicação temporária de headers e validação (limitação CommonJS). Não wired into `doPost` yet. |
+| `src/000_V54Schema.js` | Espelho Apps Script único do schema V54, consumido por Setup/Actions/ParserContext/RealManualPolicy/log Telegram | `V54_APPS_SCRIPT_SCHEMA_MIRROR` | Sim (schema V54 somente) | `scripts/lib/v54-schema.js` continua sendo a autoridade Node; testes de paridade protegem drift. |
+| `src/Main.js` | Entry points (`doPost`, `doGet`), CONFIG, routing mode enum, helpers de auth/sync/lock e `formatBRL` | `SHARED_INFRA` | Não sem aprovação explícita | `doPost` roteia por `V54_ROUTING_MODE`: default V53, shadow no-write, primary V54 fail-closed. |
+| `src/TelegramNotification.js` | Boundary compartilhado de envio Telegram e redaction (`sendTelegram`, diagnósticos genéricos) | `SHARED_INFRA` | Não sem aprovação explícita | Envio retorna resultado estruturado e nunca loga segredos crus. |
+| `src/TelegramSendLogV54.js` | Observabilidade persistente best-effort de tentativas de resposta Telegram no `V54_PRIMARY` | `V54_APPS_SCRIPT_ADAPTER` | Sim (observabilidade V54) | Falha de log é engolida; não causa retry, rollback financeiro ou fallback V53. |
+| `src/ActionsV54.js` | Orquestrador Apps Script V54: `recordEntryV54`, escrita em Lancamentos/Compras/Parcelas/Faturas | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Helpers puros extraídos para `src/ActionsV54Helpers.js`; headers vêm do schema mirror. |
+| `src/ActionsV54Helpers.js` | Helpers puros de validação, normalização, mapping simples e shaping de erros V54 | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Sem CommonJS, rede, Telegram ou SpreadsheetApp direto. |
 | `src/ActionsV54Idempotency.js` | Adapter Apps Script fake-first para idempotência em `recordEntryV54` via DI | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Consome planner local injetado, guarda grupos de mutação V54, sem `require()` e sem roteamento Telegram. |
 | `src/ActionsV54Recovery.js` | Adapter Apps Script fake-first para aplicar planos revisados de recuperação em `Idempotency_Log` via DI | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Consome executor/checklist local injetado em testes, escreve somente `Idempotency_Log`, sem rota Telegram e sem mutação de domínio. |
 | `src/ParserV54.js` | Skeleton Apps Script do parser V54 via DI | `V54_APPS_SCRIPT_ADAPTER` | Sim (somente V54) | Não chama OpenAI; exige parser injetado e normaliza resultado/erro para o handler. |
@@ -59,7 +63,7 @@ Existem duas gerações de código convivendo no mesmo runtime:
 
 ---
 
-## 3. Fluxo Atual do Telegram (V53 — ATIVO)
+## 3. Fluxo Atual do Telegram (Roteado)
 
 ```
 Telegram webhook
@@ -69,6 +73,15 @@ Telegram webhook
     → if text starts with "/"
         → handleCommand(text, chatId, user)  [src/Commands.js]
             → sendTelegram() / Views.js functions
+    → else if V54_ROUTING_MODE === V54_PRIMARY
+        → routeV54PrimaryEntry_()        [src/Main.js]
+            → RunnerV54ProductionBridge  [src/RunnerV54ProductionBridge.js]
+            → Handler/Parser/Actions V54
+            → sendTelegram()             [src/TelegramNotification.js]
+            → Telegram_Send_Log          [src/TelegramSendLogV54.js]
+    → else if V54_ROUTING_MODE === V54_SHADOW
+        → handleEntry(text, chatId, user) [V53 source-of-truth]
+        → runV54ShadowDiagnostics_()      [V54 no-write]
     → else
         → handleEntry(text, chatId, user)    [src/Actions.js]
             → parseWithOpenAI()              [src/Parser.js]
@@ -77,15 +90,15 @@ Telegram webhook
             → sendTelegram()
 ```
 
-Todas as funções acima pertencem ao fluxo **legacy V53**. Elas leem/escrevem nas abas V53 da planilha (`Lançamentos`, `Config`, `Dashboard`, `Investimentos`, `Parcelas`).
+Comandos `/...` continuam no fluxo V53 legado. Entradas normais passam por V53, V54 shadow ou V54 primary conforme `V54_ROUTING_MODE`.
 
 ---
 
-## 4. Fluxo V54 (EM CONSTRUÇÃO — não roteado)
+## 4. Fluxo V54 (Ponte Controlada)
 
 ```
 Contratos locais Node.js (scripts/lib/):
-  v54-schema.js           ← headers canônicos
+  v54-schema.js           ← autoridade Node de headers canônicos
   v54-parsed-entry-contract.js  ← validação estrita de input
   v54-parser-contract.js  ← adapter de prompt/parse (sem LLM real)
   v54-lancamentos-mapper.js     ← parsed entry → row payload
@@ -99,6 +112,10 @@ Contratos locais Node.js (scripts/lib/):
   v54-idempotent-write-path.js  ← boundary fake-first antes do append financeiro
 
 Adapter Apps Script:
+  src/000_V54Schema.js
+    → espelho Apps Script único de headers V54
+    → consumido por Setup, Actions, ParserContext, RealManualPolicy e Telegram_Send_Log
+
   src/ActionsV54.js
     → recordEntryV54(parsedEntry, options)
       → se `options.idempotency.enabled === true`, delega para `src/ActionsV54Idempotency.js`
@@ -171,11 +188,7 @@ Adapter Apps Script:
       → nao chama Telegram, OpenAI, SpreadsheetApp real, setup, seed, deploy ou rotas web
 ```
 
-**`recordEntryV54` NÃO é chamado por `doPost`.**
-Para que V54 processe tráfego real do Telegram, é preciso:
-1. Revisar e aceitar gate explicito de roteamento.
-2. Criar `ViewsV54` produtivo completo para respostas Telegram.
-3. Alterar `doPost` para rotear para V54 (via `ROUTING_MODES`) somente após gates aceitos.
+`recordEntryV54` pode ser alcançado por `doPost` somente no caminho `V54_PRIMARY`, via `routeV54PrimaryEntry_` e `RunnerV54ProductionBridge`. O default continua `V53_CURRENT`; `V54_SHADOW` é no-write; `doGet` não ativa V54.
 
 ---
 
@@ -194,13 +207,12 @@ Para que V54 processe tráfego real do Telegram, é preciso:
 
 | Dívida | Impacto | Fase para resolver |
 |---|---|---|
-| Duplicação de schema entre `scripts/lib/v54-schema.js`, `src/Setup.js` (`getV54Schema()`) e `src/ActionsV54.js` (headers inline) | Headers podem divergir silenciosamente. Hoje protegido por testes de paridade. | NEXT (extrair helper ou unificar, sem bundler) |
-| `ActionsV54.js` grande (1006 linhas) | Difícil de ler e revisar. Contém validação, mapeamento, escrita, helpers de fatura e utilities. | NEXT (extrair helpers sem mudar comportamento) |
+| Drift entre `scripts/lib/v54-schema.js` e `src/000_V54Schema.js` | Node continua autoridade; Apps Script usa mirror por ausência de bundler. | Monitorar por `test:v54:schema`, `test:v54:setup`, `test:v54:actions`. |
+| `ActionsV54.js` ainda concentra escrita/faturas | Orquestrador caiu para ~620 linhas, mas ainda possui escrita e faturas no mesmo arquivo. | NEXT (extrair helpers de sheet/faturas se necessário, sem mudar comportamento). |
 | V53 ainda no runtime | Código morto que pode confundir agentes e humanos. | LATER (remover somente após V54 Telegram MVP funcional) |
 | Sem bundler | Não é possível usar `require()` em Apps Script — forçando duplicação. | LATER (avaliar clasp + esbuild ou rollup) |
-| ParserV54 produtivo ainda não roteado | Existem provider de contexto e adapter OpenAI por DI em `src/ParserV54Context.js`/`src/ParserV54OpenAI.js`, mas V54 ainda não processa Telegram real porque `doPost` não chama o handler/parser V54. | Próxima fase de gate de roteamento. |
+| V54 primary depende de checklist operacional real | Ponte existe e é testada local/fake-first, mas deploy/setup/sync/Telegram/OpenAI reais não foram executados nesta tarefa. | Operação manual revisada antes de ativação real. |
 | Runner manual/shadow ainda local/fake-first | `src/RunnerV54.js` compoe as pecas V54 com DI explicita e `src/RunnerV54Gate.js` exige checklist manual revisado, mas isso nao e rota real, nao envia Telegram e nao deve ser usado como habilitacao de trafego. | Próxima fase de gate de roteamento. |
 | Politica `real_manual` ainda e contrato de diagnostico | `src/RunnerV54RealManualPolicy.js` define pre-condicoes e fake diagnostics, mas nao executa servicos reais nem torna V54 production-ready. | Revisao manual antes de qualquer execucao real. |
 | `ViewsV54` ainda é skeleton | Existe formatador seguro mínimo; respostas produtivas completas ainda não existem. | Próxima fase de feature. |
-| `ActionsV54.js` grande | Ainda concentra validação, mapeamento e escrita base. | NEXT (extrair helpers sem mudar comportamento) |
 | Aplicação real/roteada dos planos de recuperação de idempotência | Adapter Apps Script fake-first existe, mas nenhum fluxo real, rota, Telegram ou planilha produtiva aplica planos revisados. | NEXT antes do roteamento real. |
