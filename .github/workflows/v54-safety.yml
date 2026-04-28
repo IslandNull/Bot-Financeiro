@@ -1,0 +1,40 @@
+name: V54 Safety
+
+on:
+  pull_request:
+  push:
+    branches:
+      - feat/v54-production-readiness
+
+permissions:
+  contents: read
+
+jobs:
+  local-fake-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies (lockfile present)
+        run: npm ci
+
+      - name: Run V54 production bridge tests
+        run: npm run test:v54:production-bridge
+
+      - name: Run preflight collector tests
+        run: npm run test:v54:real-manual-preflight-collector
+
+      - name: Run preflight report tests
+        run: npm run test:v54:real-manual-preflight
+
+      - name: Run runner gate tests
+        run: npm run test:v54:runner-gate
+
+      - name: Run architecture guardrails
+        run: npm run test:v54:architecture

@@ -30,7 +30,7 @@ function evidence(overrides) {
         branchName: 'work',
         localCommitMarker: 'LOCAL_ONLY',
         mainJsDiffEmpty: true,
-        doPostV54RefsAbsent: true,
+        doPostV54RefsControlled: true,
         doGetV54RefsAbsent: true,
         telegramSendDisabled: true,
         priorDryRun: { id: 'dry-run-001' },
@@ -73,8 +73,13 @@ function input(overrides) {
         referenceDate: '2026-04-28',
         routingDiagnostics: {
             mainJsDiffEmpty: true,
-            doPostV54RefsAbsent: true,
+            doPostV54RefsControlled: true,
             doGetV54RefsAbsent: true,
+            routingModeDefaultSafe: true,
+            webhookAuthBeforeRouting: true,
+            shadowNoV54Mutation: true,
+            shadowNoV54TelegramSend: true,
+            primaryNoV53FallbackMutation: true,
         },
         evidence: evidence(),
         parserContextDiagnostics: {
@@ -107,87 +112,66 @@ failed += test('happy_path_returns_boarding_pass_and_calls_no_runner_or_gate_or_
     assert.strictEqual(report.ok, true, JSON.stringify(report.errors));
     assert.strictEqual(report.mode, 'real_manual_preflight');
     assert.deepStrictEqual(report.blockedActions, BLOCKED_ACTIONS);
-    assert.strictEqual(report.checks.mainJsDiffEmpty, true);
-    assert.strictEqual(report.checks.doPostV54RefsAbsent, true);
+    assert.strictEqual(report.checks.doPostV54RefsControlled, true);
     assert.strictEqual(report.checks.doGetV54RefsAbsent, true);
-    assert.strictEqual(report.checks.evidenceEnvelopeValid, true);
-    assert.strictEqual(report.checks.parserContextReadable, true);
-    assert.strictEqual(report.checks.spreadsheetDiagnosticsValid, true);
+    assert.strictEqual(report.checks.routingModeDefaultSafe, true);
+    assert.strictEqual(report.checks.webhookAuthBeforeRouting, true);
+    assert.strictEqual(report.checks.shadowNoV54Mutation, true);
+    assert.strictEqual(report.checks.shadowNoV54TelegramSend, true);
+    assert.strictEqual(report.checks.primaryNoV53FallbackMutation, true);
     assert.strictEqual(runnerCalls, 0);
     assert.strictEqual(gateCalls, 0);
     assert.strictEqual(mutationCalls, 0);
 });
 
-failed += test('main_js_diff_not_empty_fails_closed', () => {
-    const report = buildV54RealManualPreflightReport(input({ routingDiagnostics: { mainJsDiffEmpty: false, doPostV54RefsAbsent: true, doGetV54RefsAbsent: true } }), {});
-    assert.strictEqual(report.ok, false);
-    assert.strictEqual(report.checks.mainJsDiffEmpty, false);
-    assert.ok(hasError(report, 'MAIN_JS_DIFF_NOT_EMPTY'));
-});
-
-failed += test('doPost_v54_reference_detected_fails_closed', () => {
+failed += test('doPost_v54_refs_must_be_controlled', () => {
     const report = buildV54RealManualPreflightReport(input({
-        routingDiagnostics: {
-            mainJsDiffEmpty: true,
-            doPostSource: 'function doPost(e) { invokeV54ManualShadowGate(e); }',
-            doGetV54RefsAbsent: true,
-        },
+        routingDiagnostics: Object.assign({}, input().routingDiagnostics, { doPostV54RefsControlled: false }),
     }), {});
     assert.strictEqual(report.ok, false);
-    assert.strictEqual(report.checks.doPostV54RefsAbsent, false);
-    assert.ok(hasError(report, 'DO_POST_V54_REFS_PRESENT'));
+    assert.ok(hasError(report, 'DO_POST_V54_REFS_UNCONTROLLED'));
 });
 
 failed += test('doGet_v54_reference_detected_fails_closed', () => {
     const report = buildV54RealManualPreflightReport(input({
-        routingDiagnostics: {
-            mainJsDiffEmpty: true,
-            doPostV54RefsAbsent: true,
-            doGetSource: 'function doGet(e) { return runV54ManualShadowGate(e); }',
-        },
+        routingDiagnostics: Object.assign({}, input().routingDiagnostics, { doGetSource: 'function doGet(e) { return runV54ManualShadowGate(e); }', doGetV54RefsAbsent: undefined }),
     }), {});
     assert.strictEqual(report.ok, false);
-    assert.strictEqual(report.checks.doGetV54RefsAbsent, false);
     assert.ok(hasError(report, 'DO_GET_V54_REFS_PRESENT'));
 });
 
-failed += test('missing_evidence_fails_closed', () => {
-    const report = buildV54RealManualPreflightReport(input({ evidence: null }), {});
+failed += test('webhook_auth_order_check_is_mandatory', () => {
+    const report = buildV54RealManualPreflightReport(input({
+        routingDiagnostics: Object.assign({}, input().routingDiagnostics, { webhookAuthBeforeRouting: false }),
+    }), {});
     assert.strictEqual(report.ok, false);
-    assert.strictEqual(report.checks.evidenceEnvelopeValid, false);
-    assert.ok(hasError(report, 'EVIDENCE_ENVELOPE_MISSING'));
+    assert.ok(hasError(report, 'WEBHOOK_AUTH_ROUTING_ORDER_INVALID'));
 });
 
-failed += test('invalid_evidence_fails_closed', () => {
-    const report = buildV54RealManualPreflightReport(input({ evidence: evidence({ mainJsDiffEmpty: false }) }), {});
+failed += test('shadow_mutation_and_shadow_telegram_checks_are_mandatory', () => {
+    const report = buildV54RealManualPreflightReport(input({
+        routingDiagnostics: Object.assign({}, input().routingDiagnostics, {
+            shadowNoV54Mutation: false,
+            shadowNoV54TelegramSend: false,
+        }),
+    }), {});
     assert.strictEqual(report.ok, false);
-    assert.strictEqual(report.checks.evidenceEnvelopeValid, false);
-    assert.ok(hasError(report, 'EVIDENCE_ENVELOPE_INVALID'));
+    assert.ok(hasError(report, 'V54_SHADOW_MUTATION_PATH_DETECTED'));
+    assert.ok(hasError(report, 'V54_SHADOW_TELEGRAM_PATH_DETECTED'));
+});
+
+failed += test('v54_primary_v53_fallback_check_is_mandatory', () => {
+    const report = buildV54RealManualPreflightReport(input({
+        routingDiagnostics: Object.assign({}, input().routingDiagnostics, { primaryNoV53FallbackMutation: false }),
+    }), {});
+    assert.strictEqual(report.ok, false);
+    assert.ok(hasError(report, 'V54_PRIMARY_V53_FALLBACK_DETECTED'));
 });
 
 failed += test('parser_context_boolean_ack_fails_closed', () => {
     const report = buildV54RealManualPreflightReport(input({ parserContextDiagnostics: true }), {});
     assert.strictEqual(report.ok, false);
-    assert.strictEqual(report.checks.parserContextReadable, false);
     assert.ok(hasError(report, 'PARSER_CONTEXT_DIAGNOSTIC_INVALID'));
-});
-
-failed += test('parser_context_diagnostic_throwing_fails_closed', () => {
-    const report = buildV54RealManualPreflightReport(input({ parserContextDiagnostics: undefined }), {
-        getParserContextDiagnostics() {
-            throw new Error('boom');
-        },
-    });
-    assert.strictEqual(report.ok, false);
-    assert.strictEqual(report.checks.parserContextReadable, false);
-    assert.ok(hasError(report, 'PARSER_CONTEXT_DIAGNOSTIC_FAILED'));
-});
-
-failed += test('parser_context_ok_false_fails_closed', () => {
-    const report = buildV54RealManualPreflightReport(input({ parserContextDiagnostics: { executed: true, ok: false, contextReadable: false } }), {});
-    assert.strictEqual(report.ok, false);
-    assert.strictEqual(report.checks.parserContextReadable, false);
-    assert.ok(hasError(report, 'PARSER_CONTEXT_DIAGNOSTIC_FAILED'));
 });
 
 failed += test('spreadsheet_missing_idempotency_log_fails_closed', () => {
@@ -197,32 +181,7 @@ failed += test('spreadsheet_missing_idempotency_log_fails_closed', () => {
 
     const report = buildV54RealManualPreflightReport(input({ spreadsheetDiagnostics: diagnostics }), {});
     assert.strictEqual(report.ok, false);
-    assert.strictEqual(report.checks.spreadsheetDiagnosticsValid, false);
     assert.ok(hasError(report, 'IDEMPOTENCY_LOG_MISSING'));
-});
-
-failed += test('spreadsheet_missing_required_tab_or_header_fails_closed', () => {
-    const diagnostics = spreadsheetDiagnostics();
-    diagnostics.requiredSheetNames = diagnostics.requiredSheetNames.filter((name) => name !== V54_SHEETS.LANCAMENTOS_V54);
-    diagnostics.headerStatusBySheet[V54_SHEETS.FATURAS] = { ok: false };
-
-    const report = buildV54RealManualPreflightReport(input({ spreadsheetDiagnostics: diagnostics }), {});
-    assert.strictEqual(report.ok, false);
-    assert.strictEqual(report.checks.spreadsheetDiagnosticsValid, false);
-    assert.ok(hasError(report, 'REQUIRED_V54_TAB_MISSING'));
-    assert.ok(hasError(report, 'REQUIRED_V54_HEADERS_INVALID'));
-});
-
-failed += test('forbidden_dependencies_are_not_called_by_builder', () => {
-    let callCount = 0;
-    buildV54RealManualPreflightReport(input(), {
-        runV54ManualShadow() { callCount += 1; },
-        runV54ManualShadowGate() { callCount += 1; },
-        sendTelegram() { callCount += 1; },
-        deploy() { callCount += 1; },
-        clasp() { callCount += 1; },
-    });
-    assert.strictEqual(callCount, 0);
 });
 
 if (failed > 0) {

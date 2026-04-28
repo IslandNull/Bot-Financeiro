@@ -107,7 +107,7 @@ function evidence(overrides) {
         branchName: 'work',
         localCommitMarker: 'LOCAL_ONLY',
         mainJsDiffEmpty: true,
-        doPostV54RefsAbsent: true,
+        doPostV54RefsControlled: true,
         doGetV54RefsAbsent: true,
         telegramSendDisabled: true,
         priorDryRun: { id: 'dry-run-001' },
@@ -241,8 +241,8 @@ failed += test('evidence_contract_main_js_diff_false_fails', () => {
 });
 
 failed += test('evidence_contract_doPost_v54_refs_present_fails', () => {
-    const result = validateV54RealManualEvidenceEnvelope(evidence({ doPostV54RefsAbsent: false }), { requiredSheets: Object.values(V54_SHEETS) });
-    assertError(result, 'V54_REAL_MANUAL_EVIDENCE_DOPOST_REFS_REQUIRED', 'doPostV54RefsAbsent');
+    const result = validateV54RealManualEvidenceEnvelope(evidence({ doPostV54RefsControlled: false }), { requiredSheets: Object.values(V54_SHEETS) });
+    assertError(result, 'V54_REAL_MANUAL_EVIDENCE_DOPOST_CONTROL_REQUIRED', 'doPostV54RefsControlled');
 });
 
 failed += test('evidence_contract_doGet_v54_refs_present_fails', () => {
@@ -483,8 +483,10 @@ failed += test('main_doPost_and_doGet_remain_unchanged_for_v54_policy', () => {
     assert.strictEqual(mainSource.includes('invokeV54ManualShadowGate'), false);
     assert.strictEqual(mainSource.includes('runV54ManualShadowGate'), false);
     assert.strictEqual(mainSource.includes('runV54ManualShadow'), false);
-    assert.strictEqual(mainSource.includes('handleTelegramUpdateV54'), false);
-    assert.strictEqual(mainSource.includes('recordEntryV54'), false);
+    assert.strictEqual(mainSource.includes('handleTelegramUpdateV54'), true);
+    assert.strictEqual(mainSource.includes('routeV54PrimaryEntry_('), true);
+    assert.strictEqual(mainSource.includes('runV54ShadowDiagnostics_('), true);
+    assert.strictEqual(mainSource.includes('recordEntryV54ShadowNoWrite_'), true);
     assert.strictEqual(mainSource.includes('handleEntry(text, chatId, user)'), true);
     assert.strictEqual(mainSource.includes('handleCommand(text, chatId, user)'), true);
 });

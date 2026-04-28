@@ -14,6 +14,7 @@ const FORBIDDEN_RUNTIME_TOKENS = Object.freeze([
     'getParserContextV54',
     'recordEntryV54',
 ]);
+const FORBIDDEN_DOGET_TOKENS = FORBIDDEN_RUNTIME_TOKENS.slice();
 
 function collectV54RealManualPreflightDiagnostics(input, deps) {
     const source = asObject(input);
@@ -54,7 +55,33 @@ function collectV54RealManualPreflightDiagnostics(input, deps) {
 
     if (doPostResult.ok) {
         routingDiagnostics.doPostSource = doPostResult.functionSource;
-        routingDiagnostics.doPostV54RefsAbsent = doPostResult.forbiddenTokens.length === 0;
+        routingDiagnostics.doPostV54RefsControlled = evaluateDoPostRoutingControl_(mainJsSource, doPostResult, errors);
+        routingDiagnostics.routingModeDefaultSafe = doPostResult.body.indexOf('getRoutingMode_(') !== -1
+            && doPostResult.body.indexOf('ROUTING_MODES.V54_PRIMARY') !== -1
+            && doPostResult.body.indexOf('ROUTING_MODES.V54_SHADOW') !== -1;
+        if (!routingDiagnostics.routingModeDefaultSafe) {
+            addError_(errors, 'ROUTING_MODE_DEFAULT_UNSAFE', 'src/Main.js:doPost', 'doPost must route V54 only through explicit routing-mode branches.');
+        }
+        routingDiagnostics.webhookAuthBeforeRouting = isWebhookAuthBeforeRouting_(doPostResult.body);
+        if (!routingDiagnostics.webhookAuthBeforeRouting) {
+            addError_(errors, 'WEBHOOK_AUTH_ROUTING_ORDER_INVALID', 'src/Main.js:doPost', 'Webhook authorization must run before routing mode decisions.');
+        }
+
+        const shadowHelper = extractFunctionBalanced_(mainJsSource, 'runV54ShadowDiagnostics_');
+        routingDiagnostics.shadowNoV54Mutation = shadowHelper.ok && shadowHelper.body.indexOf('recordEntryV54ShadowNoWrite_') !== -1 && shadowHelper.body.indexOf('recordEntryV54(') === -1;
+        routingDiagnostics.shadowNoV54TelegramSend = shadowHelper.ok && shadowHelper.body.indexOf('sendTelegram(') === -1;
+        if (!routingDiagnostics.shadowNoV54Mutation) {
+            addError_(errors, 'V54_SHADOW_MUTATION_PATH_DETECTED', 'src/Main.js:runV54ShadowDiagnostics_', 'V54 shadow diagnostics must not call mutating V54 record path.');
+        }
+        if (!routingDiagnostics.shadowNoV54TelegramSend) {
+            addError_(errors, 'V54_SHADOW_TELEGRAM_PATH_DETECTED', 'src/Main.js:runV54ShadowDiagnostics_', 'V54 shadow diagnostics must not send Telegram.');
+        }
+
+        const primaryHelper = extractFunctionBalanced_(mainJsSource, 'routeV54PrimaryEntry_');
+        routingDiagnostics.primaryNoV53FallbackMutation = primaryHelper.ok && primaryHelper.body.indexOf('handleEntry(') === -1;
+        if (!routingDiagnostics.primaryNoV53FallbackMutation) {
+            addError_(errors, 'V54_PRIMARY_V53_FALLBACK_DETECTED', 'src/Main.js:routeV54PrimaryEntry_', 'V54 primary path must not fallback to V53 handleEntry mutation.');
+        }
     }
 
     if (doGetResult.ok) {
@@ -114,8 +141,10 @@ function extractRouteAndDetect_(sourceText, routeName, errors) {
         return { ok: false, forbiddenTokens: [] };
     }
 
-    const forbiddenTokens = FORBIDDEN_RUNTIME_TOKENS.filter((token) => extracted.body.indexOf(token) !== -1);
-    if (forbiddenTokens.length > 0) {
+    const forbiddenTokens = routeName === 'doPost'
+        ? []
+        : FORBIDDEN_DOGET_TOKENS.filter((token) => extracted.body.indexOf(token) !== -1);
+    if (routeName === 'doGet' && forbiddenTokens.length > 0) {
         addError_(errors, forbiddenCode, `src/Main.js:${routeName}`, `${routeName} contains forbidden V54 runtime routing references.`, forbiddenTokens);
     }
 
@@ -125,6 +154,36 @@ function extractRouteAndDetect_(sourceText, routeName, errors) {
         functionSource: extracted.functionSource,
         forbiddenTokens,
     };
+}
+
+function evaluateDoPostRoutingControl_(mainJsSource, doPostResult, errors) {
+    const body = doPostResult.body || '';
+    const hasV54Refs = body.indexOf('ROUTING_MODES.V54_PRIMARY') !== -1 || body.indexOf('ROUTING_MODES.V54_SHADOW') !== -1;
+    if (!hasV54Refs) {
+        addError_(errors, 'DO_POST_V54_REFS_UNCONTROLLED', 'src/Main.js:doPost', 'doPost must include controlled routing-mode checks when V54 bridge is enabled.');
+        return false;
+    }
+    const hasPrimaryHelper = body.indexOf('routeV54PrimaryEntry_(') !== -1;
+    const hasShadowHelper = body.indexOf('runV54ShadowDiagnostics_(') !== -1;
+    const hasV53Source = body.indexOf('handleEntry(') !== -1;
+    const bypass = body.indexOf('recordEntryV54(') !== -1
+        || body.indexOf('parseTextV54OpenAI(') !== -1
+        || body.indexOf('runV54ManualShadow(') !== -1
+        || body.indexOf('invokeV54ManualShadowGate(') !== -1;
+
+    if (!hasPrimaryHelper || !hasShadowHelper || !hasV53Source || bypass) {
+        addError_(errors, 'DO_POST_V54_REFS_UNCONTROLLED', 'src/Main.js:doPost', 'doPost V54 refs must stay behind controlled helper branches.');
+        return false;
+    }
+    return true;
+}
+
+function isWebhookAuthBeforeRouting_(doPostBody) {
+    if (typeof doPostBody !== 'string') return false;
+    const authIndex = doPostBody.indexOf('isWebhookAuthorized_(e, update)');
+    const routingIndex = doPostBody.indexOf('getRoutingMode_(');
+    if (authIndex === -1 || routingIndex === -1) return false;
+    return authIndex < routingIndex;
 }
 
 function extractFunctionBalanced_(source, functionName) {

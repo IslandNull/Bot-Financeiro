@@ -26,6 +26,24 @@ function countLines(content) {
     return content.split('\n').length;
 }
 
+function extractFunction(source, name) {
+    if (!source) return '';
+    const start = source.indexOf(`function ${name}(`);
+    if (start === -1) return '';
+    let depth = 0;
+    let seenBody = false;
+    for (let i = start; i < source.length; i++) {
+        if (source[i] === '{') {
+            depth++;
+            seenBody = true;
+        } else if (source[i] === '}') {
+            depth--;
+            if (seenBody && depth === 0) return source.slice(start, i + 1);
+        }
+    }
+    return '';
+}
+
 let passed = 0;
 let failed = 0;
 const failures = [];
@@ -83,21 +101,45 @@ if (codemap) {
 }
 
 // ============================================================
-// GUARD 3: V54 is NOT prematurely wired into doPost
+// GUARD 3: V54 routing in doPost is controlled and rollbackable
 // ============================================================
-console.log('\n--- Guard 3: V54 not wired into Telegram routing ---');
+console.log('\n--- Guard 3: V54 controlled routing in doPost ---');
 
 const mainJs = readFile('src/Main.js');
 assert('Main.js exists', mainJs !== null, 'src/Main.js not found.');
 
 if (mainJs) {
-    const mainCallsRecordEntryV54 = mainJs.includes('recordEntryV54');
+    const hasRoutingMode = mainJs.includes('getRoutingMode_(');
+    const hasPrimaryBranch = mainJs.includes('ROUTING_MODES.V54_PRIMARY');
+    const hasShadowBranch = mainJs.includes('ROUTING_MODES.V54_SHADOW');
+    const hasPrimaryHelper = mainJs.includes('routeV54PrimaryEntry_(');
+    const hasShadowHelper = mainJs.includes('runV54ShadowDiagnostics_(');
+    const hasShadowNoWrite = mainJs.includes('recordEntryV54ShadowNoWrite_');
+    const doGetBody = extractFunction(mainJs, 'doGet');
+    const doGetHasV54Execution = (
+        doGetBody.includes('invokeV54ManualShadowGate(') ||
+        doGetBody.includes('runV54ManualShadow(') ||
+        doGetBody.includes('routeV54PrimaryEntry_(')
+    );
     assert(
-        'Main.js does NOT call recordEntryV54',
-        !mainCallsRecordEntryV54,
-        'PHASE CHANGE DETECTED: src/Main.js now calls recordEntryV54. ' +
-        'Before proceeding, update docs/V54_RUNTIME_MAP.md to reflect the new routing, ' +
-        'ensure Idempotency_Log is implemented (D038), and explicitly accept this phase change.'
+        'Main.js has routing mode resolver',
+        hasRoutingMode,
+        'Main.js must resolve routing mode through getRoutingMode_ for controlled rollout.'
+    );
+    assert(
+        'Main.js has V54_PRIMARY branch',
+        hasPrimaryBranch && hasPrimaryHelper,
+        'Main.js must keep V54 primary path behind explicit branch/helper.'
+    );
+    assert(
+        'Main.js has V54_SHADOW branch',
+        hasShadowBranch && hasShadowHelper && hasShadowNoWrite,
+        'Main.js must keep V54 shadow path behind explicit branch/helper with no-write adapter.'
+    );
+    assert(
+        'doGet remains free from V54 execution',
+        !doGetHasV54Execution,
+        'doGet must not expose V54 runner/gate/primary execution paths.'
     );
 }
 
@@ -105,11 +147,11 @@ const actionsV54 = readFile('src/ActionsV54.js');
 assert('ActionsV54.js exists', actionsV54 !== null, 'src/ActionsV54.js not found.');
 
 if (actionsV54) {
-    const hasNotWiredComment = actionsV54.includes('not wired into doPost') || actionsV54.includes('not wired into doPost/routing');
+    const hasControlledComment = actionsV54.includes('not wired into doPost') || actionsV54.includes('controlled routing');
     assert(
-        'ActionsV54 declares not wired into doPost',
-        hasNotWiredComment,
-        'ActionsV54.js should explicitly state it is not wired into doPost/routing yet.'
+        'ActionsV54 retains explicit routing boundary comment',
+        hasControlledComment,
+        'ActionsV54.js should explicitly describe routing boundary/controlled usage.'
     );
 }
 

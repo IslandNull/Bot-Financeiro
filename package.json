@@ -36,7 +36,9 @@
     "test:v54:architecture": "node scripts/test-v54-architecture-guardrails.js",
     "test:v54:real-manual-matrix": "node scripts/test-v54-real-manual-simulation-matrix.js",
     "test:v54:real-manual-preflight": "node scripts/test-v54-real-manual-preflight-report.js",
-    "test:v54:real-manual-preflight-collector": "node scripts/test-v54-real-manual-preflight-diagnostics-collector.js"
+    "test:v54:real-manual-preflight-collector": "node scripts/test-v54-real-manual-preflight-diagnostics-collector.js",
+    "test:v54:production-bridge": "node scripts/test-v54-production-bridge.js",
+    "test:v54:real-manual-readiness": "node scripts/test-v54-production-bridge.js && node scripts/test-v54-real-manual-preflight-diagnostics-collector.js && node scripts/test-v54-real-manual-preflight-report.js && node scripts/test-v54-runner-gate.js && node scripts/test-v54-architecture-guardrails.js"
   },
   "devDependencies": {
     "@google/clasp": "^2.4.2"
