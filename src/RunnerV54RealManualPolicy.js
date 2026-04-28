@@ -175,7 +175,7 @@ function evaluateV54RealManualEvidence_(deps, input, errors) {
         errors.push(makeV54RealManualPolicyError_('V54_REAL_MANUAL_EVIDENCE_DIAGNOSTIC_REQUIRED', 'validateEvidenceEnvelope', 'Real manual policy requires injected evidence envelope diagnostics.'));
         return '';
     }
-  
+
     var result;
     try {
         result = deps.validateEvidenceEnvelope(input && input.evidence, {
