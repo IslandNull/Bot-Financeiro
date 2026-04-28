@@ -39,7 +39,8 @@
     "test:v54:real-manual-preflight-collector": "node scripts/test-v54-real-manual-preflight-diagnostics-collector.js",
     "test:v54:production-bridge": "node scripts/test-v54-production-bridge.js",
     "test:v54:production-bridge-integration": "node scripts/test-v54-production-bridge-integration.js",
-    "test:v54:real-manual-readiness": "node scripts/test-v54-production-bridge.js && node scripts/test-v54-real-manual-preflight-diagnostics-collector.js && node scripts/test-v54-real-manual-preflight-report.js && node scripts/test-v54-runner-gate.js && node scripts/test-v54-architecture-guardrails.js"
+    "test:v54:real-manual-readiness": "node scripts/test-v54-production-bridge.js && node scripts/test-v54-real-manual-preflight-diagnostics-collector.js && node scripts/test-v54-real-manual-preflight-report.js && node scripts/test-v54-runner-gate.js && node scripts/test-v54-architecture-guardrails.js",
+    "test:v54:all": "npm run test:v54:domain && npm run test:v54:schema && npm run test:v54:seed && npm run test:v54:snapshot && npm run test:v54:contract && npm run test:v54:parser && npm run test:v54:runner && npm run test:v54:runner-gate && npm run test:v54:handler && npm run test:v54:lancamentos-mapper && npm run test:v54:card-purchase && npm run test:v54:installment-schedule && npm run test:v54:faturas && npm run test:v54:idempotency && npm run test:v54:actions && npm run test:v54:reporting && npm run test:v54:card-cycle && npm run test:v54:setup && npm run test:security-locks && npm run test:routing-mode && npm run test:v54:architecture && npm run test:v54:real-manual-preflight && npm run test:v54:real-manual-preflight-collector && npm run test:v54:production-bridge && npm run test:v54:production-bridge-integration"
   },
   "devDependencies": {
     "@google/clasp": "^2.4.2"

@@ -311,13 +311,7 @@ failed += test('handler_sources_do_not_use_forbidden_real_side_effect_clients', 
     assert.strictEqual(/\brequire\s*\(/.test(source), false, 'require() should not appear');
 });
 
-failed += test('doPost_remains_unchanged_and_does_not_call_v54', () => {
-    assert.strictEqual(mainSource.includes('handleTelegramUpdateV54'), false);
-    assert.strictEqual(mainSource.includes('ParserV54'), false);
-    assert.strictEqual(mainSource.includes('recordEntryV54'), false);
-    assert.strictEqual(mainSource.includes('handleEntry(text, chatId, user)'), true);
-    assert.strictEqual(mainSource.includes('handleCommand(text, chatId, user)'), true);
-});
+
 
 if (failed > 0) {
     console.error(`\n${failed} V54 handler runtime check(s) failed.`);

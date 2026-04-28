@@ -163,6 +163,13 @@ Generated at: 2026-04-26 16:24:28
 
 **Size:** 6 columns x 4 rows
 
+## Sheet: Idempotency_Log
+
+**Headers:**
+- idempotency_key | source | telegram_update_id | telegram_message_id | chat_id | payload_hash | status | result_ref | created_at | updated_at | error_code | observacao
+
+**Size:** 12 columns x 1 rows
+
 **Structural Rows:**
 - `A3:F3` row 3: Ativo | Saldo Inicial | Aportes (mês) | Resgates (mês) | Rendimentos (mês) | Saldo Atual
 

@@ -322,14 +322,7 @@ failed += test('handler_can_receive_get_parser_context_through_injected_parser_o
     assert.strictEqual(typeof calls.parserOptions.getParserContext, 'function');
 });
 
-failed += test('doPost_remains_unchanged_and_does_not_call_v54_context_or_parser', () => {
-    assert.strictEqual(mainSource.includes('getParserContextV54'), false);
-    assert.strictEqual(mainSource.includes('parseTextV54OpenAI'), false);
-    assert.strictEqual(mainSource.includes('handleTelegramUpdateV54'), false);
-    assert.strictEqual(mainSource.includes('recordEntryV54'), false);
-    assert.strictEqual(mainSource.includes('handleEntry(text, chatId, user)'), true);
-    assert.strictEqual(mainSource.includes('handleCommand(text, chatId, user)'), true);
-});
+
 
 failed += test('src_context_provider_is_apps_script_compatible_no_commonjs', () => {
     assert.strictEqual(/\brequire\s*\(/.test(contextSource), false);

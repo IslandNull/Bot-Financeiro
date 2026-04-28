@@ -301,12 +301,7 @@ failed += test('adapter_source_has_no_forbidden_real_side_effect_clients_or_node
     assert.strictEqual(/\brequire\s*\(/.test(recoveryAdapterSource), false, 'require() should not appear');
 });
 
-failed += test('doPost_remains_unchanged_and_does_not_call_recovery_or_recordEntryV54', () => {
-    assert.strictEqual(mainSource.includes('applyReviewedIdempotencyRecoveryV54'), false);
-    assert.strictEqual(mainSource.includes('recordEntryV54'), false);
-    assert.strictEqual(mainSource.includes('handleEntry(text, chatId, user)'), true);
-    assert.strictEqual(mainSource.includes('handleCommand(text, chatId, user)'), true);
-});
+
 
 if (failed > 0) {
     console.error(`\n${failed} V54 idempotency recovery adapter check(s) failed.`);

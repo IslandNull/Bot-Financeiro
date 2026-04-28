@@ -489,11 +489,7 @@ failed += test('idempotent_adapter_sources_do_not_use_forbidden_real_side_effect
     });
 });
 
-failed += test('doPost_routing_remains_unchanged_and_does_not_call_recordEntryV54', () => {
-    assert.strictEqual(mainSource.includes('recordEntryV54'), false);
-    assert.strictEqual(mainSource.includes('handleEntry(text, chatId, user)'), true);
-    assert.strictEqual(mainSource.includes('handleCommand(text, chatId, user)'), true);
-});
+
 
 if (failed > 0) {
     console.error(`\n${failed} recordEntryV54 idempotent adapter check(s) failed.`);

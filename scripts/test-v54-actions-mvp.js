@@ -224,6 +224,7 @@ function deterministicDeps(fakeSpreadsheet, lockCalls, overrides) {
         mapInstallmentScheduleContract: source.mapInstallmentScheduleContract || null,
         planExpectedFaturasUpsert: source.planExpectedFaturasUpsert || planExpectedFaturasUpsert,
         cards: source.cards ? source.cards.map((card) => ({ ...card })) : undefined,
+        getCardsV54: source.getCardsV54 || undefined,
     };
 }
 
@@ -921,6 +922,34 @@ failed += test('card_purchase_cycle_and_card_source_resolution_match_seed_cards'
 
     assert.strictEqual(resultNubank.rowObject.id_fonte, cards.CARD_NUBANK_GU.id_fonte);
     assert.strictEqual(resultMp.rowObject.id_fonte, cards.CARD_MP_GU.id_fonte);
+});
+
+failed += test('simple_events_do_not_call_getCardsV54', () => {
+    let getCardsCalled = false;
+    const fake = makeFakeSpreadsheet();
+    const deps = {
+        getCardsV54: () => {
+            getCardsCalled = true;
+            return [];
+        }
+    };
+    const result = assertOk(record(baseEntry(), fake, [], deps));
+    assert.strictEqual(getCardsCalled, false, 'getCardsV54 should not be called for simple entries like despesa');
+});
+
+failed += test('card_purchase_calls_getCardsV54', () => {
+    let getCardsCalled = false;
+    const fake = makeFakeSpreadsheet();
+    const deps = {
+        getCardsV54: () => {
+            getCardsCalled = true;
+            return [];
+        },
+        mapSingleCardPurchaseContract
+    };
+    // Result will fail closed due to missing card, but that's fine for this test
+    record(baseCardPurchaseEntry(), fake, [], deps);
+    assert.strictEqual(getCardsCalled, true, 'getCardsV54 should be called for card entries');
 });
 
 if (failed > 0) {

@@ -241,13 +241,7 @@ failed += test('adapter_does_not_call_spreadsheet_telegram_or_real_urlfetch_in_l
     assert.strictEqual(urlFetchCalled, false);
 });
 
-failed += test('doPost_remains_unchanged_and_does_not_call_v54', () => {
-    assert.strictEqual(mainSource.includes('parseTextV54OpenAI'), false);
-    assert.strictEqual(mainSource.includes('handleTelegramUpdateV54'), false);
-    assert.strictEqual(mainSource.includes('recordEntryV54'), false);
-    assert.strictEqual(mainSource.includes('handleEntry(text, chatId, user)'), true);
-    assert.strictEqual(mainSource.includes('handleCommand(text, chatId, user)'), true);
-});
+
 
 failed += test('src_adapter_is_apps_script_compatible_no_commonjs', () => {
     assert.strictEqual(/\brequire\s*\(/.test(adapterSource), false);

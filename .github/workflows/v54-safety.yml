@@ -24,26 +24,5 @@ jobs:
       - name: Install dependencies (lockfile present)
         run: npm ci
 
-      - name: Run V54 production bridge tests
-        run: npm run test:v54:production-bridge
-
-      - name: Run preflight collector tests
-        run: npm run test:v54:real-manual-preflight-collector
-
-      - name: Run preflight report tests
-        run: npm run test:v54:real-manual-preflight
-
-      - name: Run runner gate tests
-        run: npm run test:v54:runner-gate
-
-      - name: Run architecture guardrails
-        run: npm run test:v54:architecture
-
-      - name: Run routing mode tests
-        run: npm run test:routing-mode
-
-      - name: Run security locks tests
-        run: npm run test:security-locks
-
-      - name: Run production bridge integration tests
-        run: npm run test:v54:production-bridge-integration
+      - name: Run all V54 tests (Local/Fake-First)
+        run: npm run test:v54:all

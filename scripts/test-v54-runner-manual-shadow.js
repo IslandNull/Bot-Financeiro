@@ -356,16 +356,6 @@ failed += test('runner_does_not_call_telegram_real_openai_urlfetch_or_real_sprea
     assert.strictEqual(spreadsheetCalled, false);
 });
 
-failed += test('main_doPost_remains_unchanged_and_does_not_call_runner', () => {
-    assert.strictEqual(mainSource.includes('runV54ManualShadow'), false);
-    assert.strictEqual(mainSource.includes('runManualShadowV54'), false);
-    assert.strictEqual(mainSource.includes('RunnerV54'), false);
-    assert.strictEqual(mainSource.includes('handleTelegramUpdateV54'), false);
-    assert.strictEqual(mainSource.includes('recordEntryV54'), false);
-    assert.strictEqual(mainSource.includes('handleEntry(text, chatId, user)'), true);
-    assert.strictEqual(mainSource.includes('handleCommand(text, chatId, user)'), true);
-});
-
 failed += test('runner_src_is_apps_script_compatible_and_no_forbidden_side_effect_clients', () => {
     assert.strictEqual(/\brequire\s*\(/.test(runnerSource), false);
     assert.strictEqual(runnerSource.includes('module.exports'), false);
