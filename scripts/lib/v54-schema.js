@@ -6,6 +6,7 @@ const V54_SHEETS = {
     FATURAS: 'Faturas',
     PAGAMENTOS_FATURA: 'Pagamentos_Fatura',
     IDEMPOTENCY_LOG: 'Idempotency_Log',
+    TELEGRAM_SEND_LOG: 'Telegram_Send_Log',
     COMPRAS_PARCELADAS: 'Compras_Parceladas',
     PARCELAS_AGENDA: 'Parcelas_Agenda',
     ORCAMENTO_FUTURO_CASA: 'Orcamento_Futuro_Casa',
@@ -99,6 +100,21 @@ const V54_HEADERS = {
         'updated_at',
         'error_code',
         'observacao',
+    ],
+    [V54_SHEETS.TELEGRAM_SEND_LOG]: [
+        'id_notificacao',
+        'created_at',
+        'route',
+        'chat_id',
+        'phase',
+        'status',
+        'status_code',
+        'error',
+        'result_ref',
+        'id_lancamento',
+        'idempotency_key',
+        'text_preview',
+        'sent_at',
     ],
     [V54_SHEETS.COMPRAS_PARCELADAS]: [
         'id_compra',
@@ -265,7 +281,7 @@ function validateV54Schema() {
         }
     });
 
-    ['Pagamentos_Fatura', 'Idempotency_Log', 'Dividas', 'Fechamentos_Mensais'].forEach((sheetName) => {
+    ['Pagamentos_Fatura', 'Idempotency_Log', 'Telegram_Send_Log', 'Dividas', 'Fechamentos_Mensais'].forEach((sheetName) => {
         if (!names.includes(sheetName)) errors.push(`V54 must include ${sheetName}`);
     });
 
@@ -286,6 +302,27 @@ function validateV54Schema() {
     ].forEach((field) => {
         if (!idempotencyLog.includes(field)) {
             errors.push(`Idempotency_Log must include ${field}`);
+        }
+    });
+
+    const telegramSendLog = V54_HEADERS[V54_SHEETS.TELEGRAM_SEND_LOG] || [];
+    [
+        'id_notificacao',
+        'created_at',
+        'route',
+        'chat_id',
+        'phase',
+        'status',
+        'status_code',
+        'error',
+        'result_ref',
+        'id_lancamento',
+        'idempotency_key',
+        'text_preview',
+        'sent_at',
+    ].forEach((field) => {
+        if (!telegramSendLog.includes(field)) {
+            errors.push(`Telegram_Send_Log must include ${field}`);
         }
     });
 

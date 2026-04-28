@@ -30,6 +30,7 @@ failed += test('all_required_v54_sheets_are_declared', () => {
         'Faturas',
         'Pagamentos_Fatura',
         'Idempotency_Log',
+        'Telegram_Send_Log',
         'Compras_Parceladas',
         'Parcelas_Agenda',
         'Orcamento_Futuro_Casa',
@@ -83,6 +84,21 @@ failed += test('analysis_consolidation_schema_decisions_are_present', () => {
         'updated_at',
         'error_code',
         'observacao',
+    ]);
+    assert.deepStrictEqual(getV54Headers(V54_SHEETS.TELEGRAM_SEND_LOG), [
+        'id_notificacao',
+        'created_at',
+        'route',
+        'chat_id',
+        'phase',
+        'status',
+        'status_code',
+        'error',
+        'result_ref',
+        'id_lancamento',
+        'idempotency_key',
+        'text_preview',
+        'sent_at',
     ]);
     assert.ok(getV54Headers(V54_SHEETS.DIVIDAS).includes('saldo_devedor'));
     assert.ok(getV54Headers(V54_SHEETS.DIVIDAS).includes('estrategia'));

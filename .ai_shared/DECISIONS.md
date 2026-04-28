@@ -697,3 +697,21 @@ Rejected:
 - Ativar V54 em producao sem runtime gate/config gate testado.
 - Fallback mutante automatico de `V54_PRIMARY` para V53 apos falha V54.
 - Expor ativacao V54 por `doGet` ou bypass de auth no webhook.
+
+
+## D052 - V54 Telegram Send Attempt Observability
+Status: Accepted
+Date: 2026-04-28
+
+Decision:
+Add `Telegram_Send_Log` as a non-financial V54 sheet for persistent observability of `V54_PRIMARY` Telegram response send attempts. Each V54_PRIMARY `sendTelegram` attempt records a best-effort row with route, phase, chat id, send status (`sent` or `failed`), status code/error, safe V54 result references, idempotency key when available, redacted/truncated text preview, and timestamps.
+
+Logging failures must be swallowed and must not rollback or change financial writes or the V54 route result. The log must not introduce automatic Telegram retry, V53 fallback, or duplicate financial mutation.
+
+Reason:
+Production writes and idempotency completion can succeed while Telegram confirmations are intermittent. A persistent, redacted send log separates notification delivery observability from financial write semantics and allows later diagnosis without relying only on ephemeral Apps Script execution logs.
+
+Rejected:
+- Retrying Telegram sends automatically from the V54_PRIMARY path.
+- Falling back to V53 when Telegram notification sending fails.
+- Storing raw secrets or unbounded message text in the sheet log.

@@ -8,6 +8,7 @@ const DEFAULT_REQUIRED_SHEETS = [
     'Faturas',
     'Pagamentos_Fatura',
     'Idempotency_Log',
+    'Telegram_Send_Log',
     'Compras_Parceladas',
     'Parcelas_Agenda',
     'Orcamento_Futuro_Casa',

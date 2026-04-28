@@ -299,8 +299,286 @@ failed += test('routeV54PrimaryEntry_captures_all_v54_primary_send_phases', () =
         'success_response',
         'non_ok_fallback',
     ].forEach((phase) => {
-        assert.ok(body.includes(`logV54PrimaryTelegramSendFailure_('${phase}'`), `${phase} send result must be captured`);
+        assert.ok(body.includes(`logV54PrimaryTelegramSendAttempt_('${phase}'`), `${phase} send result must be captured`);
     });
+});
+
+function makeTelegramSendLogSpreadsheetForTest() {
+    const writes = [];
+    const headers = [
+        'id_notificacao',
+        'created_at',
+        'route',
+        'chat_id',
+        'phase',
+        'status',
+        'status_code',
+        'error',
+        'result_ref',
+        'id_lancamento',
+        'idempotency_key',
+        'text_preview',
+        'sent_at',
+    ];
+    const sheet = {
+        getLastRow: () => 1 + writes.length,
+        getRange(row, column, numRows, numColumns) {
+            return {
+                getValues() {
+                    if (row === 1 && column === 1 && numRows === 1) {
+                        return [Array.from({ length: numColumns }, (_, index) => headers[index] || '')];
+                    }
+                    throw new Error(`Unexpected getValues range ${row}:${column}:${numRows}:${numColumns}`);
+                },
+                setValues(values) {
+                    writes.push({ row, column, numRows, numColumns, values: values.map((valueRow) => [...valueRow]) });
+                },
+            };
+        },
+    };
+    return {
+        writes,
+        getSheetByName(name) {
+            return name === 'Telegram_Send_Log' ? sheet : null;
+        },
+    };
+}
+
+function telegramLogRowObject(write) {
+    const headers = [
+        'id_notificacao',
+        'created_at',
+        'route',
+        'chat_id',
+        'phase',
+        'status',
+        'status_code',
+        'error',
+        'result_ref',
+        'id_lancamento',
+        'idempotency_key',
+        'text_preview',
+        'sent_at',
+    ];
+    return headers.reduce((acc, header, index) => {
+        acc[header] = write.values[0][index];
+        return acc;
+    }, {});
+}
+
+failed += test('routeV54PrimaryEntry_successful_v54_result_and_telegram_success_logs_sent', () => {
+    const vm = require('vm');
+    const fakeSpreadsheet = makeTelegramSendLogSpreadsheetForTest();
+    const successfulResult = {
+        ok: true,
+        status: 'recorded',
+        responseText: 'V54 ok registrado',
+        record: {
+            result_ref: 'LAN_V54_OK_001',
+            id_lancamento: 'LAN_V54_OK_001',
+            idempotency_key: 'telegram:telegram_update_id:91001',
+        },
+    };
+    const context = vm.createContext({
+        PropertiesService: { getScriptProperties: () => ({ getProperty: () => null }) },
+        ContentService: { createTextOutput: () => ({ setMimeType: () => {} }) },
+        UrlFetchApp: {
+            fetch: () => ({ getResponseCode: () => 200 }),
+        },
+        console: { log: () => {}, warn: () => {}, error: () => {} },
+        buildV54ProductionBridgeDeps_: () => ({
+            ok: true,
+            deps: {
+                handleTelegramUpdateV54: () => successfulResult,
+                parseTextV54: () => ({}),
+                parserOptions: {},
+                validateParsedEntryV54: () => ({}),
+                recordEntryV54: () => ({}),
+                recordOptions: { getSpreadsheet: () => fakeSpreadsheet },
+            }
+        }),
+    });
+    vm.runInContext(main, context);
+
+    const returned = context.routeV54PrimaryEntry_(
+        { update_id: 1, message: { message_id: 2, chat: { id: 123 }, text: 'x' } },
+        'x',
+        '123',
+        { pagador: 'Teste' }
+    );
+
+    assert.strictEqual(returned, successfulResult);
+    assert.strictEqual(fakeSpreadsheet.writes.length, 1);
+    const row = telegramLogRowObject(fakeSpreadsheet.writes[0]);
+    assert.strictEqual(row.route, 'V54_PRIMARY');
+    assert.strictEqual(row.chat_id, '123');
+    assert.strictEqual(row.phase, 'success_response');
+    assert.strictEqual(row.status, 'sent');
+    assert.strictEqual(row.status_code, 200);
+    assert.strictEqual(row.error, '');
+    assert.strictEqual(row.result_ref, 'LAN_V54_OK_001');
+    assert.strictEqual(row.id_lancamento, 'LAN_V54_OK_001');
+    assert.strictEqual(row.idempotency_key, 'telegram:telegram_update_id:91001');
+    assert.strictEqual(row.text_preview, 'V54 ok registrado');
+    assert.ok(row.sent_at, 'sent_at must be filled for successful sends');
+});
+
+failed += test('routeV54PrimaryEntry_successful_v54_result_and_telegram_failure_logs_failed', () => {
+    const vm = require('vm');
+    const fakeSpreadsheet = makeTelegramSendLogSpreadsheetForTest();
+    const successfulResult = {
+        ok: true,
+        status: 'recorded',
+        responseText: 'V54 ok',
+        record: {
+            result_ref: 'LAN_V54_FAIL_SEND_001',
+            id_lancamento: 'LAN_V54_FAIL_SEND_001',
+            idempotency_key: 'telegram:telegram_update_id:91002',
+        },
+    };
+    const context = vm.createContext({
+        PropertiesService: { getScriptProperties: () => ({ getProperty: () => null }) },
+        ContentService: { createTextOutput: () => ({ setMimeType: () => {} }) },
+        UrlFetchApp: {
+            fetch: () => ({ getResponseCode: () => 403 }),
+        },
+        console: { log: () => {}, warn: () => {}, error: () => {} },
+        buildV54ProductionBridgeDeps_: () => ({
+            ok: true,
+            deps: {
+                handleTelegramUpdateV54: () => successfulResult,
+                parseTextV54: () => ({}),
+                parserOptions: {},
+                validateParsedEntryV54: () => ({}),
+                recordEntryV54: () => ({}),
+                recordOptions: { getSpreadsheet: () => fakeSpreadsheet },
+            }
+        }),
+    });
+    vm.runInContext(main, context);
+
+    const returned = context.routeV54PrimaryEntry_(
+        { update_id: 1, message: { message_id: 2, chat: { id: 123 }, text: 'x' } },
+        'x',
+        '123',
+        { pagador: 'Teste' }
+    );
+
+    assert.strictEqual(returned, successfulResult);
+    assert.strictEqual(fakeSpreadsheet.writes.length, 1);
+    const row = telegramLogRowObject(fakeSpreadsheet.writes[0]);
+    assert.strictEqual(row.phase, 'success_response');
+    assert.strictEqual(row.status, 'failed');
+    assert.strictEqual(row.status_code, 403);
+    assert.strictEqual(row.error, 'telegram_send_failed');
+    assert.strictEqual(row.sent_at, '');
+});
+
+failed += test('telegram_send_log_failure_does_not_change_v54_result', () => {
+    const vm = require('vm');
+    const successfulResult = {
+        ok: true,
+        status: 'recorded',
+        responseText: 'V54 ok',
+        record: {
+            result_ref: 'LAN_V54_OK_002',
+            id_lancamento: 'LAN_V54_OK_002',
+            idempotency_key: 'telegram:telegram_update_id:91003',
+        },
+    };
+    const context = vm.createContext({
+        PropertiesService: { getScriptProperties: () => ({ getProperty: () => null }) },
+        ContentService: { createTextOutput: () => ({ setMimeType: () => {} }) },
+        UrlFetchApp: {
+            fetch: () => ({ getResponseCode: () => 200 }),
+        },
+        console: { log: () => {}, warn: () => {}, error: () => {} },
+        buildV54ProductionBridgeDeps_: () => ({
+            ok: true,
+            deps: {
+                handleTelegramUpdateV54: () => successfulResult,
+                parseTextV54: () => ({}),
+                parserOptions: {},
+                validateParsedEntryV54: () => ({}),
+                recordEntryV54: () => ({}),
+                recordOptions: { getSpreadsheet: () => { throw new Error('log write unavailable'); } },
+            }
+        }),
+    });
+    vm.runInContext(main, context);
+
+    const returned = context.routeV54PrimaryEntry_(
+        { update_id: 1, message: { message_id: 2, chat: { id: 123 }, text: 'x' } },
+        'x',
+        '123',
+        { pagador: 'Teste' }
+    );
+
+    assert.strictEqual(returned, successfulResult);
+    assert.strictEqual(returned.ok, true);
+});
+
+failed += test('telegram_send_log_redacts_and_truncates_text_preview_and_identifiers', () => {
+    const vm = require('vm');
+    const fakeSpreadsheet = makeTelegramSendLogSpreadsheetForTest();
+    const rawToken = '123456789:ABCdef_SECRET-token';
+    const rawOpenAIKey = 'sk-proj-abcdefghijklmnopqrstuvwxyz123456';
+    const rawSpreadsheetId = '1AbCdEfGhIjKlMnOpQrStUvWxYz1234567890';
+    const rawWebhook = 'raw-webhook-secret';
+    const longSecretText = [
+        `ok https://api.telegram.org/bot${rawToken}/sendMessage`,
+        rawOpenAIKey,
+        `webhook_secret=${rawWebhook}`,
+        `spreadsheet_id=${rawSpreadsheetId}`,
+        'x'.repeat(240),
+    ].join(' ');
+    const successfulResult = {
+        ok: true,
+        status: 'recorded',
+        responseText: longSecretText,
+        record: {
+            result_ref: `LAN ${rawOpenAIKey}`,
+            id_lancamento: `LAN spreadsheet_id=${rawSpreadsheetId}`,
+            idempotency_key: 'telegram:telegram_update_id:91004',
+        },
+    };
+    const context = vm.createContext({
+        PropertiesService: { getScriptProperties: () => ({ getProperty: () => null }) },
+        ContentService: { createTextOutput: () => ({ setMimeType: () => {} }) },
+        UrlFetchApp: {
+            fetch: () => ({ getResponseCode: () => 200 }),
+        },
+        console: { log: () => {}, warn: () => {}, error: () => {} },
+        buildV54ProductionBridgeDeps_: () => ({
+            ok: true,
+            deps: {
+                handleTelegramUpdateV54: () => successfulResult,
+                parseTextV54: () => ({}),
+                parserOptions: {},
+                validateParsedEntryV54: () => ({}),
+                recordEntryV54: () => ({}),
+                recordOptions: { getSpreadsheet: () => fakeSpreadsheet },
+            }
+        }),
+    });
+    vm.runInContext(main, context);
+
+    context.routeV54PrimaryEntry_(
+        { update_id: 1, message: { message_id: 2, chat: { id: 123 }, text: 'x' } },
+        'x',
+        '123',
+        { pagador: 'Teste' }
+    );
+
+    const row = telegramLogRowObject(fakeSpreadsheet.writes[0]);
+    const combined = JSON.stringify(row);
+    [rawToken, rawOpenAIKey, rawWebhook, rawSpreadsheetId].forEach((secret) => {
+        assert.strictEqual(combined.includes(secret), false, `${secret} must not leak`);
+    });
+    assert.ok(row.text_preview.length <= 160, 'text_preview must be truncated');
+    assert.ok(row.text_preview.includes('[REDACTED]'), 'text_preview should show redaction marker');
+    assert.ok(row.result_ref.includes('[REDACTED]'));
+    assert.ok(row.id_lancamento.includes('[REDACTED]'));
 });
 
 failed += test('routeV54PrimaryEntry_logs_redacted_send_failure_after_success_without_changing_result', () => {

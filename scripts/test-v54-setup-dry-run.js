@@ -180,6 +180,7 @@ failed += test('planSetupV54_schema_contains_key_decisions', () => {
     assert.ok(body.includes("Cartoes: ['id_cartao', 'id_fonte', 'nome', 'titular', 'fechamento_dia', 'vencimento_dia', 'limite', 'ativo']"));
     assert.ok(body.includes("Pagamentos_Fatura: ['id_pagamento', 'id_fatura'"));
     assert.ok(body.includes("Idempotency_Log: ['idempotency_key', 'source'"));
+    assert.ok(body.includes("Telegram_Send_Log: ['id_notificacao', 'created_at', 'route', 'chat_id', 'phase', 'status', 'status_code', 'error', 'result_ref', 'id_lancamento', 'idempotency_key', 'text_preview', 'sent_at']"));
     assert.ok(body.includes("Parcelas_Agenda: ['id_parcela', 'id_compra'"));
     assert.ok(body.includes("Lancamentos_V54: ['id_lancamento', 'data', 'competencia', 'tipo_evento', 'id_categoria', 'valor', 'id_fonte', 'pessoa', 'escopo', 'id_cartao', 'id_fatura', 'id_compra', 'id_parcela', 'afeta_dre', 'afeta_acerto', 'afeta_patrimonio', 'visibilidade'"));
     assert.ok(body.includes("Dividas: ['id_divida', 'nome', 'credor'"));
@@ -375,6 +376,42 @@ failed += test('applySetupV54_creates_only_missing_v54_sheets_with_headers', () 
     assert.strictEqual(fakeSpreadsheet.mutations.filter((mutation) => mutation.type === 'setValues').length, Object.keys(schema).length);
     assert.strictEqual(fakeSpreadsheet.mutations.filter((mutation) => mutation.type === 'setFrozenRows').length, Object.keys(schema).length);
     assert.ok(fakeSpreadsheet.mutations.every((mutation) => !['Config', 'Lancamentos', 'Dashboard', 'Investimentos', 'Parcelas'].includes(mutation.sheet)));
+});
+
+failed += test('applySetupV54_creates_telegram_send_log_with_exact_headers', () => {
+    const fakeSpreadsheet = makeFakeSpreadsheet({});
+    const { applySetupV54 } = loadApplyFunctions({
+        CONFIG: { SPREADSHEET_ID: 'TEST' },
+        _loadSecrets() {},
+        SpreadsheetApp: { openById: () => fakeSpreadsheet },
+        withScriptLock(label, fn) {
+            assert.strictEqual(label, 'applySetupV54');
+            return fn();
+        },
+    });
+
+    const result = applySetupV54();
+    const headerWrite = fakeSpreadsheet.mutations.find((mutation) => (
+        mutation.type === 'setValues' && mutation.sheet === 'Telegram_Send_Log'
+    ));
+
+    assert.strictEqual(result.ok, true);
+    assert.ok(headerWrite, 'Telegram_Send_Log headers must be written');
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(headerWrite.values[0])), [
+        'id_notificacao',
+        'created_at',
+        'route',
+        'chat_id',
+        'phase',
+        'status',
+        'status_code',
+        'error',
+        'result_ref',
+        'id_lancamento',
+        'idempotency_key',
+        'text_preview',
+        'sent_at',
+    ]);
 });
 
 failed += test('applySetupV54_static_surface_is_additive_and_non_formula', () => {

@@ -42,6 +42,7 @@ clasp deploy
 2. The bot will now route inputs exclusively to the V54 architecture.
 3. Verify that entries are correctly classified, parsed by OpenAI, and recorded via the idempotent write path.
 4. Ensure no double-booking occurs in V53.
+5. Monitor `Telegram_Send_Log` for each V54_PRIMARY response attempt and compare `status=failed` rows against Apps Script execution logs. Do not treat a Telegram send failure as a reason to replay the financial write automatically.
 
 ## 6. Rollback Procedure
 If any critical failure occurs in `V54_PRIMARY` or `V54_SHADOW`:

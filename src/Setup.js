@@ -138,6 +138,7 @@ function getV54Schema() {
         Faturas: ['id_fatura', 'id_cartao', 'competencia', 'data_fechamento', 'data_vencimento', 'valor_previsto', 'valor_fechado', 'valor_pago', 'fonte_pagamento', 'status'],
         Pagamentos_Fatura: ['id_pagamento', 'id_fatura', 'data_pagamento', 'valor_pago', 'id_fonte', 'pessoa', 'escopo', 'afeta_dre', 'afeta_acerto', 'afeta_patrimonio', 'status', 'observacao', 'created_at'],
         Idempotency_Log: ['idempotency_key', 'source', 'telegram_update_id', 'telegram_message_id', 'chat_id', 'payload_hash', 'status', 'result_ref', 'created_at', 'updated_at', 'error_code', 'observacao'],
+        Telegram_Send_Log: ['id_notificacao', 'created_at', 'route', 'chat_id', 'phase', 'status', 'status_code', 'error', 'result_ref', 'id_lancamento', 'idempotency_key', 'text_preview', 'sent_at'],
         Compras_Parceladas: ['id_compra', 'data_compra', 'id_cartao', 'descricao', 'id_categoria', 'valor_total', 'parcelas_total', 'responsavel', 'escopo', 'visibilidade', 'status'],
         Parcelas_Agenda: ['id_parcela', 'id_compra', 'numero_parcela', 'competencia', 'valor_parcela', 'id_fatura', 'status', 'id_lancamento'],
         Orcamento_Futuro_Casa: ['item', 'valor_previsto', 'data_inicio_prevista', 'ativo_no_dre'],
