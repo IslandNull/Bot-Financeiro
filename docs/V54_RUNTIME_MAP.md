@@ -5,7 +5,7 @@ Mapeamento de entrypoints e estado de runtime da transição V53 -> V54.
 ## 1. Rotas Webhook / Apps Script
 - `doPost(e)` (em `src/Main.js`): Ponto de entrada do Telegram.
   - **Segurança:** Requer `WEBHOOK_SECRET` via query string ou body (Val.town).
-  - **Status V54:** `doPost` atualmente roteia todo o tráfego exclusivamente para o fluxo legacy V53 (`handleCommand` / `handleEntry`). `ActionsV54.recordEntryV54` existe mas ainda **não é chamado** por `doPost` — V54 não está plugado ao roteamento Telegram.
+  - **Status V54:** `doPost` opera por `V54_ROUTING_MODE` com release controlado: default/missing/invalid => `V53_CURRENT`; `V54_SHADOW` mantém `handleEntry` V53 como source-of-truth user-facing e roda diagnóstico V54 no-write; `V54_PRIMARY` usa path V54 para entradas normais sem fallback mutante automático para V53.
 - `doGet(e)` (em `src/Main.js`): Ponto de entrada GET.
   - **Segurança:** Requer `SYNC_SECRET`.
   - **Uso atual:** `exportState` (exportação do SPREADSHEET_STATE.md).
@@ -35,14 +35,13 @@ Mapeamento de entrypoints e estado de runtime da transição V53 -> V54.
   - Módulos: `src/Actions.js`, `src/Commands.js`, `src/Parser.js`, `src/Views.js`, `src/SetupLegacy.js`.
   - **NÃO ADICIONAR NOVAS FEATURES NESTES ARQUIVOS.**
 
-## 3. O que ainda não está roteado
+## 3. O que permanece controlado por gate
 - O ParserV54 context provider e OpenAI adapter existem, mas ainda não processam mensagens do Telegram em produção porque não estão conectados ao handler roteado.
 - O runner manual/shadow V54 existe, mas ainda é caminho desabilitado/manual por DI e não processa Telegram real.
 - O gate manual/shadow V54 existe, mas ainda nao e rota web nem permissao de producao; ele apenas protege chamadas manuais controladas.
 - `real_manual` continua manual-only/fake-first por contrato de diagnostico; nao e production-ready, nao e chamado por `doPost`, e nao e exposto por `doGet`.
-- `ActionsV54.recordEntryV54` ainda não é chamado por `doPost`.
-- `HandlerV54.handleTelegramUpdateV54` ainda não é chamado por `doPost`.
-- `RunnerV54.runV54ManualShadow` ainda não é chamado por `doPost`.
+- `RunnerV54.runV54ManualShadow` e `RunnerV54Gate.invokeV54ManualShadowGate` continuam fora de `doPost`/`doGet` (manual-only).
+- `doGet` permanece read-only e sem ativacao V54.
 - `RunnerV54Gate.invokeV54ManualShadowGate` ainda não é chamado por `doPost` nem exposto por `doGet`.
 - `RunnerV54RealManualPolicy.evaluateV54RealManualPolicy` ainda não é chamado por `doPost` nem exposto por `doGet`.
 - `ActionsV54Recovery.applyReviewedIdempotencyRecoveryV54` ainda não é chamado por `doPost` nem por rota de manutenção real.

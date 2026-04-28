@@ -227,13 +227,15 @@ failed += test('gate_never_calls_telegram_real_openai_urlfetch_or_real_spreadshe
     assert.strictEqual(spreadsheetCalled, false);
 });
 
-failed += test('main_doPost_remains_unchanged_and_does_not_call_gate_or_runner', () => {
+failed += test('main_doPost_does_not_call_manual_gate_or_manual_runner_directly', () => {
     assert.strictEqual(mainSource.includes('invokeV54ManualShadowGate'), false);
     assert.strictEqual(mainSource.includes('runV54ManualShadowGate'), false);
     assert.strictEqual(mainSource.includes('runV54ManualShadow'), false);
     assert.strictEqual(mainSource.includes('runManualShadowV54'), false);
-    assert.strictEqual(mainSource.includes('handleTelegramUpdateV54'), false);
-    assert.strictEqual(mainSource.includes('recordEntryV54'), false);
+    assert.strictEqual(mainSource.includes('handleTelegramUpdateV54'), true);
+    assert.strictEqual(mainSource.includes('routeV54PrimaryEntry_('), true);
+    assert.strictEqual(mainSource.includes('runV54ShadowDiagnostics_('), true);
+    assert.strictEqual(mainSource.includes('recordEntryV54ShadowNoWrite_'), true);
     assert.strictEqual(mainSource.includes('handleEntry(text, chatId, user)'), true);
     assert.strictEqual(mainSource.includes('handleCommand(text, chatId, user)'), true);
 });

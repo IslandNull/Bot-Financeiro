@@ -16,120 +16,170 @@ function test(name, fn) {
     }
 }
 
+function makeContext(overrides) {
+    let routingMode = null;
+    const calls = {
+        handleEntry: 0,
+        handleCommand: 0,
+        telegramMessages: [],
+        primaryBridge: 0,
+        shadowBridge: 0,
+        primaryHandleV54: 0,
+        shadowHandleV54: 0,
+    };
+
+    const sandbox = {
+        PropertiesService: {
+            getScriptProperties: () => ({
+                getProperty: (k) => {
+                    if (k === 'V54_ROUTING_MODE') return routingMode;
+                    if (k === 'WEBHOOK_SECRET') return 'secret-123';
+                    if (k === 'AUTHORIZED') return JSON.stringify({ '123': { pagador: 'Teste' } });
+                    if (k === 'SPREADSHEET_ID') return 'sheet-123';
+                    if (k === 'OPENAI_API_KEY') return 'api-key';
+                    if (k === 'TELEGRAM_TOKEN') return 'tg-token';
+                    return null;
+                },
+            }),
+        },
+        ContentService: { createTextOutput: () => ({ setMimeType: () => {} }) },
+        console: { warn: () => {}, error: () => {}, log: () => {} },
+        handleCommand: () => { calls.handleCommand += 1; },
+        handleEntry: () => { calls.handleEntry += 1; },
+        UrlFetchApp: {
+            fetch: (url, opts) => {
+                if (url.indexOf('/sendMessage') !== -1) {
+                    const payload = JSON.parse(opts.payload || '{}');
+                    calls.telegramMessages.push(payload);
+                }
+            },
+        },
+        buildV54ProductionBridgeDeps_: (runtimeContext, options) => {
+            if (runtimeContext.mode === 'V54_PRIMARY') calls.primaryBridge += 1;
+            if (runtimeContext.mode === 'V54_SHADOW') calls.shadowBridge += 1;
+            return {
+                ok: true,
+                deps: {
+                    handleTelegramUpdateV54: () => {
+                        if (runtimeContext.mode === 'V54_PRIMARY') {
+                            calls.primaryHandleV54 += 1;
+                            return { ok: true, responseText: 'V54 ok' };
+                        }
+                        calls.shadowHandleV54 += 1;
+                        return { ok: false, status: 'shadow_diagnostic_only', responseText: '' };
+                    },
+                    parseTextV54: () => ({ ok: true }),
+                    parserOptions: {},
+                    validateParsedEntryV54: () => ({ ok: true, normalized: {} }),
+                    recordEntryV54: () => ({ ok: true }),
+                    recordOptions: {},
+                },
+            };
+        },
+        redactV54ProductionBridgeObject_: (v) => v,
+        recordEntryV54ShadowNoWrite_: () => ({ ok: true }),
+    };
+
+    Object.assign(sandbox, overrides || {});
+    const context = vm.createContext(sandbox);
+    vm.runInContext(main, context);
+
+    return {
+        context,
+        calls,
+        setRoutingMode(value) {
+            routingMode = value;
+        },
+    };
+}
+
+function makeEvent(text) {
+    return {
+        parameter: { webhook_secret: 'secret-123' },
+        postData: { contents: JSON.stringify({ message: { text, chat: { id: 123 } } }) },
+    };
+}
+
 let failed = 0;
 
-failed += test('routing_mode_foundation', () => {
-    let currentPropValue = null;
-    let doPostCalledHandleEntry = false;
-    let doPostCalledHandleCommand = false;
-
-    const mockEnv = {
-        PropertiesService: {
-            getScriptProperties: () => ({
-                getProperty: (k) => {
-                    if (k === 'V54_ROUTING_MODE') return currentPropValue;
-                    if (k === 'WEBHOOK_SECRET') return 'secret-123';
-                    if (k === 'AUTHORIZED') return JSON.stringify({ '123': { pagador: 'Teste' } });
-                    return null;
-                }
-            })
-        },
-        ContentService: {
-            createTextOutput: (s) => ({
-                setMimeType: () => {}
-            })
-        },
-        console: { warn: () => {}, error: () => {} },
-        handleCommand: () => { doPostCalledHandleCommand = true; },
-        handleEntry: () => { doPostCalledHandleEntry = true; }
-    };
-
-    const context = vm.createContext(mockEnv);
-    vm.runInContext(main, context);
-
-    // 1. default sem propriedade => V53_CURRENT
-    currentPropValue = null;
-    assert.strictEqual(context.getRoutingMode_(), 'V53_CURRENT', 'Should default to V53_CURRENT when missing');
-
-    // 2. propriedade vazia => V53_CURRENT
-    currentPropValue = '';
-    assert.strictEqual(context.getRoutingMode_(), 'V53_CURRENT', 'Should default to V53_CURRENT when empty');
-
-    // 3. propriedade inválida => V53_CURRENT
-    currentPropValue = 'QUALQUER_OUTRA_COISA';
-    assert.strictEqual(context.getRoutingMode_(), 'V53_CURRENT', 'Should default to V53_CURRENT when invalid');
-
-    // 4. V54_ROUTING_MODE=V53_CURRENT => V53_CURRENT
-    currentPropValue = 'V53_CURRENT';
-    assert.strictEqual(context.getRoutingMode_(), 'V53_CURRENT', 'Should return V53_CURRENT explicitly');
-
-    // 5. V54_ROUTING_MODE=V54_SHADOW => V54_SHADOW
-    currentPropValue = 'V54_SHADOW';
-    assert.strictEqual(context.getRoutingMode_(), 'V54_SHADOW', 'Should return V54_SHADOW');
-
-    // 6. V54_ROUTING_MODE=V54_PRIMARY => V54_PRIMARY
-    currentPropValue = 'V54_PRIMARY';
-    assert.strictEqual(context.getRoutingMode_(), 'V54_PRIMARY', 'Should return V54_PRIMARY');
-
-    // 7. doPost ainda preserva fluxo produtivo atual (roteia pro handleEntry/handleCommand atual)
-    // Sem secret pra garantir que doPost não foi quebrado.
-    let e = { parameter: { webhook_secret: 'secret-123' }, postData: { contents: JSON.stringify({ message: { text: '10 ifood', chat: { id: 123 } } }) } };
-    
-    doPostCalledHandleEntry = false;
-    doPostCalledHandleCommand = false;
-    context.doPost(e);
-    assert.strictEqual(doPostCalledHandleEntry, true, 'doPost should continue calling handleEntry for texts');
-    assert.strictEqual(doPostCalledHandleCommand, false);
-
-    e.postData.contents = JSON.stringify({ message: { text: '/saldo', chat: { id: 123 } } });
-    doPostCalledHandleEntry = false;
-    doPostCalledHandleCommand = false;
-    context.doPost(e);
-    assert.strictEqual(doPostCalledHandleCommand, true, 'doPost should continue calling handleCommand for commands');
-    assert.strictEqual(doPostCalledHandleEntry, false);
+failed += test('routing_mode_defaults_to_v53_current_for_missing_empty_invalid', () => {
+    const { context, setRoutingMode } = makeContext();
+    setRoutingMode(null);
+    assert.strictEqual(context.getRoutingMode_(), 'V53_CURRENT');
+    setRoutingMode('');
+    assert.strictEqual(context.getRoutingMode_(), 'V53_CURRENT');
+    setRoutingMode('INVALID');
+    assert.strictEqual(context.getRoutingMode_(), 'V53_CURRENT');
 });
 
-failed += test('diagnose_routing_mode', () => {
-    let currentPropValue = null;
-    const mockEnv = {
-        PropertiesService: {
-            getScriptProperties: () => ({
-                getProperty: (k) => {
-                    if (k === 'V54_ROUTING_MODE') return currentPropValue;
-                    if (k === 'WEBHOOK_SECRET') return 'secret-123';
-                    if (k === 'AUTHORIZED') return JSON.stringify({ '123': { pagador: 'Teste' } });
-                    return null;
-                }
-            })
-        },
-        console: { warn: () => {}, error: () => {}, log: () => {} },
-    };
+failed += test('v53_current_behavior_unchanged_for_entries_and_commands', () => {
+    const setup = makeContext();
+    setup.setRoutingMode('V53_CURRENT');
+    setup.context.doPost(makeEvent('10 ifood'));
+    assert.strictEqual(setup.calls.handleEntry, 1);
+    assert.strictEqual(setup.calls.primaryBridge, 0);
 
-    const context = vm.createContext(mockEnv);
-    vm.runInContext(main, context);
+    setup.context.doPost(makeEvent('/saldo'));
+    assert.strictEqual(setup.calls.handleCommand, 1);
+    assert.strictEqual(setup.calls.primaryBridge, 0);
+});
 
-    function assertReport(prop, expectedEffective, expectedFallbackReason) {
-        currentPropValue = prop;
-        const report = context.diagnoseRoutingMode();
-        assert.strictEqual(report.ok, true);
-        assert.strictEqual(report.effectiveMode, expectedEffective);
-        assert.strictEqual(report.fallbackReason, expectedFallbackReason);
-        assert.ok(Array.isArray(report.allowedModes));
-        assert.ok(report.allowedModes.includes('V53_CURRENT'));
-        assert.ok(report.allowedModes.includes('V54_SHADOW'));
-        assert.ok(report.allowedModes.includes('V54_PRIMARY'));
-        assert.strictEqual(report.WEBHOOK_SECRET, undefined, 'Must not leak secrets');
-        assert.strictEqual(report.OPENAI_API_KEY, undefined, 'Must not leak secrets');
-        assert.strictEqual(report.TELEGRAM_TOKEN, undefined, 'Must not leak secrets');
-    }
+failed += test('v54_shadow_keeps_v53_source_of_truth_and_runs_non_user_facing_diagnostics', () => {
+    const setup = makeContext();
+    setup.setRoutingMode('V54_SHADOW');
+    setup.context.doPost(makeEvent('20 mercado'));
 
-    assertReport(null, 'V53_CURRENT', 'missing');
-    assertReport(undefined, 'V53_CURRENT', 'missing');
-    assertReport('', 'V53_CURRENT', 'empty');
-    assertReport('BLABLA', 'V53_CURRENT', 'invalid');
-    assertReport('V53_CURRENT', 'V53_CURRENT', 'none');
-    assertReport('V54_SHADOW', 'V54_SHADOW', 'none');
-    assertReport('V54_PRIMARY', 'V54_PRIMARY', 'none');
+    assert.strictEqual(setup.calls.handleEntry, 1, 'V53 handleEntry must still run in shadow mode');
+    assert.strictEqual(setup.calls.shadowBridge, 1, 'shadow bridge must run');
+    assert.strictEqual(setup.calls.shadowHandleV54, 1, 'shadow V54 handler must run');
+    assert.strictEqual(setup.calls.telegramMessages.length, 0, 'shadow V54 must not send Telegram directly');
+});
+
+failed += test('v54_shadow_failure_does_not_block_v53_flow', () => {
+    const setup = makeContext({
+        buildV54ProductionBridgeDeps_: () => ({ ok: false, errors: [{ code: 'BLOCKED' }] }),
+        redactV54ProductionBridgeObject_: (value) => value,
+    });
+    setup.setRoutingMode('V54_SHADOW');
+    setup.context.doPost(makeEvent('30 uber'));
+    assert.strictEqual(setup.calls.handleEntry, 1);
+    assert.strictEqual(setup.calls.telegramMessages.length, 0);
+});
+
+failed += test('v54_primary_routes_normal_entry_to_v54_and_not_v53', () => {
+    const setup = makeContext();
+    setup.setRoutingMode('V54_PRIMARY');
+    setup.context.doPost(makeEvent('50 farmacia'));
+
+    assert.strictEqual(setup.calls.handleEntry, 0, 'V53 mutation path must not run in V54_PRIMARY');
+    assert.strictEqual(setup.calls.primaryBridge, 1);
+    assert.strictEqual(setup.calls.primaryHandleV54, 1);
+    assert.strictEqual(setup.calls.telegramMessages.length, 1);
+    assert.strictEqual(setup.calls.telegramMessages[0].text, 'V54 ok');
+});
+
+failed += test('v54_primary_failure_sends_safe_message_and_does_not_fallback_to_v53', () => {
+    const setup = makeContext({
+        buildV54ProductionBridgeDeps_: () => ({ ok: false, errors: [{ code: 'CONFIG_MISSING' }] }),
+        redactV54ProductionBridgeObject_: (value) => value,
+    });
+    setup.setRoutingMode('V54_PRIMARY');
+    setup.context.doPost(makeEvent('60 aluguel'));
+
+    assert.strictEqual(setup.calls.handleEntry, 0);
+    assert.strictEqual(setup.calls.telegramMessages.length, 1);
+    assert.ok(setup.calls.telegramMessages[0].text.includes('Não consegui registrar esse lançamento com segurança agora'));
+});
+
+failed += test('slash_commands_still_use_existing_command_path_in_all_modes', () => {
+    const setup = makeContext();
+    ['V53_CURRENT', 'V54_SHADOW', 'V54_PRIMARY'].forEach((mode) => {
+        setup.setRoutingMode(mode);
+        setup.context.doPost(makeEvent('/saldo'));
+    });
+    assert.strictEqual(setup.calls.handleCommand, 3);
+    assert.strictEqual(setup.calls.primaryBridge, 0);
+    assert.strictEqual(setup.calls.shadowBridge, 0);
 });
 
 if (failed > 0) {

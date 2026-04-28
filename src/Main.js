@@ -101,6 +101,7 @@ function doPost(e) {
         const chatId = String(msg.chat.id);
         const text = msg.text.trim();
         const user = CONFIG.AUTHORIZED[chatId];
+        const routingMode = getRoutingMode_();
 
         if (!user) {
             sendTelegram(chatId, '🚫 Você não está autorizado a usar este bot.');
@@ -109,6 +110,11 @@ function doPost(e) {
 
         if (text.startsWith('/')) {
             handleCommand(text, chatId, user);
+        } else if (routingMode === ROUTING_MODES.V54_PRIMARY) {
+            routeV54PrimaryEntry_(update, text, chatId, user);
+        } else if (routingMode === ROUTING_MODES.V54_SHADOW) {
+            handleEntry(text, chatId, user);
+            runV54ShadowDiagnostics_(update, text, chatId, user);
         } else {
             handleEntry(text, chatId, user);
         }
@@ -116,6 +122,90 @@ function doPost(e) {
         console.error('doPost error:', err, err.stack);
     }
     return _ok();
+}
+
+function routeV54PrimaryEntry_(update, text, chatId, user) {
+    const fallbackMessage = 'Não consegui registrar esse lançamento com segurança agora. Revise a mensagem ou tente novamente em instantes.';
+    const bridge = buildV54ProductionBridgeDeps_({
+        mode: ROUTING_MODES.V54_PRIMARY,
+        chatId: chatId,
+        text: text,
+        user: user,
+    }, {});
+    if (!bridge.ok) {
+        console.warn('V54 primary blocked:', JSON.stringify(redactV54ProductionBridgeObject_(bridge)));
+        sendTelegram(chatId, fallbackMessage);
+        return;
+    }
+
+    let result;
+    try {
+        result = bridge.deps.handleTelegramUpdateV54(update, {
+            user: user,
+            usersByChatId: CONFIG.AUTHORIZED,
+            parseTextV54: bridge.deps.parseTextV54,
+            parserOptions: bridge.deps.parserOptions,
+            validateParsedEntryV54: bridge.deps.validateParsedEntryV54,
+            recordEntryV54: bridge.deps.recordEntryV54,
+            recordOptions: bridge.deps.recordOptions,
+        });
+    } catch (error) {
+        console.error('V54 primary runtime failed safely.');
+        sendTelegram(chatId, fallbackMessage);
+        return;
+    }
+
+    if (result && result.ok === true && typeof result.responseText === 'string' && result.responseText.trim()) {
+        sendTelegram(chatId, result.responseText.trim());
+        return;
+    }
+
+    console.warn('V54 primary returned non-ok result:', JSON.stringify(redactV54ProductionBridgeObject_(result)));
+    sendTelegram(chatId, fallbackMessage);
+}
+
+function runV54ShadowDiagnostics_(update, text, chatId, user) {
+    const bridge = buildV54ProductionBridgeDeps_({
+        mode: ROUTING_MODES.V54_SHADOW,
+        chatId: chatId,
+        text: text,
+        user: user,
+    }, { shadowNoWrite: true });
+    if (!bridge.ok) {
+        console.warn('V54 shadow diagnostics blocked:', JSON.stringify(redactV54ProductionBridgeObject_(bridge)));
+        return;
+    }
+
+    try {
+        const shadowResult = bridge.deps.handleTelegramUpdateV54(update, {
+            user: user,
+            usersByChatId: CONFIG.AUTHORIZED,
+            parseTextV54: bridge.deps.parseTextV54,
+            parserOptions: bridge.deps.parserOptions,
+            validateParsedEntryV54: bridge.deps.validateParsedEntryV54,
+            recordEntryV54: recordEntryV54ShadowNoWrite_,
+            recordOptions: bridge.deps.recordOptions,
+        });
+        console.log('V54 shadow diagnostics:', JSON.stringify(redactV54ProductionBridgeObject_(shadowResult)));
+    } catch (error) {
+        console.warn('V54 shadow diagnostics failed safely.');
+    }
+}
+
+function recordEntryV54ShadowNoWrite_(parsedEntry) {
+    return {
+        ok: true,
+        sheet: '',
+        rowNumber: null,
+        decision: 'shadow_no_write',
+        retryable: false,
+        errors: [],
+        shadow: {
+            noWrite: true,
+            tipo_evento: parsedEntry && parsedEntry.tipo_evento ? String(parsedEntry.tipo_evento) : '',
+            descricao: parsedEntry && parsedEntry.descricao ? String(parsedEntry.descricao) : '',
+        },
+    };
 }
 
 function _ok() { return ContentService.createTextOutput(''); }

@@ -617,7 +617,7 @@ Date: 2026-04-28
 Decision:
 Future `real_manual` attempts must provide a canonical structured evidence envelope validated locally/fake-first. The validator is defined in `scripts/lib/v54-real-manual-evidence-contract.js` and may be consumed by `RunnerV54RealManualPolicy` through dependency injection (`validateEvidenceEnvelope`).
 
-The envelope must include operator identity, timestamp/reference date, branch and commit marker (SHA or explicit local marker), route safety booleans (`mainJsDiffEmpty`, `doPostV54RefsAbsent`, `doGetV54RefsAbsent`, `telegramSendDisabled`), structured prior evidence objects (dry-run, fake-shadow or explicit accepted absence, snapshot/export), spreadsheet diagnostics with required sheets and per-sheet header status, parser context diagnostics object (`ran`, `ok`, `referenceDate`), and forbidden-actions confirmations.
+The envelope must include operator identity, timestamp/reference date, branch and commit marker (SHA or explicit local marker), route safety booleans (`mainJsDiffEmpty`, `doPostV54RefsControlled`, `doGetV54RefsAbsent`, `telegramSendDisabled`), structured prior evidence objects (dry-run, fake-shadow or explicit accepted absence, snapshot/export), spreadsheet diagnostics with required sheets and per-sheet header status, parser context diagnostics object (`ran`, `ok`, `referenceDate`), and forbidden-actions confirmations.
 
 Header diagnostics decision: prefix-compatible evidence is allowed only when `spreadsheetDiagnostics.allowExtraColumns === true` is explicit. If `allowExtraColumns` is missing, ambiguous, or false while extra columns are reported, the evidence must fail closed.
 
@@ -660,3 +660,40 @@ Rejected:
 - Acoplar preflight ao runner ou ao gate manual.
 - Ler estado real via servicos de producao dentro do builder.
 - Permitir overrides de blocked actions.
+
+
+## D050 - Phase 5B Real Manual Preflight Diagnostics Collector
+Status: Accepted
+Date: 2026-04-28
+
+Decision:
+Phase 5B adiciona um collector local/read-only de diagnosticos de preflight `real_manual` em `scripts/lib/v54-real-manual-preflight-diagnostics-collector.js`. O collector recebe `deps.readTextFile`, le `src/Main.js`, extrai os corpos de `doPost` e `doGet` com parse de braces balanceadas (nao regex ingenua), detecta referencias proibidas de runtime V54 somente nesses corpos, monta `routingDiagnostics` e repassa evidencias/diagnosticos para `buildV54RealManualPreflightReport`.
+
+O collector falha fechado quando `readTextFile` estiver ausente/falhar, `src/Main.js` estiver ausente/vazio, `routingDiagnostics.mainJsDiffEmpty` estiver ausente, `doPost`/`doGet` estiverem ausentes ou com braces desbalanceadas, ou quando houver tokens proibidos nos corpos extraidos.
+
+Reason:
+A Phase 5A exigia diagnosticos de roteamento ja prontos. O collector formaliza essa coleta local e auditavel sem alterar runtime de producao, reduzindo risco de falso positivo e evitando inspecao manual inconsistente de `src/Main.js` antes de qualquer tentativa futura de `real_manual`.
+
+Rejected:
+- Usar regex simples para extrair `doPost`/`doGet`.
+- Escanear tokens fora dos corpos de `doPost` e `doGet`.
+- Chamar runner/gate ou qualquer dependencia de mutacao durante o preflight collector.
+
+
+## D052 - Controlled V54 Production Bridge and Release Protocol
+Status: Accepted
+Date: 2026-04-28
+
+Decision:
+V54 sai do framing de bloqueio permanente e passa para protocolo de release controlado. Paths com capacidade de producao podem existir no codigo, desde que protegidos por runtime modes explicitos, gates de configuracao e rollback simples. Em `doPost`, `V53_CURRENT` segue como default seguro para `V54_ROUTING_MODE` ausente/vazio/invalido; `V54_SHADOW` mantem V53 como source of truth de comportamento user-facing; `V54_PRIMARY` usa caminho V54 para entradas normais sem fallback mutante automatico para V53.
+
+Real external actions continuam proibidas em testes locais/Codex tasks desta fase. Nenhum teste deve executar deploy/clasp/setup/seed/sync, Telegram real, OpenAI real ou SpreadsheetApp real.
+
+Reason:
+Com Phase 5A/5B validada, o projeto precisa de ponte de ativacao controlada para operacao V54, mantendo seguranca, auditabilidade e rollback rapido sem reintroduzir split-brain de mutacoes.
+
+Rejected:
+- Tratar real actions como bloqueio permanente sem caminho de release.
+- Ativar V54 em producao sem runtime gate/config gate testado.
+- Fallback mutante automatico de `V54_PRIMARY` para V53 apos falha V54.
+- Expor ativacao V54 por `doGet` ou bypass de auth no webhook.

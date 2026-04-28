@@ -98,7 +98,7 @@ function evidence(overrides) {
         branchName: 'work',
         localCommitMarker: 'LOCAL_ONLY',
         mainJsDiffEmpty: true,
-        doPostV54RefsAbsent: true,
+        doPostV54RefsControlled: true,
         doGetV54RefsAbsent: true,
         telegramSendDisabled: true,
         priorDryRun: { id: 'dry-run-001' },
@@ -206,8 +206,8 @@ failed += test('matrix_blocked_invalid_evidence_mainJsDiffEmpty_false', () => {
     assertRunnerBlocked(input({ evidence: evidence({ mainJsDiffEmpty: false }) }), options(), 'V54_REAL_MANUAL_EVIDENCE_INVALID', 'evidence');
 });
 
-failed += test('matrix_blocked_invalid_evidence_doPostV54RefsAbsent_false', () => {
-    assertRunnerBlocked(input({ evidence: evidence({ doPostV54RefsAbsent: false }) }), options(), 'V54_REAL_MANUAL_EVIDENCE_INVALID', 'evidence');
+failed += test('matrix_blocked_invalid_evidence_doPostV54RefsControlled_false', () => {
+    assertRunnerBlocked(input({ evidence: evidence({ doPostV54RefsControlled: false }) }), options(), 'V54_REAL_MANUAL_EVIDENCE_INVALID', 'evidence');
 });
 
 failed += test('matrix_blocked_invalid_evidence_doGetV54RefsAbsent_false', () => {

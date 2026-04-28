@@ -8,7 +8,7 @@ Branch: feat/v54-production-readiness
 - V53 e prototipo legado e deprecated, nao e producao nem fallback obrigatorio.
 - Nao adicionar novas features no codigo/planilha V53.
 
-## O que esta implementado (V54 local/fake-first)
+## O que esta implementado (V54 com ponte de release controlada)
 - V54 Schema verificado (`scripts/lib/v54-schema.js`) e planilhas reais criadas na conta de producao com seed.
 - Contratos locais implementados: Parser, Mapper, ActionsV54 (compras simples, compras de cartao, parceladas), Reporting.
 - Phase 4D implementada local/fake-first: upsert previsto de `Faturas` a partir de compras de cartao e parcelas pendentes, sem `Pagamentos_Fatura`, sem DRE direto e sem mutacao real.
@@ -33,16 +33,18 @@ Branch: feat/v54-production-readiness
 - Phase 4X: Contrato canonico de evidencias `real_manual` criado em `scripts/lib/v54-real-manual-evidence-contract.js` (local/fake-first). Evidencias booleanas vagas foram substituidas por objetos estruturados (dry-run, fake-shadow/ausencia aceita, snapshot/export, diagnosticos de planilha, diagnosticos de parser e confirmacao de acoes proibidas).
 - Phase 4Y: Evidencia `real_manual` endurecida como obrigatoria na politica. `RunnerV54RealManualPolicy` agora falha fechado quando `validateEvidenceEnvelope` nao e injetado ou quando `input.evidence` esta ausente/invalido. O gate continua bloqueando runner nesses cenarios em testes locais/fake-first.
 - Phase 4Z: Matriz integrada local/fake-first `real_manual` adicionada em `scripts/test-v54-real-manual-simulation-matrix.js`, cobrindo gate -> policy -> evidence envelope -> fake runner. Os cenarios validam chamada unica do runner somente quando checklist/diagnosticos/evidencias passam por completo e bloqueio garantido para falhas de evidencia, parser context, planilha, web-event input e dependencia ausente.
-- Phase 5A: Builder local/read-only de preflight `real_manual` criado em `scripts/lib/v54-real-manual-preflight-report.js`. Ele monta um report deterministico estilo boarding pass com checks de routing (`mainJsDiffEmpty`, `doPostV54RefsAbsent`, `doGetV54RefsAbsent`), evidence envelope canonico, parser context diagnostico executado e spreadsheet diagnostics compativeis. Nao chama runner/gate, nao muta planilha e mantem bloqueio explicito de acoes proibidas.
+- Phase 5A: Builder local/read-only de preflight `real_manual` criado em `scripts/lib/v54-real-manual-preflight-report.js`. Ele monta um report deterministico estilo boarding pass com checks de routing (`mainJsDiffEmpty`, `doPostV54RefsControlled`, `doGetV54RefsAbsent`), evidence envelope canonico, parser context diagnostico executado e spreadsheet diagnostics compativeis. Nao chama runner/gate, nao muta planilha e mantem bloqueio explicito de acoes proibidas.
+- Phase 5B: Collector local/read-only de diagnosticos de preflight `real_manual` criado em `scripts/lib/v54-real-manual-preflight-diagnostics-collector.js`. Ele le `src/Main.js` via dependency injection (`deps.readTextFile`), extrai `doPost`/`doGet` com logica de braces balanceadas e valida controles de roteamento V54 (gate por modo, auth antes do roteamento, shadow no-write, sem Telegram via shadow V54, sem fallback mutante para V53 no primary).
+- Phase 6A: Ponte controlada de producao V54 aceita. `doPost` agora opera por `V54_ROUTING_MODE` com rollback simples para `V53_CURRENT`: default/missing/invalid continuam em `V53_CURRENT`, `V54_SHADOW` preserva V53 como source-of-truth user-facing e executa diagnostico V54 no-write, `V54_PRIMARY` usa caminho V54 para entradas normais com falha segura sem fallback mutante V53. Dependencias de producao V54 foram centralizadas em `src/RunnerV54ProductionBridge.js` com validacao de config e redacao de segredos.
 
 ## O que esta bloqueado / Risco Atual
-- **Seguranca:** O Telegram E2E path (do webhook real para o script atualizado) precisa de testes finais.
+- **Seguranca:** O Telegram E2E path ainda requer checklist final de operacao manual revisada.
 - GET mutantes protegidos por token na URL devem ser extintos.
 
-## Proximo passo seguro
-1. Revisar manualmente envelopes de evidencia `real_manual` usando o contrato canonico e diagnosticos injetados/deterministicos antes de qualquer execucao real; manter `doPost`/`doGet` inalterados ate decisao separada de roteamento/manutencao.
-2. Definir uma rota/manual runner revisado para recuperação somente após regra aceita, mantendo sem `doPost`, sem Telegram e sem mutação de domínio.
-3. Implementar proximas fases locais/fake-first de `Pagamentos_Fatura` e reconciliacao somente apos regra aceita.
-4. **NAO executar** setup, seed, deploy, clasp, testes na planilha real, ou comandos Telegram sem aprovacao explicita.
+## Protocolo de release controlado (Phase 6A)
+1. Real actions **nao sao proibidas permanentemente**, mas so podem ocorrer por gate explicito de release/operacao manual revisada.
+2. Este branch/task continua local/fake-first: testes Codex **nao executam** deploy/clasp/setup/seed/sync/Telegram/OpenAI/SpreadsheetApp real.
+3. Runtime activation exige `V54_ROUTING_MODE` explicito e validacao por testes; default/missing/invalid continuam `V53_CURRENT` para rollback imediato.
+4. Rollback operacional: remover `V54_ROUTING_MODE` ou definir `V54_ROUTING_MODE=V53_CURRENT`.
 
 *(Historico anterior detalhado movido para docs/archive/HISTORY.md)*

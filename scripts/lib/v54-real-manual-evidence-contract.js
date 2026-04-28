@@ -42,7 +42,7 @@ function validateV54RealManualEvidenceEnvelope(evidence, options) {
     }
 
     requireTrue(source.mainJsDiffEmpty, 'mainJsDiffEmpty', 'V54_REAL_MANUAL_EVIDENCE_MAIN_DIFF_REQUIRED', errors, passed);
-    requireTrue(source.doPostV54RefsAbsent, 'doPostV54RefsAbsent', 'V54_REAL_MANUAL_EVIDENCE_DOPOST_REFS_REQUIRED', errors, passed);
+    requireTrue(source.doPostV54RefsControlled, 'doPostV54RefsControlled', 'V54_REAL_MANUAL_EVIDENCE_DOPOST_CONTROL_REQUIRED', errors, passed);
     requireTrue(source.doGetV54RefsAbsent, 'doGetV54RefsAbsent', 'V54_REAL_MANUAL_EVIDENCE_DOGET_REFS_REQUIRED', errors, passed);
     requireTrue(source.telegramSendDisabled, 'telegramSendDisabled', 'V54_REAL_MANUAL_EVIDENCE_TELEGRAM_DISABLED_REQUIRED', errors, passed);
 
