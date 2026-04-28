@@ -55,8 +55,16 @@ Branch: main (verified locally on 2026-04-28)
 - Phase 6I: VERIFIED local/fake-first production-readiness refactor. `src/Main.js` now keeps entrypoints/routing/auth/lock utilities while Telegram notification/redaction moved to `src/TelegramNotification.js` and persistent send observability moved to `src/TelegramSendLogV54.js`. Added `src/000_V54Schema.js` as the single Apps Script schema mirror consumed by Setup, Actions, ParserContext, RealManualPolicy, and Telegram send log. `src/ActionsV54.js` was reduced by extracting pure validation/mapping/error helpers to `src/ActionsV54Helpers.js`. `V54_PRIMARY` card context now fails closed if parser/card context cannot be read instead of returning `[]`. Real Spreadsheet/Telegram/OpenAI/deploy/setup/sync remain UNVERIFIED because they were intentionally not run.
 - Phase 6J: VERIFIED local/fake-first ParserV54 prompt hardening and defaultPessoa propagation. `RunnerV54ProductionBridge` extracts the authorized Telegram user's name (`pagador` or `nome`) and passes it as `defaultPessoa` to the parser context. `ParserV54OpenAI` system prompt was refactored with explicit structured sections, decision rules, and few-shot examples that strictly prevent defaulting ambiguous personal expenses to "Casal". Unknown IDs and categories are never invented. Validated by comprehensive local tests.
 
+- Phase 6K: VERIFIED local/fake-first V54 parser/runtime safety hardening. Removed automatic `defaultEscopo=Casal` in `src/ParserV54Context.js` and `src/ParserV54OpenAI.js` prompt. Created deterministic post-parser guardrail `reviewParsedEntryV54Safety_` in `src/HandlerV54.js` that runs before spreadsheet write to block or safely correct ambiguous personal expenses (farmacia, roupa, lanche trabalho, etc.) based on `defaultPessoa` and explicit text markers. Blocked conflicting person/account markers (e.g. Luana account for Gustavo expense) and ambiguous source markers (e.g. "conta" and "nubank" together). Verified by 7 new handler runtime tests and 18 existing tests. Verified by `cmd /c npm run test:v54:all` and `git diff --check` on 2026-04-28.
+
 ## O que esta bloqueado / Risco Atual
 - **Operacao:** O Telegram E2E path ainda requer checklist final de operacao manual revisada antes de qualquer teste real.
+- **Smoke Test Manual (Luana):** UNVERIFIED até que seja executado manualmente pelo usuário:
+  1. "1 farmacia" -> Luana/Luana/false
+  2. "1 mercado semana" -> Luana/Casal/true
+  3. "1 farmacia nubank luana" -> compra_cartao/Luana/Luana
+  4. "1 lanche trabalho" -> Luana/Luana/false
+  5. "1 mercado conta luana nubank luana" -> fail safe / ambiguity conflict
 - GET mutantes protegidos por token na URL devem ser extintos.
 
 ## Protocolo de release controlado (Phase 6A)

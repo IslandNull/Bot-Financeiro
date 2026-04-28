@@ -245,14 +245,17 @@ function buildParserV54OpenAISystemPrompt_(context) {
 
 function buildParserV54OpenAIUserPrompt_(rawText, context, deps) {
     var canonical = normalizeParserV54OpenAIContext_(context || {}, deps);
-    return [
+    var prompt = [
         'Parse this Portuguese financial message into one ParsedEntryV54 JSON object.',
         'Raw message: ' + JSON.stringify(safeParserV54PromptString_(rawText || '')),
-        'Default pessoa: ' + canonical.defaultPessoa,
-        'Default escopo: ' + canonical.defaultEscopo,
-        'Reference date: ' + canonical.referenceDate,
-        'Return JSON only.',
-    ].join('\n');
+        'Default pessoa: ' + canonical.defaultPessoa
+    ];
+    if (canonical.defaultEscopo) {
+        prompt.push('Default escopo: ' + canonical.defaultEscopo);
+    }
+    prompt.push('Reference date: ' + canonical.referenceDate);
+    prompt.push('Return JSON only.');
+    return prompt.join('\n');
 }
 
 function buildParserV54OpenAIRequestBody_(systemPrompt, userPrompt, deps) {

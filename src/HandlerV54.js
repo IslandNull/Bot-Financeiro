@@ -37,6 +37,16 @@ function handleTelegramUpdateV54(update, options) {
     }
 
     var parsedEntry = validation.normalized;
+
+    var safety = reviewParsedEntryV54Safety_(parsedEntry, context);
+    if (!safety.ok) {
+        return finalizeHandlerV54Result_(makeHandlerV54Failure_('safety_blocked', safety.errors, context, {
+            parsedEntry: parsedEntry,
+            validation: validation,
+        }), deps);
+    }
+    parsedEntry = safety.normalized;
+
     var recordResult = callRecordEntryFromHandlerV54_(parsedEntry, context, deps);
     var status = classifyRecordEntryV54Result_(recordResult);
     var handlerResult = {
@@ -249,4 +259,73 @@ function sanitizeV54UserFacingText_(text, result) {
         return 'V54: não foi possível registrar com segurança.';
     }
     return safeText;
+}
+
+function reviewParsedEntryV54Safety_(entry, context) {
+    var rawText = (context && context.text) ? String(context.text).toLowerCase() : '';
+    var defaultPessoa = (context && context.user && context.user.pessoa) ? context.user.pessoa : '';
+
+    var normalized = cloneV54PlainObject_(entry);
+
+    var isExplicitCasal = /\b(casal|casa|ambos|nosso|nossos)\b/i.test(rawText);
+    var isExplicitLuana = /\b(luana|lu)\b/i.test(rawText);
+    var isExplicitGustavo = /\b(gustavo|gu)\b/i.test(rawText);
+
+    var personalIndicators = ['farmacia', 'roupa', 'cuidado pessoal', 'dentista', 'lanche trabalho', 'presente', 'shopee', 'uber', 'combustivel moto', 'óleo moto', 'oleo moto'];
+    var sharedIndicators = ['casal', 'casa', 'mercado semana', 'mercado rancho', 'luz', 'agua', 'internet', 'condominio', 'aluguel', 'financiamento caixa', 'vasco'];
+
+    var textHasPersonal = personalIndicators.some(function(ind) { return rawText.indexOf(ind) !== -1; });
+    var textHasShared = sharedIndicators.some(function(ind) { return rawText.indexOf(ind) !== -1; });
+
+    var categoryId = String(normalized.id_categoria || '').toLowerCase();
+    var isPersonalCategory = categoryId.indexOf('pessoal') !== -1 || categoryId.indexOf('roupa') !== -1 || categoryId.indexOf('farmacia') !== -1;
+    var isSharedCategory = categoryId.indexOf('casa') !== -1 || categoryId.indexOf('mercado') !== -1;
+
+    var isPersonal = textHasPersonal || isPersonalCategory;
+    var isShared = textHasShared || isSharedCategory;
+
+    // F. Conflicting person markers
+    var mentionOtherPerson = (defaultPessoa === 'Luana' && isExplicitGustavo && !isExplicitLuana) ||
+                             (defaultPessoa === 'Gustavo' && isExplicitLuana && !isExplicitGustavo);
+    var explicitOtherCard = false;
+    if (normalized.id_cartao || normalized.id_fonte) {
+        var accountStr = String(normalized.id_cartao || normalized.id_fonte).toLowerCase();
+        if (defaultPessoa === 'Luana' && (accountStr.indexOf('_gu') !== -1 || accountStr.indexOf('gustavo') !== -1)) explicitOtherCard = true;
+        if (defaultPessoa === 'Gustavo' && (accountStr.indexOf('luana') !== -1 || accountStr.indexOf('_lu') !== -1)) explicitOtherCard = true;
+    }
+
+    if (mentionOtherPerson || explicitOtherCard) {
+        if (!isExplicitCasal) {
+            return { ok: false, errors: [makeV54ContractError_('V54_SAFETY_CONFLICT', 'pessoa', 'Conflicting person markers for personal expense.')] };
+        }
+    }
+
+    if (rawText.indexOf('conta') !== -1 && rawText.indexOf('nubank') !== -1) {
+        return { ok: false, errors: [makeV54ContractError_('V54_SAFETY_CONFLICT', 'conta', 'Ambiguous source markers.')] };
+    }
+
+    // A. Ambiguous personal categories must not be shared by default
+    if (normalized.escopo === 'Casal') {
+        if (isPersonal && !isExplicitCasal) {
+            if (defaultPessoa) {
+                normalized.escopo = defaultPessoa;
+                normalized.afeta_acerto = false;
+                normalized.pessoa = defaultPessoa;
+            } else {
+                return { ok: false, errors: [makeV54ContractError_('V54_SAFETY_AMBIGUOUS_SCOPE', 'escopo', 'Personal expense cannot be Casal by default.')] };
+            }
+        }
+    }
+
+    // C. afeta_acerto
+    if (normalized.afeta_acerto === true && normalized.escopo !== 'Casal') {
+        normalized.afeta_acerto = false;
+    }
+
+    // D. visibilidade
+    if (normalized.escopo !== 'Casal' && isPersonal) {
+        normalized.visibilidade = 'privada';
+    }
+
+    return { ok: true, normalized: normalized };
 }

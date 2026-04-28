@@ -313,7 +313,123 @@ failed += test('handler_sources_do_not_use_forbidden_real_side_effect_clients', 
     assert.strictEqual(/\brequire\s*\(/.test(source), false, 'require() should not appear');
 });
 
+// --- SAFETY GUARDRAIL TESTS ---
 
+failed += test('safety_ambiguous_personal_expenses_are_corrected_to_default_pessoa', () => {
+    const { result, calls } = run({
+        user: { pessoa: 'Luana', nome: 'Luana' },
+        entry: baseEntry({
+            pessoa: 'Luana',
+            id_fonte: 'FONTE_NUBANK_LU',
+            descricao: 'farmacia',
+            escopo: 'Casal',
+            afeta_acerto: true,
+            id_categoria: 'OPEX_FARMACIA'
+        }),
+    }, telegramUpdate({ message: { message_id: 77001, chat: { id: 123456 }, text: '25 farmacia' } }));
+
+    assert.strictEqual(result.ok, true, JSON.stringify(result.errors));
+    assert.strictEqual(calls.record[0].parsedEntry.escopo, 'Luana');
+    assert.strictEqual(calls.record[0].parsedEntry.afeta_acerto, false);
+    assert.strictEqual(calls.record[0].parsedEntry.visibilidade, 'privada');
+});
+
+failed += test('safety_ambiguous_personal_expenses_are_corrected_to_gustavo', () => {
+    const { result, calls } = run({
+        user: { pessoa: 'Gustavo', nome: 'Gustavo' },
+        entry: baseEntry({
+            descricao: 'farmacia',
+            escopo: 'Casal',
+            afeta_acerto: true,
+            id_categoria: 'OPEX_FARMACIA'
+        }),
+    }, telegramUpdate({ message: { message_id: 77001, chat: { id: 123456 }, text: '25 farmacia' } }));
+
+    assert.strictEqual(result.ok, true, JSON.stringify(result.errors));
+    assert.strictEqual(calls.record[0].parsedEntry.escopo, 'Gustavo');
+    assert.strictEqual(calls.record[0].parsedEntry.afeta_acerto, false);
+    assert.strictEqual(calls.record[0].parsedEntry.visibilidade, 'privada');
+});
+
+failed += test('safety_shared_household_expenses_are_allowed_as_casal', () => {
+    const { result, calls } = run({
+        entry: baseEntry({
+            descricao: 'mercado semana',
+            escopo: 'Casal',
+            afeta_acerto: true,
+            id_categoria: 'OPEX_MERCADO_SEMANA'
+        }),
+    }, telegramUpdate({ message: { message_id: 77001, chat: { id: 123456 }, text: '80 mercado semana' } }));
+
+    assert.strictEqual(result.ok, true, JSON.stringify(result.errors));
+    assert.strictEqual(calls.record[0].parsedEntry.escopo, 'Casal');
+    assert.strictEqual(calls.record[0].parsedEntry.afeta_acerto, true);
+});
+
+failed += test('safety_lanche_trabalho_is_corrected_to_default_pessoa', () => {
+    const { result, calls } = run({
+        user: { pessoa: 'Gustavo', nome: 'Gustavo' },
+        entry: baseEntry({
+            descricao: 'lanche trabalho',
+            escopo: 'Casal',
+            afeta_acerto: true,
+            id_categoria: 'OPEX_LANCHE_TRABALHO'
+        }),
+    }, telegramUpdate({ message: { message_id: 77001, chat: { id: 123456 }, text: '18 lanche trabalho' } }));
+
+    assert.strictEqual(result.ok, true, JSON.stringify(result.errors));
+    assert.strictEqual(calls.record[0].parsedEntry.escopo, 'Gustavo');
+    assert.strictEqual(calls.record[0].parsedEntry.afeta_acerto, false);
+    assert.strictEqual(calls.record[0].parsedEntry.visibilidade, 'privada');
+});
+
+failed += test('safety_explicit_casal_is_allowed_even_for_personal_categories', () => {
+    const { result, calls } = run({
+        entry: baseEntry({
+            descricao: 'roupa',
+            escopo: 'Casal',
+            afeta_acerto: true,
+            id_categoria: 'OPEX_ROUPA'
+        }),
+    }, telegramUpdate({ message: { message_id: 77001, chat: { id: 123456 }, text: '120 roupa casal' } }));
+
+    assert.strictEqual(result.ok, true, JSON.stringify(result.errors));
+    assert.strictEqual(calls.record[0].parsedEntry.escopo, 'Casal');
+    assert.strictEqual(calls.record[0].parsedEntry.afeta_acerto, true);
+});
+
+failed += test('safety_blocks_conflicting_person_markers', () => {
+    const { result, calls } = run({
+        user: { pessoa: 'Gustavo', nome: 'Gustavo' },
+        entry: baseEntry({
+            descricao: 'farmacia',
+            escopo: 'Casal',
+            id_cartao: 'CARD_NUBANK_LU'
+        }),
+    }, telegramUpdate({ message: { message_id: 77001, chat: { id: 123456 }, text: '50 farmacia nubank luana' } }));
+
+    assert.strictEqual(result.ok, false);
+    assert.strictEqual(result.status, 'safety_blocked');
+    assertError(result, 'V54_SAFETY_CONFLICT', 'pessoa');
+    assert.strictEqual(calls.record.length, 0);
+});
+
+failed += test('safety_blocks_ambiguous_source_and_card_markers', () => {
+    const { result, calls } = run({
+        user: { pessoa: 'Luana', nome: 'Luana' },
+        entry: baseEntry({
+            pessoa: 'Luana',
+            id_fonte: 'FONTE_NUBANK_LU',
+            descricao: 'mercado',
+            escopo: 'Casal'
+        }),
+    }, telegramUpdate({ message: { message_id: 77001, chat: { id: 123456 }, text: '1 mercado conta luana nubank luana' } }));
+
+    assert.strictEqual(result.ok, false);
+    assert.strictEqual(result.status, 'safety_blocked');
+    assertError(result, 'V54_SAFETY_CONFLICT', 'conta');
+    assert.strictEqual(calls.record.length, 0);
+});
 
 if (failed > 0) {
     console.error(`\n${failed} V54 handler runtime check(s) failed.`);

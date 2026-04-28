@@ -113,7 +113,7 @@ function normalizeParserContextV54Deps_(runtimeContext, options) {
                 return new Date().toISOString();
             },
         defaultPessoa: source.defaultPessoa || '',
-        defaultEscopo: source.defaultEscopo || 'Casal',
+        defaultEscopo: source.defaultEscopo || '',
     };
 }
 

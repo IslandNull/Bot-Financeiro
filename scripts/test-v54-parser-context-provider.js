@@ -149,7 +149,7 @@ function getContext(options, runtimeContext) {
     const { getParserContextV54 } = loadContext();
     return getParserContextV54(Object.assign({
         defaultPessoa: 'Gustavo',
-        defaultEscopo: 'Casal',
+        defaultEscopo: '',
         referenceDate: '2026-04-27',
     }, runtimeContext || {}), Object.assign({
         getSpreadsheet: () => makeSpreadsheet(),
@@ -200,7 +200,7 @@ failed += test('reads_fake_v54_categories_fontes_and_cartoes_into_parser_context
     assert.strictEqual(result.context.fontes[0].id_fonte, 'FONTE_CONTA_GU');
     assert.strictEqual(result.context.cartoes[0].id_cartao, 'CARD_NUBANK_GU');
     assert.strictEqual(result.context.defaultPessoa, 'Gustavo');
-    assert.strictEqual(result.context.defaultEscopo, 'Casal');
+    assert.strictEqual(result.context.defaultEscopo, '');
     assert.strictEqual(result.context.referenceDate, '2026-04-27');
 });
 
