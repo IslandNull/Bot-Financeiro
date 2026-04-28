@@ -118,8 +118,8 @@ function normalizeParserV54OpenAIContext_(context, deps) {
         categories: normalizeParserV54CanonicalRows_(source.categories, 'id_categoria'),
         fontes: normalizeParserV54CanonicalRows_(source.fontes, 'id_fonte'),
         cartoes: normalizeParserV54CanonicalRows_(source.cartoes, 'id_cartao'),
-        defaultPessoa: safeParserV54PromptString_(source.defaultPessoa || source.pessoa || ''),
-        defaultEscopo: safeParserV54PromptString_(source.defaultEscopo || source.escopo || ''),
+        defaultPessoa: safeParserV54PromptString_(source.defaultPessoa !== undefined ? source.defaultPessoa : (source.pessoa !== undefined ? source.pessoa : '')),
+        defaultEscopo: safeParserV54PromptString_(source.defaultEscopo !== undefined ? source.defaultEscopo : (source.escopo !== undefined ? source.escopo : '')),
         referenceDate: safeParserV54PromptString_(source.referenceDate || source.data_referencia || deps.now().slice(0, 10)),
     };
 }

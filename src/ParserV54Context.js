@@ -89,8 +89,8 @@ function getParserContextV54(runtimeContext, options) {
         categories: categoriesResult.rows,
         fontes: fontesResult.rows,
         cartoes: cartoesResult.rows,
-        defaultPessoa: safeParserContextV54Scalar_(source.defaultPessoa || source.pessoa || deps.defaultPessoa),
-        defaultEscopo: safeParserContextV54Scalar_(source.defaultEscopo || source.escopo || deps.defaultEscopo),
+        defaultPessoa: safeParserContextV54Scalar_(source.defaultPessoa !== undefined ? source.defaultPessoa : (source.pessoa !== undefined ? source.pessoa : deps.defaultPessoa)),
+        defaultEscopo: safeParserContextV54Scalar_(source.defaultEscopo !== undefined ? source.defaultEscopo : (source.escopo !== undefined ? source.escopo : deps.defaultEscopo)),
         referenceDate: safeParserContextV54Scalar_(source.referenceDate || source.data_referencia || deps.now().slice(0, 10)),
     };
 

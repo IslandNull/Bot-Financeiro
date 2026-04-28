@@ -47,6 +47,15 @@ function handleTelegramUpdateV54(update, options) {
     }
     parsedEntry = safety.normalized;
 
+    var safetyValidation = validateHandlerParsedEntryV54_(parsedEntry, deps);
+    if (!safetyValidation.ok) {
+        return finalizeHandlerV54Result_(makeHandlerV54Failure_('safety_validation_failed', safetyValidation.errors, context, {
+            parsedEntry: parsedEntry,
+            validation: safetyValidation,
+        }), deps);
+    }
+    parsedEntry = safetyValidation.normalized;
+
     var recordResult = callRecordEntryFromHandlerV54_(parsedEntry, context, deps);
     var status = classifyRecordEntryV54Result_(recordResult);
     var handlerResult = {
@@ -263,23 +272,50 @@ function sanitizeV54UserFacingText_(text, result) {
 
 function reviewParsedEntryV54Safety_(entry, context) {
     var rawText = (context && context.text) ? String(context.text).toLowerCase() : '';
-    var defaultPessoa = (context && context.user && context.user.pessoa) ? context.user.pessoa : '';
+
+    var normalizedRawText = typeof rawText.normalize === 'function'
+        ? rawText.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        : rawText
+            .replace(/[\u00e0\u00e1\u00e2\u00e3\u00e4]/g, 'a')
+            .replace(/[\u00e8\u00e9\u00ea\u00eb]/g, 'e')
+            .replace(/[\u00ec\u00ed\u00ee\u00ef]/g, 'i')
+            .replace(/[\u00f2\u00f3\u00f4\u00f5\u00f6]/g, 'o')
+            .replace(/[\u00f9\u00fa\u00fb\u00fc]/g, 'u')
+            .replace(/\u00e7/g, 'c');
+
+    var extractedPessoa = '';
+    if (context && context.user) {
+        extractedPessoa = context.user.pessoa || context.user.pagador || context.user.nome || '';
+    }
+    var defaultPessoa = '';
+    if (extractedPessoa === 'Gustavo' || extractedPessoa === 'Luana') {
+        defaultPessoa = extractedPessoa;
+    }
+
+    if (!defaultPessoa) {
+        return { ok: false, errors: [makeV54ContractError_('V54_SAFETY_NO_CANONICAL_PERSON', 'pessoa', 'Safety guardrail requires a canonical default pessoa (Gustavo/Luana).')] };
+    }
 
     var normalized = cloneV54PlainObject_(entry);
 
-    var isExplicitCasal = /\b(casal|casa|ambos|nosso|nossos)\b/i.test(rawText);
-    var isExplicitLuana = /\b(luana|lu)\b/i.test(rawText);
-    var isExplicitGustavo = /\b(gustavo|gu)\b/i.test(rawText);
+    var isExplicitCasal = /\b(casal|casa|ambos|nosso|nossos)\b/i.test(normalizedRawText);
+    var isExplicitLuana = /\b(luana|lu)\b/i.test(normalizedRawText);
+    var isExplicitGustavo = /\b(gustavo|gu)\b/i.test(normalizedRawText);
 
-    var personalIndicators = ['farmacia', 'roupa', 'cuidado pessoal', 'dentista', 'lanche trabalho', 'presente', 'shopee', 'uber', 'combustivel moto', 'óleo moto', 'oleo moto'];
+    var personalIndicators = ['farmacia', 'roupa', 'cuidado pessoal', 'dentista', 'lanches trabalho', 'lanche trabalho', 'presente', 'shopee', 'uber', 'combustivel moto', 'oleo moto', 'manutencao moto', 'saude coparticipacao'];
     var sharedIndicators = ['casal', 'casa', 'mercado semana', 'mercado rancho', 'luz', 'agua', 'internet', 'condominio', 'aluguel', 'financiamento caixa', 'vasco'];
 
-    var textHasPersonal = personalIndicators.some(function(ind) { return rawText.indexOf(ind) !== -1; });
-    var textHasShared = sharedIndicators.some(function(ind) { return rawText.indexOf(ind) !== -1; });
+    var textHasPersonal = personalIndicators.some(function(ind) { return normalizedRawText.indexOf(ind) !== -1; });
+    var textHasShared = sharedIndicators.some(function(ind) { return normalizedRawText.indexOf(ind) !== -1; });
 
-    var categoryId = String(normalized.id_categoria || '').toLowerCase();
-    var isPersonalCategory = categoryId.indexOf('pessoal') !== -1 || categoryId.indexOf('roupa') !== -1 || categoryId.indexOf('farmacia') !== -1;
-    var isSharedCategory = categoryId.indexOf('casa') !== -1 || categoryId.indexOf('mercado') !== -1;
+    var categoryId = String(normalized.id_categoria || '').toUpperCase();
+    var personalCategories = [
+        'OPEX_FARMACIA', 'OPEX_ROUPAS', 'OPEX_CUIDADO_PESSOAL',
+        'OPEX_LANCHES_TRABALHO', 'OPEX_COMBUSTIVEL_MOTO',
+        'OPEX_MANUTENCAO_MOTO', 'OPEX_SAUDE_COPARTICIPACAO'
+    ];
+    var isPersonalCategory = personalCategories.indexOf(categoryId) !== -1 || categoryId.indexOf('PESSOAL') !== -1 || categoryId.indexOf('ROUPA') !== -1 || categoryId.indexOf('FARMACIA') !== -1;
+    var isSharedCategory = categoryId.indexOf('CASA') !== -1 || categoryId.indexOf('MERCADO') !== -1;
 
     var isPersonal = textHasPersonal || isPersonalCategory;
     var isShared = textHasShared || isSharedCategory;
