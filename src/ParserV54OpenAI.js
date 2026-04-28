@@ -49,11 +49,14 @@ function parseTextV54OpenAI(text, runtimeContext, options) {
     var jsonResult = parseParserV54OpenAIJsonResponse_(contentResult.content);
     if (!jsonResult.ok) return jsonResult;
 
-    var validation = validateParserV54OpenAICandidate_(jsonResult.value, deps);
+    var aliasResult = normalizeParserV54Aliases_(rawText, jsonResult.value, contextResult.context);
+    if (!aliasResult.ok) return aliasResult;
+
+    var validation = validateParserV54OpenAICandidate_(aliasResult.candidate, deps);
     if (!validation.ok) {
         return {
             ok: false,
-            parsedEntry: jsonResult.value,
+            parsedEntry: aliasResult.candidate,
             normalized: validation.normalized || null,
             errors: normalizeParserV54OpenAIErrors_(validation.errors, 'PARSER_V54_CONTRACT_REJECTED', 'parsedEntry', 'ParsedEntryV54 validation failed.'),
         };
@@ -283,6 +286,139 @@ function validateParserV54OpenAICandidate_(candidate, deps) {
         return makeParserV54OpenAIFailure_('PARSER_V54_VALIDATOR_REQUIRED', 'validateParsedEntryV54', 'ParserV54 requires a ParsedEntryV54 validator.');
     }
     return deps.validateParsedEntryV54(candidate);
+}
+
+function normalizeParserV54Aliases_(rawText, candidate, canonicalContext) {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+        return { ok: true, candidate: candidate, errors: [] };
+    }
+
+    var normalizedText = normalizeParserV54AliasText_(rawText);
+    var context = canonicalContext || {};
+    var fonteMatches = findParserV54AliasMatches_(normalizedText, [
+        { id: 'FONTE_CONTA_GU', aliases: ['conta gustavo', 'conta gu'] },
+        { id: 'FONTE_CONTA_LU', aliases: ['conta luana', 'conta lu'] },
+    ], context.fontes, 'id_fonte');
+    if (!fonteMatches.ok) return makeParserV54AliasFailure_(fonteMatches.code, fonteMatches.field, fonteMatches.message, candidate);
+
+    var cardMatches = findParserV54AliasMatches_(normalizedText, [
+        { id: 'CARD_NUBANK_GU', aliases: ['nubank gustavo', 'nubank gu'] },
+        { id: 'CARD_MP_GU', aliases: ['mercado pago gustavo', 'mercado pago gu', 'mp gustavo', 'mp gu'] },
+        { id: 'CARD_NUBANK_LU', aliases: ['nubank luana', 'nubank lu'] },
+    ], context.cartoes, 'id_cartao');
+    if (!cardMatches.ok) return makeParserV54AliasFailure_(cardMatches.code, cardMatches.field, cardMatches.message, candidate);
+
+    var categoryMatches = findParserV54AliasMatches_(normalizedText, [
+        { id: 'REC_SALARIO', aliases: ['salario'] },
+        { id: 'OPEX_MERCADO_SEMANA', aliases: ['mercado semana'] },
+        { id: 'OPEX_MERCADO_RANCHO', aliases: ['mercado rancho'] },
+    ], context.categories, 'id_categoria');
+    if (!categoryMatches.ok) return makeParserV54AliasFailure_(categoryMatches.code, categoryMatches.field, categoryMatches.message, candidate);
+
+    if (fonteMatches.ids.length === 1 && cardMatches.ids.length === 1) {
+        return makeParserV54AliasFailure_(
+            'PARSER_V54_ALIAS_AMBIGUOUS_PAYMENT',
+            'payment_alias',
+            'ParserV54 found both source and card aliases in the same message.',
+            candidate
+        );
+    }
+
+    var normalized = cloneParserV54PlainObject_(candidate);
+    if (!normalized.raw_text) normalized.raw_text = String(rawText || '');
+
+    if (!normalized.id_categoria && categoryMatches.ids.length === 1) {
+        if (categoryMatches.ids[0] !== 'REC_SALARIO' || normalized.tipo_evento === 'receita') {
+            normalized.id_categoria = categoryMatches.ids[0];
+        }
+    }
+
+    if (!normalized.id_fonte && fonteMatches.ids.length === 1) {
+        normalized.id_fonte = fonteMatches.ids[0];
+    }
+
+    if (cardMatches.ids.length === 1) {
+        normalized.id_cartao = cardMatches.ids[0];
+        if (normalized.tipo_evento === 'despesa') normalized.tipo_evento = 'compra_cartao';
+        if (normalized.tipo_evento === 'compra_cartao' || normalized.tipo_evento === 'compra_parcelada') {
+            delete normalized.id_fonte;
+        }
+    }
+
+    return { ok: true, candidate: normalized, errors: [] };
+}
+
+function normalizeParserV54AliasText_(rawText) {
+    var lower = String(rawText || '').toLowerCase();
+    var withoutAccents = typeof lower.normalize === 'function'
+        ? lower.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        : lower
+            .replace(/[\u00e0\u00e1\u00e2\u00e3\u00e4]/g, 'a')
+            .replace(/[\u00e8\u00e9\u00ea\u00eb]/g, 'e')
+            .replace(/[\u00ec\u00ed\u00ee\u00ef]/g, 'i')
+            .replace(/[\u00f2\u00f3\u00f4\u00f5\u00f6]/g, 'o')
+            .replace(/[\u00f9\u00fa\u00fb\u00fc]/g, 'u')
+            .replace(/\u00e7/g, 'c');
+    return withoutAccents
+        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function findParserV54AliasMatches_(normalizedText, aliasGroups, canonicalRows, idField) {
+    var available = {};
+    (Array.isArray(canonicalRows) ? canonicalRows : []).forEach(function(row) {
+        var id = row && row[idField] ? String(row[idField]).trim() : '';
+        if (id) available[id] = true;
+    });
+
+    var ids = [];
+    var seen = {};
+    aliasGroups.forEach(function(group) {
+        if (!available[group.id]) return;
+        for (var i = 0; i < group.aliases.length; i++) {
+            if (containsParserV54AliasPhrase_(normalizedText, group.aliases[i])) {
+                if (!seen[group.id]) {
+                    seen[group.id] = true;
+                    ids.push(group.id);
+                }
+                return;
+            }
+        }
+    });
+
+    if (ids.length > 1) {
+        return {
+            ok: false,
+            code: 'PARSER_V54_ALIAS_AMBIGUOUS',
+            field: idField,
+            message: 'ParserV54 found multiple safe aliases for ' + idField + '.',
+            ids: ids,
+        };
+    }
+
+    return { ok: true, ids: ids };
+}
+
+function containsParserV54AliasPhrase_(normalizedText, alias) {
+    if (!normalizedText) return false;
+    var phrase = normalizeParserV54AliasText_(alias);
+    if (!phrase) return false;
+    return (' ' + normalizedText + ' ').indexOf(' ' + phrase + ' ') !== -1;
+}
+
+function makeParserV54AliasFailure_(code, field, message, parsedEntry) {
+    return {
+        ok: false,
+        parsedEntry: cloneParserV54PlainObject_(parsedEntry),
+        normalized: null,
+        errors: [makeParserV54OpenAIError_(code, field, message)],
+    };
+}
+
+function cloneParserV54PlainObject_(input) {
+    if (!input || typeof input !== 'object') return input;
+    return JSON.parse(JSON.stringify(input));
 }
 
 function formatParserV54CanonicalRows_(rows, idField) {

@@ -36,7 +36,7 @@ function loadAdapter(extraSandbox) {
         RegExp,
     }, extraSandbox || {});
     vm.createContext(sandbox);
-    vm.runInContext(`${adapterSource}\nresult = { parseTextV54OpenAI, buildParserV54OpenAISystemPrompt_, buildParserV54OpenAIUserPrompt_ };`, sandbox);
+    vm.runInContext(`${adapterSource}\nresult = { parseTextV54OpenAI, buildParserV54OpenAISystemPrompt_, buildParserV54OpenAIUserPrompt_, normalizeParserV54Aliases_ };`, sandbox);
     return sandbox.result;
 }
 
@@ -48,16 +48,21 @@ function fakeContext(overrides) {
         apiKey: 'sk-context-secret-should-not-leak',
         spreadsheet_id: 'SPREADSHEET_SECRET_SHOULD_NOT_LEAK',
         categories: [
+            { id_categoria: 'REC_SALARIO', nome: 'Salario' },
             { id_categoria: 'OPEX_MERCADO_SEMANA', nome: 'Mercado semana', secret: 'context-secret' },
+            { id_categoria: 'OPEX_MERCADO_RANCHO', nome: 'Mercado rancho' },
             { id_categoria: 'OPEX_RESTAURANTE_CASAL', nome: 'Restaurante casal' },
             { id_categoria: 'HOME_EQUIP', nome: 'Itens da casa' },
         ],
         fontes: [
             { id_fonte: 'FONTE_CONTA_GU', nome: 'Conta Gustavo' },
+            { id_fonte: 'FONTE_CONTA_LU', nome: 'Conta Luana' },
             { id_fonte: 'FONTE_NUBANK_GU', nome: 'Nubank Gu' },
         ],
         cartoes: [
             { id_cartao: 'CARD_NUBANK_GU', nome: 'Nubank Gustavo', id_fonte: 'FONTE_NUBANK_GU' },
+            { id_cartao: 'CARD_MP_GU', nome: 'Mercado Pago Gustavo', id_fonte: 'FONTE_MP_GU' },
+            { id_cartao: 'CARD_NUBANK_LU', nome: 'Nubank Luana', id_fonte: 'FONTE_NUBANK_LU' },
         ],
     }, overrides || {});
 }
@@ -108,6 +113,27 @@ function installment(overrides) {
     }), overrides || {});
 }
 
+function income(overrides) {
+    return Object.assign({
+        tipo_evento: 'receita',
+        data: '2026-04-27',
+        competencia: '2026-04',
+        valor: 1,
+        descricao: 'Salario',
+        pessoa: 'Gustavo',
+        escopo: 'Gustavo',
+        visibilidade: 'resumo',
+        id_categoria: 'REC_SALARIO',
+        id_fonte: 'FONTE_CONTA_GU',
+        afeta_dre: true,
+        afeta_acerto: false,
+        afeta_patrimonio: true,
+        confidence: 0.9,
+        raw_text: 'recebi 1 salario conta gustavo',
+        warnings: [],
+    }, overrides || {});
+}
+
 function openAiResponse(content) {
     return {
         choices: [
@@ -116,10 +142,10 @@ function openAiResponse(content) {
     };
 }
 
-function runAdapter(fakeContent, overrides) {
+function runAdapter(fakeContent, overrides, rawText) {
     const calls = [];
     const { parseTextV54OpenAI } = loadAdapter();
-    const result = parseTextV54OpenAI('50 mercado', fakeContext(), Object.assign({
+    const result = parseTextV54OpenAI(rawText || '50 mercado', fakeContext(), Object.assign({
         apiKey: 'sk-test-secret-1234567890',
         model: 'gpt-test',
         now: () => '2026-04-27T12:00:00.000Z',
@@ -183,6 +209,64 @@ failed += test('fake_openai_success_returns_valid_compra_parcelada', () => {
     assert.strictEqual(result.normalized.tipo_evento, 'compra_parcelada');
     assert.strictEqual(result.normalized.parcelamento.parcelas_total, 10);
     assert.strictEqual(result.normalized.parcelamento.valor_parcela, 120);
+});
+
+failed += test('alias_normalizer_clones_candidate_without_mutating_original', () => {
+    const { normalizeParserV54Aliases_ } = loadAdapter();
+    const original = income({ id_categoria: undefined, id_fonte: undefined });
+    const result = normalizeParserV54Aliases_('recebi 1 sal\u00e1rio conta gustavo', original, fakeContext());
+
+    assert.strictEqual(result.ok, true, JSON.stringify(result.errors));
+    assert.strictEqual(result.candidate.id_categoria, 'REC_SALARIO');
+    assert.strictEqual(result.candidate.id_fonte, 'FONTE_CONTA_GU');
+    assert.strictEqual(original.id_categoria, undefined);
+    assert.strictEqual(original.id_fonte, undefined);
+});
+
+failed += test('fake_openai_missing_ids_repairs_receita_salario_conta_gustavo', () => {
+    const candidate = income({ id_categoria: undefined, id_fonte: undefined });
+    const { result } = runAdapter(JSON.stringify(candidate), {}, 'recebi 1 salario conta gustavo');
+
+    assert.strictEqual(result.ok, true, JSON.stringify(result.errors));
+    assert.strictEqual(result.normalized.tipo_evento, 'receita');
+    assert.strictEqual(result.normalized.id_categoria, 'REC_SALARIO');
+    assert.strictEqual(result.normalized.id_fonte, 'FONTE_CONTA_GU');
+});
+
+failed += test('fake_openai_missing_ids_repairs_despesa_card_alias_to_compra_cartao', () => {
+    const candidate = expense({ id_categoria: undefined, id_fonte: undefined });
+    const { result } = runAdapter(JSON.stringify(candidate), {}, 'gastei 1 mercado semana nubank gustavo');
+
+    assert.strictEqual(result.ok, true, JSON.stringify(result.errors));
+    assert.strictEqual(result.normalized.tipo_evento, 'compra_cartao');
+    assert.strictEqual(result.normalized.id_categoria, 'OPEX_MERCADO_SEMANA');
+    assert.strictEqual(result.normalized.id_cartao, 'CARD_NUBANK_GU');
+    assert.strictEqual(result.normalized.id_fonte, undefined);
+});
+
+failed += test('fake_openai_missing_ids_repairs_despesa_cash_alias', () => {
+    const candidate = expense({ id_categoria: undefined, id_fonte: undefined });
+    const { result } = runAdapter(JSON.stringify(candidate), {}, 'gastei 1 mercado semana conta gustavo');
+
+    assert.strictEqual(result.ok, true, JSON.stringify(result.errors));
+    assert.strictEqual(result.normalized.tipo_evento, 'despesa');
+    assert.strictEqual(result.normalized.id_categoria, 'OPEX_MERCADO_SEMANA');
+    assert.strictEqual(result.normalized.id_fonte, 'FONTE_CONTA_GU');
+    assert.strictEqual(result.normalized.id_cartao, undefined);
+});
+
+failed += test('ambiguous_fonte_aliases_fail_closed_before_contract_validation', () => {
+    const candidate = expense({ id_categoria: undefined, id_fonte: undefined });
+    const { result } = runAdapter(JSON.stringify(candidate), {}, 'gastei 1 mercado semana conta gustavo conta luana');
+
+    assertParserError(result, 'PARSER_V54_ALIAS_AMBIGUOUS', 'id_fonte');
+});
+
+failed += test('ambiguous_fonte_and_card_aliases_fail_closed_before_contract_validation', () => {
+    const candidate = expense({ id_categoria: undefined, id_fonte: undefined });
+    const { result } = runAdapter(JSON.stringify(candidate), {}, 'gastei 1 mercado semana conta gustavo nubank gustavo');
+
+    assertParserError(result, 'PARSER_V54_ALIAS_AMBIGUOUS_PAYMENT', 'payment_alias');
 });
 
 failed += test('invalid_json_returns_structured_error', () => {
