@@ -660,3 +660,21 @@ Rejected:
 - Acoplar preflight ao runner ou ao gate manual.
 - Ler estado real via servicos de producao dentro do builder.
 - Permitir overrides de blocked actions.
+
+
+## D050 - Phase 5B Real Manual Preflight Diagnostics Collector
+Status: Accepted
+Date: 2026-04-28
+
+Decision:
+Phase 5B adiciona um collector local/read-only de diagnosticos de preflight `real_manual` em `scripts/lib/v54-real-manual-preflight-diagnostics-collector.js`. O collector recebe `deps.readTextFile`, le `src/Main.js`, extrai os corpos de `doPost` e `doGet` com parse de braces balanceadas (nao regex ingenua), detecta referencias proibidas de runtime V54 somente nesses corpos, monta `routingDiagnostics` e repassa evidencias/diagnosticos para `buildV54RealManualPreflightReport`.
+
+O collector falha fechado quando `readTextFile` estiver ausente/falhar, `src/Main.js` estiver ausente/vazio, `routingDiagnostics.mainJsDiffEmpty` estiver ausente, `doPost`/`doGet` estiverem ausentes ou com braces desbalanceadas, ou quando houver tokens proibidos nos corpos extraidos.
+
+Reason:
+A Phase 5A exigia diagnosticos de roteamento ja prontos. O collector formaliza essa coleta local e auditavel sem alterar runtime de producao, reduzindo risco de falso positivo e evitando inspecao manual inconsistente de `src/Main.js` antes de qualquer tentativa futura de `real_manual`.
+
+Rejected:
+- Usar regex simples para extrair `doPost`/`doGet`.
+- Escanear tokens fora dos corpos de `doPost` e `doGet`.
+- Chamar runner/gate ou qualquer dependencia de mutacao durante o preflight collector.
