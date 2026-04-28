@@ -4,11 +4,18 @@ Last updated: 2026-04-28
 Branch: main (verified locally on 2026-04-28)
 
 ## Premissa Atual
-- D031 esta aceita. V54 e o unico alvo arquitetural do MVP.
-- V53 e prototipo legado e deprecated, nao e producao nem fallback obrigatorio.
-- Nao adicionar novas features no codigo/planilha V53.
+- D031 esta aceita e concretizada. V54 e o unico alvo arquitetural e runtime operacional ativo.
+- V53 foi totalmente removido do source tree principal (`src/`) e movido para `legacy/v53/`.
+- Nao ha mais fallback ou modo shadow para V53. O bot opera exclusivamente em modo `V54_PRIMARY`.
 
-## O que esta implementado (V54 com ponte de release controlada)
+## O que esta implementado (V54 Primary Ativo)
+- O webhook `doPost` agora processa todas as mensagens normais diretamente pelo fluxo `V54_PRIMARY`.
+- Comandos legados foram desativados no V54 (respondem "nao suportado"), exceto `/start` e `/help`.
+- Todos os arquivos V53 foram movidos para `legacy/v53/` e não são mais implantados.
+- Foi implementado o diagnostico `diagnoseV54PrimaryReadiness()` para checagem operacional antes do deploy.
+- Os testes de roteamento e arquitetura foram atualizados para garantir a ausência de rotas e arquivos V53 no escopo do projeto.
+- O modo de roteamento (V54_ROUTING_MODE) foi descontinuado do codigo, consolidando o fluxo V54 como permanente.
+- A telemetria de logs de Telegram continua `best-effort`, mas é exigida pelo diagnostico de prontidao.
 - V54 Schema verificado (`scripts/lib/v54-schema.js`) e planilhas reais criadas na conta de producao com seed.
 - Contratos locais implementados: Parser, Mapper, ActionsV54 (compras simples, compras de cartao, parceladas), Reporting.
 - Phase 4D implementada local/fake-first: upsert previsto de `Faturas` a partir de compras de cartao e parcelas pendentes, sem `Pagamentos_Fatura`, sem DRE direto e sem mutacao real.

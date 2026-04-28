@@ -234,10 +234,9 @@ failed += test('main_doPost_does_not_call_manual_gate_or_manual_runner_directly'
     assert.strictEqual(mainSource.includes('runManualShadowV54'), false);
     assert.strictEqual(mainSource.includes('handleTelegramUpdateV54'), true);
     assert.strictEqual(mainSource.includes('routeV54PrimaryEntry_('), true);
-    assert.strictEqual(mainSource.includes('runV54ShadowDiagnostics_('), true);
-    assert.strictEqual(mainSource.includes('recordEntryV54ShadowNoWrite_'), true);
-    assert.strictEqual(mainSource.includes('handleEntry(text, chatId, user)'), true);
-    assert.strictEqual(mainSource.includes('handleCommand(text, chatId, user)'), true);
+    assert.strictEqual(mainSource.includes('runV54ShadowDiagnostics_('), false);
+    assert.strictEqual(mainSource.includes('recordEntryV54ShadowNoWrite_'), false);
+    assert.strictEqual(mainSource.includes('handleEntry(text, chatId, user)'), false);
 });
 
 failed += test('main_doGet_does_not_expose_gate_or_runner', () => {

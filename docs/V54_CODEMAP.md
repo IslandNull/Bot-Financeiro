@@ -63,7 +63,7 @@ Existem duas gerações de código convivendo no mesmo runtime:
 
 ---
 
-## 3. Fluxo Atual do Telegram (Roteado)
+## 3. Fluxo Atual do Telegram (V54 Primary)
 
 ```
 Telegram webhook
@@ -71,26 +71,17 @@ Telegram webhook
     → parseTelegramUpdate_()
     → isWebhookAuthorized_()
     → if text starts with "/"
-        → handleCommand(text, chatId, user)  [src/Commands.js]
-            → sendTelegram() / Views.js functions
-    → else if V54_ROUTING_MODE === V54_PRIMARY
+        → handleCommandV54_()          [src/Main.js]
+            → sendTelegram()
+    → else
         → routeV54PrimaryEntry_()        [src/Main.js]
             → RunnerV54ProductionBridge  [src/RunnerV54ProductionBridge.js]
             → Handler/Parser/Actions V54
             → sendTelegram()             [src/TelegramNotification.js]
             → Telegram_Send_Log          [src/TelegramSendLogV54.js]
-    → else if V54_ROUTING_MODE === V54_SHADOW
-        → handleEntry(text, chatId, user) [V53 source-of-truth]
-        → runV54ShadowDiagnostics_()      [V54 no-write]
-    → else
-        → handleEntry(text, chatId, user)    [src/Actions.js]
-            → parseWithOpenAI()              [src/Parser.js]
-            → validateParse()
-            → recordParsedEntry()            [src/Actions.js]
-            → sendTelegram()
 ```
 
-Comandos `/...` continuam no fluxo V53 legado. Entradas normais passam por V53, V54 shadow ou V54 primary conforme `V54_ROUTING_MODE`.
+Apenas V54 está ativo. O fallback mutante para V53 e os modos shadow não existem mais.
 
 ---
 

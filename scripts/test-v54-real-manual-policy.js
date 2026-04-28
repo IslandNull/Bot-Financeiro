@@ -486,10 +486,9 @@ failed += test('main_doPost_and_doGet_remain_unchanged_for_v54_policy', () => {
     assert.strictEqual(mainSource.includes('runV54ManualShadow'), false);
     assert.strictEqual(mainSource.includes('handleTelegramUpdateV54'), true);
     assert.strictEqual(mainSource.includes('routeV54PrimaryEntry_('), true);
-    assert.strictEqual(mainSource.includes('runV54ShadowDiagnostics_('), true);
-    assert.strictEqual(mainSource.includes('recordEntryV54ShadowNoWrite_'), true);
-    assert.strictEqual(mainSource.includes('handleEntry(text, chatId, user)'), true);
-    assert.strictEqual(mainSource.includes('handleCommand(text, chatId, user)'), true);
+    assert.strictEqual(mainSource.includes('runV54ShadowDiagnostics_('), false);
+    assert.strictEqual(mainSource.includes('recordEntryV54ShadowNoWrite_'), false);
+    assert.strictEqual(mainSource.includes('handleEntry(text, chatId, user)'), false);
 });
 
 failed += test('policy_src_is_apps_script_compatible_and_has_no_forbidden_side_effect_clients', () => {

@@ -8,7 +8,7 @@ const main = fs.readFileSync(path.join(root, 'src', 'Main.js'), 'utf8');
 const telegramNotification = fs.readFileSync(path.join(root, 'src', 'TelegramNotification.js'), 'utf8');
 const telegramSendLogV54 = fs.readFileSync(path.join(root, 'src', 'TelegramSendLogV54.js'), 'utf8');
 const mainRuntime = [schemaV54, main, telegramNotification, telegramSendLogV54].join('\n\n');
-const actions = fs.readFileSync(path.join(root, 'src', 'Actions.js'), 'utf8');
+const actions = fs.readFileSync(path.join(root, 'legacy', 'v53', 'Actions.js'), 'utf8');
 const setup = fs.readFileSync(path.join(root, 'src', 'Setup.js'), 'utf8');
 const actionsV54 = fs.readFileSync(path.join(root, 'src', 'ActionsV54.js'), 'utf8');
 const actionsV54Helpers = fs.readFileSync(path.join(root, 'src', 'ActionsV54Helpers.js'), 'utf8');
@@ -76,8 +76,8 @@ failed += test('doPost_checks_webhook_secret_before_routing', () => {
     const authIndex = body.indexOf('isWebhookAuthorized_(e, update)');
     assert.ok(authIndex > -1, 'doPost must call isWebhookAuthorized_');
     assert.ok(authIndex < body.indexOf('const msg ='), 'auth must run before trusting message/chat payload');
-    assert.ok(authIndex < body.indexOf('handleCommand('), 'auth must run before command routing');
-    assert.ok(authIndex < body.indexOf('handleEntry('), 'auth must run before write routing');
+    assert.ok(authIndex < body.indexOf('handleCommandV54_('), 'auth must run before command routing');
+    assert.ok(authIndex < body.indexOf('routeV54PrimaryEntry_('), 'auth must run before write routing');
 });
 
 failed += test('webhook_auth_fails_closed_without_secret', () => {
@@ -707,8 +707,6 @@ failed += test('v54_user_facing_response_never_contains_raw_secret_or_stack_trac
 
 failed += test('doPost_rejects_unauthorized_webhooks_dynamically', () => {
     const vm = require('vm');
-    let routedToCommand = false;
-    let routedToEntry = false;
     let sentMessages = [];
 
     const mockEnv = {
@@ -732,47 +730,44 @@ failed += test('doPost_rejects_unauthorized_webhooks_dynamically', () => {
                     const payload = JSON.parse(opts.payload);
                     sentMessages.push(payload.text);
                 }
+                return { getResponseCode: () => 200 };
             }
         },
-        console: { warn: () => {}, error: () => {} },
-        handleCommand: () => { routedToCommand = true; },
-        handleEntry: () => { routedToEntry = true; }
+        console: { warn: () => {}, error: () => {}, log: () => {} },
+        buildV54ProductionBridgeDeps_: () => ({ ok: false, errors: [] })
     };
 
     const context = vm.createContext(mockEnv);
     vm.runInContext(mainRuntime, context);
 
     function resetMock() {
-        routedToCommand = false;
-        routedToEntry = false;
         sentMessages = [];
     }
 
     // 1. Missing secret in request
     let e = { postData: { contents: JSON.stringify({ message: { text: '/saldo', chat: { id: 123 } } }) } };
     context.doPost(e);
-    assert.strictEqual(routedToCommand, false, 'Should not route without secret');
+    assert.strictEqual(sentMessages.length, 0, 'Should not route without secret');
 
     // 2. Invalid secret
     resetMock();
     e.parameter = { webhook_secret: 'wrong-secret' };
     context.doPost(e);
-    assert.strictEqual(routedToCommand, false, 'Should not route with wrong secret');
+    assert.strictEqual(sentMessages.length, 0, 'Should not route with wrong secret');
 
     // 3. Valid secret, unauthorized chat
     resetMock();
     e.parameter = { webhook_secret: 'secret-123' };
     e.postData.contents = JSON.stringify({ message: { text: '/saldo', chat: { id: 999 } } });
     context.doPost(e);
-    assert.strictEqual(routedToCommand, false, 'Should not route unauthorized chat');
     assert.ok(sentMessages.some(m => m.includes('não está autorizado')), 'Should notify unauthorized user');
 
-    // 4. Valid secret, authorized chat (sanity check for the mock)
+    // 4. Valid secret, authorized chat
     resetMock();
     e.parameter = { webhook_secret: 'secret-123' };
     e.postData.contents = JSON.stringify({ message: { text: '/saldo', chat: { id: 123 } } });
     context.doPost(e);
-    assert.strictEqual(routedToCommand, true, 'Should route valid request');
+    assert.ok(sentMessages.some(m => m.includes('Comando não suportado')), 'Should route valid request to command');
 });
 
 if (failed > 0) {

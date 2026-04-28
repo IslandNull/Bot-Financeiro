@@ -22,7 +22,7 @@ function logV54PrimaryTelegramSendAttempt_(phase, sendResult, v54Result, chatId,
     };
 
     appendTelegramSendLogV54_({
-        route: ROUTING_MODES.V54_PRIMARY,
+        route: 'V54_PRIMARY',
         chatId: chatId,
         phase: phase,
         status: sendStatus,
@@ -37,7 +37,7 @@ function logV54PrimaryTelegramSendAttempt_(phase, sendResult, v54Result, chatId,
     if (sendStatus === 'sent') return;
 
     var diagnostic = {
-        route: ROUTING_MODES.V54_PRIMARY,
+        route: 'V54_PRIMARY',
         phase: String(phase || ''),
         statusCode: normalizedSendResult.statusCode === undefined ? null : normalizedSendResult.statusCode,
         error: normalizedSendResult.error || 'telegram_send_failed',

@@ -1,18 +1,13 @@
 // ============================================================
-// MAIN — CONFIG global, entry points, routing mode e utilitários mínimos.
+// MAIN — CONFIG global, entry points e utilitários mínimos.
 // Google Apps Script: todos os arquivos compartilham o mesmo escopo global.
-// Este arquivo carrega primeiro (por convenção alfabética/manifest), expondo CONFIG.
 // ============================================================
 
-// ============================================================
-// CONFIG — valores não-sensíveis inline; segredos via PropertiesService
-// Para configurar os segredos, execute setupSecrets() uma vez no Editor
-// ============================================================
 const CONFIG = {
     MODEL: 'gpt-5-nano',
     TIMEZONE: 'America/Sao_Paulo',
     SHEETS: {
-        lancamentos: 'Lançamentos',
+        lancamentos: 'Lançamentos_V54',
         config: 'Config',
         dashboard: 'Dashboard',
         investimentos: 'Investimentos',
@@ -20,48 +15,64 @@ const CONFIG = {
     }
 };
 
-const ROUTING_MODES = Object.freeze({
-    V53_CURRENT: 'V53_CURRENT',
-    V54_SHADOW: 'V54_SHADOW',
-    V54_PRIMARY: 'V54_PRIMARY'
-});
-
-function getRoutingMode_() {
-    const p = PropertiesService.getScriptProperties();
-    const raw = p.getProperty('V54_ROUTING_MODE');
-    if (raw === ROUTING_MODES.V54_SHADOW) return ROUTING_MODES.V54_SHADOW;
-    if (raw === ROUTING_MODES.V54_PRIMARY) return ROUTING_MODES.V54_PRIMARY;
-    return ROUTING_MODES.V53_CURRENT;
-}
-
-function diagnoseRoutingMode() {
+function diagnoseV54PrimaryReadiness() {
     _loadSecrets();
-    const p = PropertiesService.getScriptProperties();
-    const rawMode = p.getProperty('V54_ROUTING_MODE');
-    const effectiveMode = getRoutingMode_();
-    
-    const allowedModes = Object.keys(ROUTING_MODES).map(key => ROUTING_MODES[key]);
-    const rawModeConfigured = rawMode !== null && rawMode !== undefined;
-    const rawModeKnown = rawModeConfigured && allowedModes.indexOf(rawMode) !== -1;
-    
-    let fallbackReason = 'none';
-    if (!rawModeConfigured) {
-        fallbackReason = 'missing';
-    } else if (rawMode === '') {
-        fallbackReason = 'empty';
-    } else if (!rawModeKnown) {
-        fallbackReason = 'invalid';
-    }
-
+    const spreadsheetId = CONFIG.SPREADSHEET_ID;
     const report = {
         ok: true,
-        effectiveMode: effectiveMode,
-        rawModeConfigured: rawModeConfigured,
-        rawModeKnown: rawModeKnown,
-        fallbackReason: fallbackReason,
-        allowedModes: allowedModes
+        properties: {
+            OPENAI_API_KEY: !!CONFIG.OPENAI_API_KEY,
+            TELEGRAM_TOKEN: !!CONFIG.TELEGRAM_TOKEN,
+            SPREADSHEET_ID: !!CONFIG.SPREADSHEET_ID,
+            WEBHOOK_SECRET: !!CONFIG.WEBHOOK_SECRET,
+        },
+        sheets: {},
+        parserContext: false,
+        noV53Routes: true,
+        errors: []
     };
-    
+
+    if (spreadsheetId) {
+        try {
+            const ss = SpreadsheetApp.openById(spreadsheetId);
+            const sheetsToCheck = ['Lançamentos_V54', 'Idempotency_Log', 'Card_Invoices', 'Card_Purchases', 'Telegram_Send_Log'];
+            sheetsToCheck.forEach(function(name) {
+                const sheet = ss.getSheetByName(name);
+                report.sheets[name] = !!sheet;
+                if (!sheet && name !== 'Telegram_Send_Log') {
+                    report.ok = false;
+                    report.errors.push('Missing required sheet: ' + name);
+                }
+                if (!sheet && name === 'Telegram_Send_Log') {
+                    report.ok = false;
+                    report.errors.push('Missing operational sheet: Telegram_Send_Log');
+                }
+            });
+
+            if (typeof getParserContextV54 === 'function') {
+                const contextCheck = getParserContextV54({}, { getSpreadsheet: function() { return ss; } });
+                report.parserContext = contextCheck.ok;
+                if (!contextCheck.ok) {
+                    report.ok = false;
+                    report.errors.push('Parser context check failed');
+                }
+            } else {
+                report.parserContext = false;
+                report.ok = false;
+                report.errors.push('getParserContextV54 is not globally available');
+            }
+        } catch(e) {
+            report.ok = false;
+            report.errors.push('Failed to open spreadsheet by ID');
+        }
+    } else {
+        report.ok = false;
+        report.errors.push('SPREADSHEET_ID property missing');
+    }
+
+    const p = PropertiesService.getScriptProperties();
+    report.properties.V54_ROUTING_MODE = p.getProperty('V54_ROUTING_MODE') || null;
+
     console.log(JSON.stringify(report, null, 2));
     return report;
 }
@@ -101,7 +112,6 @@ function doPost(e) {
         const chatId = String(msg.chat.id);
         const text = msg.text.trim();
         const user = CONFIG.AUTHORIZED[chatId];
-        const routingMode = getRoutingMode_();
 
         if (!user) {
             sendTelegram(chatId, '🚫 Você não está autorizado a usar este bot.');
@@ -109,14 +119,9 @@ function doPost(e) {
         }
 
         if (text.startsWith('/')) {
-            handleCommand(text, chatId, user);
-        } else if (routingMode === ROUTING_MODES.V54_PRIMARY) {
-            routeV54PrimaryEntry_(update, text, chatId, user);
-        } else if (routingMode === ROUTING_MODES.V54_SHADOW) {
-            handleEntry(text, chatId, user);
-            runV54ShadowDiagnostics_(update, text, chatId, user);
+            handleCommandV54_(text, chatId, user);
         } else {
-            handleEntry(text, chatId, user);
+            routeV54PrimaryEntry_(update, text, chatId, user);
         }
     } catch (err) {
         console.error('doPost error:', JSON.stringify(redactSensitiveDiagnostics_({
@@ -127,14 +132,33 @@ function doPost(e) {
     return _ok();
 }
 
+function handleCommandV54_(text, chatId, user) {
+    if (text === '/start' || text === '/help') {
+        const msg = "Bot Financeiro V54 (Primary Mode).\n\n" +
+                    "Envie seus gastos naturalmente.\n" +
+                    "Exemplo: '50 almoco ita cred mar'";
+        sendTelegram(chatId, msg);
+        return;
+    }
+    const legacyCommands = ['/resumo', '/saldo', '/hoje', '/desfazer', '/transferir', '/invest', '/manter', '/parcela', '/parcelas', '/fatura'];
+    const cmd = text.split(' ')[0].toLowerCase();
+
+    if (legacyCommands.indexOf(cmd) !== -1) {
+        sendTelegram(chatId, "Comando não suportado ainda no V54.");
+    } else {
+        sendTelegram(chatId, "Comando desconhecido.");
+    }
+}
+
 function routeV54PrimaryEntry_(update, text, chatId, user) {
     const fallbackMessage = 'Não consegui registrar esse lançamento com segurança agora. Revise a mensagem ou tente novamente em instantes.';
     const bridge = buildV54ProductionBridgeDeps_({
-        mode: ROUTING_MODES.V54_PRIMARY,
+        mode: 'V54_PRIMARY',
         chatId: chatId,
         text: text,
         user: user,
     }, {});
+
     if (!bridge.ok) {
         console.warn('V54 primary blocked:', JSON.stringify(redactV54ProductionBridgeObject_(bridge)));
         const sendResult = sendTelegram(chatId, fallbackMessage);
@@ -182,50 +206,6 @@ function routeV54PrimaryEntry_(update, text, chatId, user) {
     return result;
 }
 
-function runV54ShadowDiagnostics_(update, text, chatId, user) {
-    const bridge = buildV54ProductionBridgeDeps_({
-        mode: ROUTING_MODES.V54_SHADOW,
-        chatId: chatId,
-        text: text,
-        user: user,
-    }, { shadowNoWrite: true });
-    if (!bridge.ok) {
-        console.warn('V54 shadow diagnostics blocked:', JSON.stringify(redactV54ProductionBridgeObject_(bridge)));
-        return;
-    }
-
-    try {
-        const shadowResult = bridge.deps.handleTelegramUpdateV54(update, {
-            user: user,
-            usersByChatId: CONFIG.AUTHORIZED,
-            parseTextV54: bridge.deps.parseTextV54,
-            parserOptions: bridge.deps.parserOptions,
-            validateParsedEntryV54: bridge.deps.validateParsedEntryV54,
-            recordEntryV54: recordEntryV54ShadowNoWrite_,
-            recordOptions: bridge.deps.recordOptions,
-        });
-        console.log('V54 shadow diagnostics:', JSON.stringify(redactV54ProductionBridgeObject_(shadowResult)));
-    } catch (error) {
-        console.warn('V54 shadow diagnostics failed safely.');
-    }
-}
-
-function recordEntryV54ShadowNoWrite_(parsedEntry) {
-    return {
-        ok: false,
-        sheet: '',
-        rowNumber: null,
-        decision: 'shadow_no_write',
-        retryable: false,
-        errors: [],
-        shadow: {
-            noWrite: true,
-            tipo_evento: parsedEntry && parsedEntry.tipo_evento ? String(parsedEntry.tipo_evento) : '',
-            descricao: parsedEntry && parsedEntry.descricao ? String(parsedEntry.descricao) : '',
-        },
-    };
-}
-
 function _ok() { return ContentService.createTextOutput(''); }
 
 function parseTelegramUpdate_(e) {
@@ -268,7 +248,7 @@ function doGet(e) {
     if (!isSyncAuthorized_(e)) {
         return ContentService.createTextOutput('🚫 Acesso Negado.').setMimeType(ContentService.MimeType.TEXT);
     }
-    
+
     if (action === 'exportState') {
         const state = exportSpreadsheetState();
         return ContentService.createTextOutput(state).setMimeType(ContentService.MimeType.TEXT);
@@ -279,7 +259,7 @@ function doGet(e) {
             .createTextOutput(`BLOCKED: mutating action "${action}" is not allowed over GET.`)
             .setMimeType(ContentService.MimeType.TEXT);
     }
-    return ContentService.createTextOutput('Bot Financeiro API V53 (read-only GET)').setMimeType(ContentService.MimeType.TEXT);
+    return ContentService.createTextOutput('Bot Financeiro API V54 (read-only GET)').setMimeType(ContentService.MimeType.TEXT);
 }
 
 function isSyncAuthorized_(e) {

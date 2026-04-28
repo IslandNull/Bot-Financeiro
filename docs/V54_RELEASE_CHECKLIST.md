@@ -1,13 +1,12 @@
 # V54 Release Checklist
 
-This document defines the strict, phased procedure for deploying and activating V54 in production. It is designed to ensure safe rollouts and predictable fallbacks.
+This document defines the strict procedure for deploying and updating V54 in production.
 
 ## 0. Safety Constraints
-- **V54 is disabled by default.**
-- Missing, empty, or invalid `V54_ROUTING_MODE` resolves safely to `V53_CURRENT`.
-- `V54_SHADOW` keeps V53 as the absolute source of truth and **must not** write through the V54 path.
-- `V54_PRIMARY` **must not** fallback-mutate through V53 under any circumstances (fail-closed).
-- **Zero Real-Action Policy in Tests**: Codex and automated tests **must not** call `clasp deploy`, setup, seed, Telegram real, OpenAI real, or SpreadsheetApp real.
+- **V54 is the only active runtime.**
+- `V53_CURRENT`, `V54_SHADOW`, and `V54_ROUTING_MODE` have been completely removed.
+- `V54_PRIMARY` handles all normal Telegram messages. Legacy commands explicitly return "não suportado".
+- **Zero Real-Action Policy in Tests**: Codex and automated tests **must not** call `clasp deploy`, setup, seed, Telegram real, OpenAI real, or SpreadsheetApp real without explicit authorization.
 
 ## 1. Pre-Merge Local Checks
 Before opening a Pull Request to `main`, run the entire local/fake-first suite:
@@ -18,34 +17,25 @@ All tests must pass. This guarantees domain logic, idempotency, routing mode log
 
 ## 2. Pull Request to `main`
 - Verify CI passes (`.github/workflows/v54-safety.yml`).
-- Merge `feat/v54-production-readiness` into `main`.
+- Merge the feature branch into `main`.
 
-## 3. Deploy (Inactive State)
+## 3. Deploy
 Deploy the code to Google Apps Script. 
-**Crucial:** Ensure `V54_ROUTING_MODE` property is either **absent** or explicitly set to `V53_CURRENT`.
 ```bash
 # Locally:
-clasp push
-clasp deploy
+npm run push
 ```
-*At this point, the system is running the new code but fully routed to the legacy V53 behavior.*
+*At this point, the system is running the new V54 code.*
 
-## 4. V54_SHADOW Validation
-1. Set the script property in Google Apps Script: `V54_ROUTING_MODE = V54_SHADOW`.
-2. Monitor executions and Google Apps Script logs.
-3. Validate that user messages continue to be answered and processed by V53.
-4. Verify that V54 diagnostics are running in the background without mutating the spreadsheet (shadow mode telemetry).
-5. If anomalies occur, immediately remove `V54_ROUTING_MODE` or set it back to `V53_CURRENT`.
+## 4. Post-Deploy Readiness Check
+Run the diagnostic function to ensure the environment is ready:
+1. Open the Apps Script Editor.
+2. Execute `diagnoseV54PrimaryReadiness()`.
+3. Check the execution logs. It must return `{ ok: true }`. Ensure `OPENAI_API_KEY`, `TELEGRAM_TOKEN`, `SPREADSHEET_ID`, `WEBHOOK_SECRET` are present, and all required sheets (including `Telegram_Send_Log`) exist.
+4. Verify the parser context is successfully reading the sheets.
 
-## 5. V54_PRIMARY Controlled Validation
-1. Once shadow diagnostics are stable, set `V54_ROUTING_MODE = V54_PRIMARY`.
-2. The bot will now route inputs exclusively to the V54 architecture.
-3. Verify that entries are correctly classified, parsed by OpenAI, and recorded via the idempotent write path.
-4. Ensure no double-booking occurs in V53.
-5. Monitor `Telegram_Send_Log` for each V54_PRIMARY response attempt and compare `status=failed` rows against Apps Script execution logs. Do not treat a Telegram send failure as a reason to replay the financial write automatically.
-
-## 6. Rollback Procedure
-If any critical failure occurs in `V54_PRIMARY` or `V54_SHADOW`:
-1. Change the Apps Script property `V54_ROUTING_MODE` to `V53_CURRENT`.
-2. The system immediately reverts to the legacy behavior.
-3. (Optional) If the codebase itself is fatally flawed, revert the `main` branch to the previous stable commit and `clasp deploy` again.
+## 5. Rollback Procedure
+If any critical failure occurs in production:
+1. Revert the `main` branch to the previous stable commit.
+2. Run `npm run push` to deploy the stable version again.
+3. (Do not attempt to rollback via Apps Script properties, as routing modes are no longer supported).

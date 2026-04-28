@@ -198,18 +198,6 @@ failed += test('V54_PRIMARY_missing_dependency', () => {
     assert.strictEqual(calls.setValues, 0, 'Should not mutate spreadsheet because bridge failed closed');
 });
 
-failed += test('V54_SHADOW_no_write', () => {
-    const { sandbox, calls } = createSandbox({ ROUTING_MODE: 'V54_SHADOW' });
-    
-    sandbox.doPost({
-        postData: { contents: JSON.stringify({ message: { chat: { id: 12345 }, text: "Gastei 10" } }) },
-        parameter: { webhook_secret: 'test-secret' }
-    });
-
-    assert.strictEqual(calls.handleEntryV53, 1, 'Should call V53 fallback in shadow mode');
-    assert.strictEqual(calls.setValues, 0, 'Should not mutate spreadsheet through V54');
-});
-
 if (failed > 0) {
     console.error(`\n${failed} V54 integration check(s) failed.`);
     process.exitCode = 1;

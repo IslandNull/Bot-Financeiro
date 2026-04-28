@@ -716,17 +716,17 @@ Rejected:
 - Falling back to V53 when Telegram notification sending fails.
 - Storing raw secrets or unbounded message text in the sheet log.
 
-## D053 - V54 Apps Script Schema Mirror
+## D054 - V54 Primary as the Only Runtime
 Status: Accepted
 Date: 2026-04-28
 
 Decision:
-Keep `scripts/lib/v54-schema.js` as the Node/local schema authority and use `src/000_V54Schema.js` as the single Apps Script runtime mirror while the project has no bundler. Apps Script modules must consume this mirror instead of maintaining independent header arrays in Setup, Actions, ParserContext, RealManualPolicy, or Telegram send observability.
+Make V54 the permanent and only runtime for the project, completely removing V53 from the source folder (`src/`) and disabling all legacy routing modes (like `V53_CURRENT`, `V54_SHADOW`, and `V54_ROUTING_MODE`). `doPost` now directly uses the `V54_PRIMARY` bridge for all incoming Telegram messages. Legacy commands return an explicit "not supported" message.
 
 Reason:
-Google Apps Script does not consume the Node/CommonJS schema file directly in the current setup. A single runtime mirror reduces header drift without introducing a bundler or changing sheet names, headers, extra-column policy, or financial behavior.
+V54 architecture is mature, fully tested locally (with schema, parsers, mappers, actions, and security boundaries), and all requirements for full migration have been met. Keeping V53 routing and source files adds unnecessary complexity and blocks completing the architecture. V53 files have been moved to `legacy/v53/` to preserve historical reference if needed, but they are no longer deployed.
 
 Rejected:
-- Duplicating V54 headers independently in each Apps Script module.
-- Introducing a bundler in this refactor.
-- Changing V54 sheet/header contracts as part of the mirror cleanup.
+- Keeping V53 as an invisible fallback route.
+- Maintaining `V54_ROUTING_MODE` for runtime toggling.
+- Trying to make legacy `/comandos` execute V53 code while normal entries use V54.

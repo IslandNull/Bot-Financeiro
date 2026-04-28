@@ -7,6 +7,13 @@ Organizado por prioridade. Última atualização: 2026-04-27.
 
 ## COMPLETED
 
+### Phase 6J — Ativação Operacional V54 Primary e Remoção do V53
+- [x] **Remover código V53 do runtime**
+  - Arquivos movidos para `legacy/v53/`: `Actions.js`, `Commands.js`, `Parser.js`, `Views.js`, `SetupLegacy.js`.
+  - Roteamento `doPost` agora é estritamente `V54_PRIMARY`.
+  - Diagnóstico `diagnoseV54PrimaryReadiness()` implementado.
+  - Modos `V53_CURRENT` e `V54_SHADOW` removidos completamente.
+
 ### Phase 4F — Architecture Guardrails
 
 - [x] **Corrigir ambiguidade do runtime map**
@@ -196,10 +203,6 @@ Organizado por prioridade. Última atualização: 2026-04-27.
 - [ ] **Não plugar Telegram em V54 antes de `Idempotency_Log`**
   - Risco: retry de webhook do Telegram cria lançamentos duplicados.
   - O teste de guardrails (`test:v54:architecture`) verifica que `src/Main.js` NÃO chama `recordEntryV54`.
-
-- [ ] **Não deletar V53 agora**
-  - V53 é o único caminho funcional do Telegram.
-  - Remoção prematura quebra o bot para Gustavo e Luana.
 
 - [ ] **Não alterar lógica financeira nesta fase**
   - Phase 4F é exclusivamente sobre legibilidade e guardrails.

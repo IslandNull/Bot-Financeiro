@@ -5,7 +5,7 @@ Mapeamento de entrypoints e estado de runtime da transição V53 -> V54.
 ## 1. Rotas Webhook / Apps Script
 - `doPost(e)` (em `src/Main.js`): Ponto de entrada do Telegram.
   - **Segurança:** Requer `WEBHOOK_SECRET` via query string ou body (Val.town).
-  - **Status V54:** `doPost` opera por `V54_ROUTING_MODE` com release controlado: default/missing/invalid => `V53_CURRENT`; `V54_SHADOW` mantém `handleEntry` V53 como source-of-truth user-facing e roda diagnóstico V54 no-write; `V54_PRIMARY` usa path V54 para entradas normais sem fallback mutante automático para V53.
+  - **Status V54:** O webhook opera permanentemente no modo `V54_PRIMARY`. Mensagens normais vão para `routeV54PrimaryEntry_` e comandos legados vão para `handleCommandV54_` (que responde "não suportado").
 - `doGet(e)` (em `src/Main.js`): Ponto de entrada GET.
   - **Segurança:** Requer `SYNC_SECRET`.
   - **Uso atual:** `exportState` (exportação do SPREADSHEET_STATE.md).
@@ -33,13 +33,12 @@ Mapeamento de entrypoints e estado de runtime da transição V53 -> V54.
   - Politica `real_manual` V54: `src/RunnerV54RealManualPolicy.js` implementa `evaluateV54RealManualPolicy(input, options)` e alias `evaluateRunnerV54RealManualPolicy(input, options)`. Ela exige operador, aprovacao explicita, input sintetico/manual, `doPost` inalterado/V54 nao roteado, `doGet` sem gate V54, Telegram send desabilitado, dry-run/fake-shadow previo, snapshot/export acknowledged, `Idempotency_Log`, todas as abas V54, headers esperados e contexto do parser legivel por DI. O contexto do parser deve vir de `getParserContext` injetado e retornar `{ ok: true }`; acknowledgement booleano nao basta. Testes usam diagnosticos fake e planilha fake; nao e rota web, nao envia Telegram e nao chama OpenAI ou planilha real.
   - Contrato de evidencias `real_manual`: `scripts/lib/v54-real-manual-evidence-contract.js` valida envelope canonico local/fake-first (operador, branch/commit marker, dry-run/snapshot estruturados, diagnosticos de planilha/parser e acoes proibidas). Para `mode=real_manual`, a politica exige esse contrato por DI (`validateEvidenceEnvelope`) e bloqueia o gate/runner quando o validador estiver ausente ou quando o envelope estiver ausente/malformado. Regra de colunas extras: so permitido quando `allowExtraColumns: true` explicito; ambiguidade falha fechado.
   - Usa injeção de dependências para `spreadsheetApp`, `lockService`, etc., permitindo testes locais.
-- **V53 Legacy (deprecated/obsoleto):**
-  - Módulos: `src/Actions.js`, `src/Commands.js`, `src/Parser.js`, `src/Views.js`, `src/SetupLegacy.js`.
-  - **NÃO ADICIONAR NOVAS FEATURES NESTES ARQUIVOS.**
+- **V53 Legacy (deprecated/removido do src):**
+  - Módulos movidos para `legacy/v53/`: `Actions.js`, `Commands.js`, `Parser.js`, `Views.js`, `SetupLegacy.js`.
+  - **NÃO FAZEM MAIS PARTE DO DEPLOY**.
 
 ## 3. O que permanece controlado por gate
-- `V54_PRIMARY` existe em `doPost`, mas somente por `V54_ROUTING_MODE` explícito e com validação de config/dependências; default/missing/invalid seguem `V53_CURRENT`.
-- `V54_SHADOW` roda diagnóstico V54 no-write depois do V53 user-facing.
+- O bot opera inteiramente no V54. Falhas no bridge ou nos pipelines do V54 são fail-closed e caem em mensagens amigáveis ("não foi possível registrar com segurança agora").
 - O runner manual/shadow V54 existe, mas ainda é caminho desabilitado/manual por DI e não processa Telegram real.
 - O gate manual/shadow V54 existe, mas ainda nao e rota web nem permissao de producao; ele apenas protege chamadas manuais controladas.
 - `real_manual` continua manual-only/fake-first por contrato de diagnostico; nao e production-ready, nao e chamado por `doPost`, e nao e exposto por `doGet`.
@@ -48,7 +47,6 @@ Mapeamento de entrypoints e estado de runtime da transição V53 -> V54.
 - `RunnerV54Gate.invokeV54ManualShadowGate` ainda não é chamado por `doPost` nem exposto por `doGet`.
 - `RunnerV54RealManualPolicy.evaluateV54RealManualPolicy` ainda não é chamado por `doPost` nem exposto por `doGet`.
 - `ActionsV54Recovery.applyReviewedIdempotencyRecoveryV54` ainda não é chamado por `doPost` nem por rota de manutenção real.
-- Comandos `/...` continuam chamando `handleCommand`, do fluxo legacy V53.
-- V54 não é o default do Telegram; ativação real exige operação manual revisada, propriedades configuradas e rollback por `V54_ROUTING_MODE`.
+- Comandos `/...` que não sejam `/start` ou `/help` retornam "não suportado".
 - Não há pagamentos de fatura implementados em V54.
-- Não há respostas/relatórios (Views) de V54 trafegando para o Telegram.
+- Não há respostas/relatórios completos de fechamento (Views) de V54 trafegando para o Telegram (apenas callbacks básicos de sucesso e erro).
