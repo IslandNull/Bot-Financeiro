@@ -51,6 +51,10 @@ function loadBridge(overrides) {
         getParserContextV54: () => ({ ok: true }),
         validateParsedEntryV54ForActions_: () => ({ ok: true, normalized: {} }),
         recordEntryV54: () => ({ ok: true }),
+        planV54IdempotentWrite: () => ({}),
+        mapSingleCardPurchaseContract: () => ({}),
+        mapInstallmentScheduleContract: () => ({}),
+        planExpectedFaturasUpsert: () => ({}),
     }, overrides || {});
 
     vm.createContext(sandbox);

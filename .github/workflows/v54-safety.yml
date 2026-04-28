@@ -38,3 +38,12 @@ jobs:
 
       - name: Run architecture guardrails
         run: npm run test:v54:architecture
+
+      - name: Run routing mode tests
+        run: npm run test:routing-mode
+
+      - name: Run security locks tests
+        run: npm run test:security-locks
+
+      - name: Run production bridge integration tests
+        run: npm run test:v54:production-bridge-integration

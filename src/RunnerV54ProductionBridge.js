@@ -74,10 +74,49 @@ function buildV54ProductionBridgeDeps_(runtimeContext, options) {
         ]);
     }
 
-    if (context.mode === 'V54_PRIMARY' && typeof bridgeDeps.recordEntryV54 !== 'function') {
-        return makeV54ProductionFailure_('v54_production_dependency_missing', [
-            { code: 'V54_RECORD_REQUIRED', field: 'recordEntryV54', message: 'recordEntryV54 must exist for V54 primary runtime.' },
-        ]);
+    if (context.mode === 'V54_PRIMARY') {
+        if (typeof bridgeDeps.recordEntryV54 !== 'function') {
+            return makeV54ProductionFailure_('v54_production_dependency_missing', [
+                { code: 'V54_RECORD_REQUIRED', field: 'recordEntryV54', message: 'recordEntryV54 must exist for V54 primary runtime.' },
+            ]);
+        }
+        if (typeof planV54IdempotentWrite !== 'function') {
+            return makeV54ProductionFailure_('v54_production_dependency_missing', [
+                { code: 'V54_IDEMPOTENCY_REQUIRED', field: 'planV54IdempotentWrite', message: 'planV54IdempotentWrite must exist for V54 primary runtime.' },
+            ]);
+        }
+        if (typeof mapSingleCardPurchaseContract !== 'function') {
+            return makeV54ProductionFailure_('v54_production_dependency_missing', [
+                { code: 'V54_CARD_MAPPER_REQUIRED', field: 'mapSingleCardPurchaseContract', message: 'mapSingleCardPurchaseContract must exist for V54 primary runtime.' },
+            ]);
+        }
+        if (typeof mapInstallmentScheduleContract !== 'function') {
+            return makeV54ProductionFailure_('v54_production_dependency_missing', [
+                { code: 'V54_INSTALLMENT_MAPPER_REQUIRED', field: 'mapInstallmentScheduleContract', message: 'mapInstallmentScheduleContract must exist for V54 primary runtime.' },
+            ]);
+        }
+        if (typeof planExpectedFaturasUpsert !== 'function') {
+            return makeV54ProductionFailure_('v54_production_dependency_missing', [
+                { code: 'V54_FATURAS_PLANNER_REQUIRED', field: 'planExpectedFaturasUpsert', message: 'planExpectedFaturasUpsert must exist for V54 primary runtime.' },
+            ]);
+        }
+        if (typeof getParserContextV54 !== 'function') {
+            return makeV54ProductionFailure_('v54_production_dependency_missing', [
+                { code: 'V54_CONTEXT_REQUIRED', field: 'getParserContextV54', message: 'getParserContextV54 must exist for V54 primary runtime card context.' },
+            ]);
+        }
+
+        bridgeDeps.recordOptions.planV54IdempotentWrite = planV54IdempotentWrite;
+        bridgeDeps.recordOptions.mapSingleCardPurchaseContract = mapSingleCardPurchaseContract;
+        bridgeDeps.recordOptions.mapInstallmentScheduleContract = mapInstallmentScheduleContract;
+        bridgeDeps.recordOptions.planExpectedFaturasUpsert = planExpectedFaturasUpsert;
+        bridgeDeps.recordOptions.getCardsV54 = function() {
+            var ctxResult = getParserContextV54({}, { getSpreadsheet: getSpreadsheet });
+            if (ctxResult && ctxResult.ok && ctxResult.context && Array.isArray(ctxResult.context.cartoes)) {
+                return ctxResult.context.cartoes;
+            }
+            return [];
+        };
     }
 
     return {
@@ -110,16 +149,19 @@ function validateV54ProductionConfig_(config, options) {
 }
 
 function makeV54ProductionFetchJson_(urlFetch, apiKey) {
-    return function fetchJson(url, payload) {
+    return function fetchJson(urlOrRequest, payload) {
         if (!isNonEmptyV54String_(apiKey)) {
             throw new Error('V54 production fetch blocked: missing apiKey.');
         }
+
+        var url = typeof urlOrRequest === 'string' ? urlOrRequest : (urlOrRequest && urlOrRequest.url ? urlOrRequest.url : '');
+        var body = payload || (urlOrRequest && urlOrRequest.body ? urlOrRequest.body : {});
 
         var response = urlFetch.fetch(url, {
             method: 'post',
             contentType: 'application/json',
             headers: { Authorization: 'Bearer ' + apiKey },
-            payload: JSON.stringify(payload || {}),
+            payload: JSON.stringify(body || {}),
             muteHttpExceptions: true,
         });
 

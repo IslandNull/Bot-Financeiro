@@ -150,7 +150,7 @@ function routeV54PrimaryEntry_(update, text, chatId, user) {
             recordOptions: bridge.deps.recordOptions,
         });
     } catch (error) {
-        console.error('V54 primary runtime failed safely.');
+        console.error('V54 primary runtime failed safely:', error, error.stack);
         sendTelegram(chatId, fallbackMessage);
         return;
     }
@@ -194,7 +194,7 @@ function runV54ShadowDiagnostics_(update, text, chatId, user) {
 
 function recordEntryV54ShadowNoWrite_(parsedEntry) {
     return {
-        ok: true,
+        ok: false,
         sheet: '',
         rowNumber: null,
         decision: 'shadow_no_write',

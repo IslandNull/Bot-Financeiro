@@ -165,6 +165,7 @@ function makeHandlerV54IdempotencyInput_(context) {
 
 function classifyRecordEntryV54Result_(recordResult) {
     if (!recordResult || typeof recordResult !== 'object') return 'record_failed';
+    if (recordResult.decision === 'shadow_no_write') return 'shadow_no_write';
     if (recordResult.ok === true) return 'recorded';
     if (recordResult.decision === 'duplicate_completed') return 'duplicate_completed';
     if (recordResult.retryable === true || recordResult.decision === 'duplicate_processing') return 'processing_retryable';

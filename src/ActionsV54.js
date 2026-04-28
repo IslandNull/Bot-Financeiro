@@ -248,7 +248,7 @@ function normalizeActionsV54Deps_(options) {
         idempotency: source.idempotency && typeof source.idempotency === 'object'
             ? cloneV54PlainObject_(source.idempotency)
             : null,
-        cards: cloneV54Cards_(source.cards),
+        cards: typeof source.getCardsV54 === 'function' ? source.getCardsV54() : cloneV54Cards_(source.cards),
     };
 }
 
