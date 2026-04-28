@@ -609,3 +609,22 @@ Rejected:
 - Passing parser-context diagnostics with only an acknowledgement boolean.
 - Letting `RunnerV54Gate` call the runner after parser-context policy failure.
 - Treating this hardening as production readiness or route authorization.
+
+## D047 - V54 Real Manual Evidence Envelope Contract
+Status: Accepted
+Date: 2026-04-28
+
+Decision:
+Future `real_manual` attempts must provide a canonical structured evidence envelope validated locally/fake-first. The validator is defined in `scripts/lib/v54-real-manual-evidence-contract.js` and may be consumed by `RunnerV54RealManualPolicy` through dependency injection (`validateEvidenceEnvelope`).
+
+The envelope must include operator identity, timestamp/reference date, branch and commit marker (SHA or explicit local marker), route safety booleans (`mainJsDiffEmpty`, `doPostV54RefsAbsent`, `doGetV54RefsAbsent`, `telegramSendDisabled`), structured prior evidence objects (dry-run, fake-shadow or explicit accepted absence, snapshot/export), spreadsheet diagnostics with required sheets and per-sheet header status, parser context diagnostics object (`ran`, `ok`, `referenceDate`), and forbidden-actions confirmations.
+
+Header diagnostics decision: prefix-compatible evidence is allowed only when `spreadsheetDiagnostics.allowExtraColumns === true` is explicit. If `allowExtraColumns` is missing, ambiguous, or false while extra columns are reported, the evidence must fail closed.
+
+Reason:
+Boolean acknowledgements were too weak for a future manual execution boundary. A structured envelope creates auditable evidence, blocks vague checklist-only approvals, and keeps V54 fake-first/manual-only without exposing `doPost`/`doGet` routes or real services in tests.
+
+Rejected:
+- Accepting parser/spreadsheet diagnostics as booleans only.
+- Silently allowing extra columns without explicit policy.
+- Treating evidence validation as production readiness or route authorization.

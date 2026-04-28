@@ -44,6 +44,13 @@ Organizado por prioridade. Última atualização: 2026-04-27.
 
 ---
 
+
+- [x] **Phase 4X — Contrato canonico de evidencias para `real_manual`**
+  - criado `scripts/lib/v54-real-manual-evidence-contract.js` (local/fake-first, sem rede/SpreadsheetApp)
+  - envelope exige evidencias estruturadas (operador, branch/commit, dry-run, fake-shadow/ausencia aceita, snapshot, parser, planilha, acoes proibidas)
+  - politica `real_manual` pode consumir envelope por DI (`validateEvidenceEnvelope`) e bloqueia gate/runner se envelope invalido
+  - decisao explicita para colunas extras: apenas com `allowExtraColumns: true`; ambiguo falha
+
 ### Phase 4J — Masterplan Stale Decision Cleanup
 
 - [x] **Limpar decisões obsoletas no masterplan**
