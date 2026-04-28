@@ -25,6 +25,7 @@ function diagnoseV54PrimaryReadiness() {
             TELEGRAM_TOKEN: !!CONFIG.TELEGRAM_TOKEN,
             SPREADSHEET_ID: !!CONFIG.SPREADSHEET_ID,
             WEBHOOK_SECRET: !!CONFIG.WEBHOOK_SECRET,
+            AUTHORIZED: false
         },
         sheets: {},
         parserContext: false,
@@ -32,20 +33,53 @@ function diagnoseV54PrimaryReadiness() {
         errors: []
     };
 
+    if (!CONFIG.OPENAI_API_KEY) { report.ok = false; report.errors.push('OPENAI_API_KEY is missing'); }
+    if (!CONFIG.TELEGRAM_TOKEN) { report.ok = false; report.errors.push('TELEGRAM_TOKEN is missing'); }
+    if (!CONFIG.SPREADSHEET_ID) { report.ok = false; report.errors.push('SPREADSHEET_ID is missing'); }
+    if (!CONFIG.WEBHOOK_SECRET) { report.ok = false; report.errors.push('WEBHOOK_SECRET is missing'); }
+
+    if (CONFIG.AUTHORIZED && typeof CONFIG.AUTHORIZED === 'object' && Object.keys(CONFIG.AUTHORIZED).length > 0) {
+        report.properties.AUTHORIZED = true;
+    } else {
+        report.ok = false;
+        report.errors.push('AUTHORIZED is missing or empty');
+    }
+
     if (spreadsheetId) {
         try {
             const ss = SpreadsheetApp.openById(spreadsheetId);
-            const sheetsToCheck = ['Lançamentos_V54', 'Idempotency_Log', 'Card_Invoices', 'Card_Purchases', 'Telegram_Send_Log'];
+            const sheetsToCheck = typeof getV54SheetNames === 'function' ? getV54SheetNames() : [];
+
+            if (sheetsToCheck.length === 0) {
+                report.ok = false;
+                report.errors.push('getV54SheetNames is not available or empty');
+            }
+
             sheetsToCheck.forEach(function(name) {
                 const sheet = ss.getSheetByName(name);
-                report.sheets[name] = !!sheet;
-                if (!sheet && name !== 'Telegram_Send_Log') {
+                report.sheets[name] = { exists: !!sheet, headersOk: false };
+                if (!sheet) {
                     report.ok = false;
                     report.errors.push('Missing required sheet: ' + name);
-                }
-                if (!sheet && name === 'Telegram_Send_Log') {
-                    report.ok = false;
-                    report.errors.push('Missing operational sheet: Telegram_Send_Log');
+                } else {
+                    const expectedHeaders = typeof getV54Headers === 'function' ? getV54Headers(name) : [];
+                    if (expectedHeaders.length > 0) {
+                        const actualHeaders = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0].filter(function(h) { return String(h).trim() !== ''; });
+                        let headersMatch = actualHeaders.length === expectedHeaders.length;
+                        if (headersMatch) {
+                            for (let i = 0; i < expectedHeaders.length; i++) {
+                                if (String(actualHeaders[i]).trim() !== String(expectedHeaders[i]).trim()) {
+                                    headersMatch = false;
+                                    break;
+                                }
+                            }
+                        }
+                        report.sheets[name].headersOk = headersMatch;
+                        if (!headersMatch) {
+                            report.ok = false;
+                            report.errors.push('Header mismatch in sheet: ' + name);
+                        }
+                    }
                 }
             });
 
@@ -65,9 +99,6 @@ function diagnoseV54PrimaryReadiness() {
             report.ok = false;
             report.errors.push('Failed to open spreadsheet by ID');
         }
-    } else {
-        report.ok = false;
-        report.errors.push('SPREADSHEET_ID property missing');
     }
 
     const p = PropertiesService.getScriptProperties();

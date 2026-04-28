@@ -163,6 +163,27 @@ legacyFiles.forEach(function(filePath) {
 });
 
 // ============================================================
+// GUARD 6: Deployment Boundary
+// ============================================================
+console.log('\n--- Guard 6: Deployment Boundary ---');
+
+const claspTemplate = readFile('.clasp.json.template');
+assert('clasp template exists', claspTemplate !== null, '.clasp.json.template not found.');
+
+if (claspTemplate) {
+    try {
+        const config = JSON.parse(claspTemplate);
+        assert(
+            'clasp template uses rootDir "src"',
+            config.rootDir === 'src' || config.rootDir === 'src/',
+            'clasp template must restrict deploy boundary to src directory.'
+        );
+    } catch(e) {
+        assert('clasp template is valid JSON', false, 'Failed to parse .clasp.json.template');
+    }
+}
+
+// ============================================================
 // SUMMARY
 // ============================================================
 console.log('\n========================================');

@@ -246,7 +246,7 @@ function sanitizeV54UserFacingText_(text, result) {
             .replace(/\n\s*at\s+[^\n]+/g, '\n[STACK_REDACTED]')
             .replace(/\b[\w.-]+\.gs:\d+(?::\d+)?\b/g, '[STACK_REDACTED]');
     if (result && result.ok !== true && /(?:\bat\s+\S+\s*\(|Error:|stack|Traceback|\.gs:\d+|\bline\s+\d+)/i.test(safeText)) {
-        return 'V54: nÃ£o foi possÃ­vel registrar com seguranÃ§a.';
+        return 'V54: não foi possível registrar com segurança.';
     }
     return safeText;
 }

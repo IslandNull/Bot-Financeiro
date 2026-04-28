@@ -61,7 +61,7 @@ Branch: main (verified locally on 2026-04-28)
 ## Protocolo de release controlado (Phase 6A)
 1. Real actions **nao sao proibidas permanentemente**, mas so podem ocorrer por gate explicito de release/operacao manual revisada.
 2. Este branch/task continua local/fake-first: testes Codex **nao executam** deploy/clasp/setup/seed/sync/Telegram/OpenAI/SpreadsheetApp real.
-3. Runtime activation exige `V54_ROUTING_MODE` explicito e validacao por testes; default/missing/invalid continuam `V53_CURRENT` para rollback imediato.
-4. Rollback operacional: remover `V54_ROUTING_MODE` ou definir `V54_ROUTING_MODE=V53_CURRENT`.
+3. Ativação real em produção agora depende da execução de `npm run push` seguida do diagnóstico `diagnoseV54PrimaryReadiness()`. Rollback é feito revertendo o commit e fazendo push novamente (não há mais toggle de modo de roteamento).
 
 *(Historico anterior detalhado movido para docs/archive/HISTORY.md)*
+RY.md)*
