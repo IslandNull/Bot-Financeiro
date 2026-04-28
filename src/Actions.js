@@ -15,7 +15,7 @@ function handleEntry(text, chatId, user) {
     try {
         parsed = parseWithOpenAI(text, user.pagador);
     } catch (err) {
-        sendTelegram(chatId, `⚠️ Erro ao interpretar a mensagem: ${err.message}\n\nTente algo como: "52 ifood luana nubank" ou "aportei 500 no cdb".`);
+        sendTelegram(chatId, 'Não consegui interpretar essa mensagem com segurança agora. Tente algo como: "52 ifood luana nubank" ou "aportei 500 no cdb".');
         return;
     }
 
@@ -28,7 +28,7 @@ function handleEntry(text, chatId, user) {
         const result = recordParsedEntry(parsed, chatId, user);
         sendTelegram(chatId, formatEntryResponse(parsed, result.date, result.isAporte));
     } catch (err) {
-        sendTelegram(chatId, `Erro: ${err.message}`);
+        sendTelegram(chatId, 'Não consegui registrar esse lançamento com segurança agora. Tente novamente em instantes.');
     }
     return;
 }

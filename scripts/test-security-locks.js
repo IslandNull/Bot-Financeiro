@@ -6,6 +6,11 @@ const root = path.join(__dirname, '..');
 const main = fs.readFileSync(path.join(root, 'src', 'Main.js'), 'utf8');
 const actions = fs.readFileSync(path.join(root, 'src', 'Actions.js'), 'utf8');
 const setup = fs.readFileSync(path.join(root, 'src', 'Setup.js'), 'utf8');
+const actionsV54 = fs.readFileSync(path.join(root, 'src', 'ActionsV54.js'), 'utf8');
+const parserV54 = fs.readFileSync(path.join(root, 'src', 'ParserV54.js'), 'utf8');
+const handlerV54 = fs.readFileSync(path.join(root, 'src', 'HandlerV54.js'), 'utf8');
+const bridgeV54 = fs.readFileSync(path.join(root, 'src', 'RunnerV54ProductionBridge.js'), 'utf8');
+const viewsV54 = fs.readFileSync(path.join(root, 'src', 'ViewsV54.js'), 'utf8');
 const packageJson = require(path.join(root, 'package.json'));
 
 function extractFunction(source, name) {
@@ -44,6 +49,10 @@ failed += test('apps_script_files_parse_as_javascript', () => {
         ['src/Main.js', main],
         ['src/Actions.js', actions],
         ['src/Setup.js', setup],
+        ['src/HandlerV54.js', handlerV54],
+        ['src/ParserV54.js', parserV54],
+        ['src/RunnerV54ProductionBridge.js', bridgeV54],
+        ['src/ViewsV54.js', viewsV54],
     ].forEach(([label, source]) => {
         assert.doesNotThrow(() => new Function(source), `${label} must parse`);
     });
@@ -150,6 +159,170 @@ failed += test('telegram_webhook_info_reader_is_read_only_and_redacted', () => {
 
 failed += test('npm_script_registered', () => {
     assert.strictEqual(packageJson.scripts['test:security-locks'], 'node scripts/test-security-locks.js');
+});
+
+failed += test('redaction_removes_telegram_bot_url_tokens', () => {
+    const vm = require('vm');
+    const context = vm.createContext({
+        PropertiesService: { getScriptProperties: () => ({ getProperty: () => null }) },
+        ContentService: { createTextOutput: () => ({ setMimeType: () => {} }) },
+        console: { log: () => {}, warn: () => {}, error: () => {} },
+    });
+    vm.runInContext(main, context);
+
+    const raw = 'url=https://api.telegram.org/bot123456789:ABCdef_SECRET-token/sendMessage';
+    const redacted = context.redactSensitiveText_(raw);
+    assert.ok(redacted.includes('https://api.telegram.org/bot[REDACTED]/sendMessage'));
+    assert.strictEqual(redacted.includes('123456789:ABCdef_SECRET-token'), false);
+});
+
+failed += test('redaction_removes_token_fragments_api_keys_secrets_and_labeled_spreadsheet_ids', () => {
+    const vm = require('vm');
+    const context = vm.createContext({
+        PropertiesService: { getScriptProperties: () => ({ getProperty: () => null }) },
+        ContentService: { createTextOutput: () => ({ setMimeType: () => {} }) },
+        console: { log: () => {}, warn: () => {}, error: () => {} },
+    });
+    vm.runInContext(main, context);
+
+    const raw = [
+        'bot123456789:ABCdef_SECRET-token',
+        'sk-proj-abcdefghijklmnopqrstuvwxyz123456',
+        'https://example.test/hook?webhook_secret=raw-webhook&telegram_secret=raw-telegram&proxy_secret=raw-proxy',
+        'spreadsheet_id=1AbCdEfGhIjKlMnOpQrStUvWxYz1234567890',
+        'SPREADSHEET_ID: 1ZyXwVuTsRqPoNmLkJiHgFeDcBa0987654321',
+    ].join('\n');
+    const redacted = context.redactSensitiveText_(raw);
+    ['123456789:ABCdef_SECRET-token', 'sk-proj-abcdefghijklmnopqrstuvwxyz123456', 'raw-webhook', 'raw-telegram', 'raw-proxy', '1AbCdEfGhIjKlMnOpQrStUvWxYz1234567890', '1ZyXwVuTsRqPoNmLkJiHgFeDcBa0987654321'].forEach((secret) => {
+        assert.strictEqual(redacted.includes(secret), false, `${secret} must be redacted`);
+    });
+});
+
+failed += test('sendTelegram_failure_logs_redacted_diagnostics_only', () => {
+    const vm = require('vm');
+    const logs = [];
+    const rawToken = '123456789:ABCdef_SECRET-token';
+    const mockEnv = {
+        PropertiesService: {
+            getScriptProperties: () => ({
+                getProperty: (k) => {
+                    if (k === 'TELEGRAM_TOKEN') return rawToken;
+                    if (k === 'AUTHORIZED') return '{}';
+                    return null;
+                }
+            })
+        },
+        ContentService: { createTextOutput: () => ({ setMimeType: () => {} }) },
+        UrlFetchApp: {
+            fetch: (url) => {
+                throw new Error(`network failure for ${url}`);
+            }
+        },
+        console: {
+            log: () => {},
+            warn: (...args) => logs.push(args.join(' ')),
+            error: (...args) => logs.push(args.join(' ')),
+        },
+    };
+    const context = vm.createContext(mockEnv);
+    vm.runInContext(main, context);
+    context._loadSecrets();
+
+    const result = context.sendTelegram('123', 'hello');
+    assert.strictEqual(result.ok, false);
+    assert.strictEqual(result.statusCode, null);
+    assert.strictEqual(result.error, 'telegram_send_failed');
+    const combined = logs.join('\n');
+    assert.strictEqual(combined.includes(rawToken), false, 'raw Telegram token must not be logged');
+    assert.strictEqual(combined.includes('/bot123456789:'), false, 'raw bot URL token must not be logged');
+    assert.ok(combined.includes('[REDACTED]'), 'diagnostic should show redaction marker');
+});
+
+failed += test('routeV54PrimaryEntry_failure_sends_generic_fallback_and_redacted_logs', () => {
+    const vm = require('vm');
+    const sentMessages = [];
+    const logs = [];
+    const rawToken = '123456789:ABCdef_SECRET-token';
+    const rawOpenAIKey = 'sk-proj-abcdefghijklmnopqrstuvwxyz123456';
+    const rawSpreadsheetId = '1AbCdEfGhIjKlMnOpQrStUvWxYz1234567890';
+    const mockEnv = {
+        PropertiesService: { getScriptProperties: () => ({ getProperty: () => null }) },
+        ContentService: { createTextOutput: () => ({ setMimeType: () => {} }) },
+        UrlFetchApp: {
+            fetch: (url, opts) => {
+                sentMessages.push(JSON.parse(opts.payload).text);
+                return { getResponseCode: () => 200 };
+            }
+        },
+        console: {
+            log: () => {},
+            warn: (...args) => logs.push(args.join(' ')),
+            error: (...args) => logs.push(args.join(' ')),
+        },
+        buildV54ProductionBridgeDeps_: () => ({
+            ok: true,
+            deps: {
+                handleTelegramUpdateV54: () => {
+                    throw new Error(`boom https://api.telegram.org/bot${rawToken}/sendMessage ${rawOpenAIKey} webhook_secret=raw-webhook spreadsheet_id=${rawSpreadsheetId}\n    at secret.gs:10`);
+                },
+                parseTextV54: () => ({}),
+                parserOptions: {},
+                validateParsedEntryV54: () => ({}),
+                recordEntryV54: () => ({}),
+                recordOptions: {},
+            }
+        }),
+    };
+    const context = vm.createContext(mockEnv);
+    vm.runInContext(main, context);
+
+    context.routeV54PrimaryEntry_(
+        { update_id: 1, message: { message_id: 2, chat: { id: 123 }, text: 'x' } },
+        'x',
+        '123',
+        { pagador: 'Teste' }
+    );
+
+    assert.strictEqual(sentMessages.length, 1, 'must send exactly one fallback message');
+    assert.strictEqual(sentMessages[0], 'Não consegui registrar esse lançamento com segurança agora. Revise a mensagem ou tente novamente em instantes.');
+    const visible = sentMessages.join('\n') + '\n' + logs.join('\n');
+    [rawToken, rawOpenAIKey, 'raw-webhook', rawSpreadsheetId, 'secret.gs:10'].forEach((secret) => {
+        assert.strictEqual(visible.includes(secret), false, `${secret} must not leak`);
+    });
+});
+
+failed += test('v54_user_facing_response_never_contains_raw_secret_or_stack_trace', () => {
+    const vm = require('vm');
+    const rawToken = '123456789:ABCdef_SECRET-token';
+    const rawOpenAIKey = 'sk-proj-abcdefghijklmnopqrstuvwxyz123456';
+    const rawSpreadsheetId = '1AbCdEfGhIjKlMnOpQrStUvWxYz1234567890';
+    const context = vm.createContext({
+        PropertiesService: { getScriptProperties: () => ({ getProperty: () => null }) },
+        ContentService: { createTextOutput: () => ({ setMimeType: () => {} }) },
+        console: { log: () => {}, warn: () => {}, error: () => {} },
+    });
+    vm.runInContext([main, actionsV54, parserV54, viewsV54, handlerV54].join('\n'), context);
+
+    const result = context.handleTelegramUpdateV54(
+        { update_id: 1, message: { message_id: 2, chat: { id: 123 }, text: 'x' } },
+        {
+            user: { pagador: 'Teste' },
+            parseTextV54: () => ({
+                ok: false,
+                errors: [{
+                    code: 'PARSER_RAW_FAILURE',
+                    field: 'parser',
+                    message: `Error: https://api.telegram.org/bot${rawToken}/sendMessage ${rawOpenAIKey} webhook_secret=raw-webhook spreadsheet_id=${rawSpreadsheetId}\n    at Parser.gs:99`
+                }]
+            }),
+            formatResponse: () => `Error: bot${rawToken} ${rawOpenAIKey} proxy_secret=raw-proxy spreadsheet_id=${rawSpreadsheetId}\n    at Handler.gs:42`,
+        }
+    );
+
+    assert.ok(result.responseText.indexOf('V54:') === 0, 'must return a generic V54 fallback');
+    [rawToken, rawOpenAIKey, 'raw-proxy', rawSpreadsheetId, 'Handler.gs:42', ' at '].forEach((secret) => {
+        assert.strictEqual(result.responseText.includes(secret), false, `${secret} must not be user-facing`);
+    });
 });
 
 failed += test('doPost_rejects_unauthorized_webhooks_dynamically', () => {

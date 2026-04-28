@@ -193,7 +193,7 @@ function makeHandlerV54Failure_(status, errors, context, extra) {
 
 function finalizeHandlerV54Result_(result, deps) {
     var safeResult = sanitizeV54RuntimeObject_(result);
-    safeResult.responseText = deps.formatResponse(safeResult);
+    safeResult.responseText = sanitizeV54UserFacingText_(deps.formatResponse(safeResult), safeResult);
     safeResult.errors = normalizeV54RuntimeErrors_(
         safeResult.errors,
         'V54_HANDLER_FAILED',
@@ -209,6 +209,9 @@ function sanitizeV54RuntimeObject_(input) {
 }
 
 function redactV54RuntimeSecrets_(value) {
+    if (typeof redactSensitiveDiagnostics_ === 'function') {
+        return redactSensitiveDiagnostics_(value);
+    }
     if (Array.isArray(value)) {
         for (var i = 0; i < value.length; i++) value[i] = redactV54RuntimeSecrets_(value[i]);
         return value;
@@ -228,4 +231,22 @@ function redactV54RuntimeSecrets_(value) {
         value[key] = redactV54RuntimeSecrets_(value[key]);
     });
     return value;
+}
+
+function sanitizeV54UserFacingText_(text, result) {
+    var safeText = typeof redactSensitiveText_ === 'function'
+        ? redactSensitiveText_(text)
+        : String(text || '')
+            .replace(/https:\/\/api\.telegram\.org\/bot[^\/\s"'<>]+/gi, 'https://api.telegram.org/bot[REDACTED]')
+            .replace(/\bbot\d{6,}:[A-Za-z0-9_-]+/g, 'bot[REDACTED]')
+            .replace(/\bsk-[A-Za-z0-9_-]{8,}\b/g, 'sk-[REDACTED]')
+            .replace(/([?&](?:webhook_secret|telegram_secret|proxy_secret)=)[^&\s"'<>]+/gi, '$1[REDACTED]')
+            .replace(/\b((?:webhook_secret|telegram_secret|proxy_secret)\s*[:=]\s*)[^&\s"'<>]+/gi, '$1[REDACTED]')
+            .replace(/\b((?:spreadsheet_id|SPREADSHEET_ID)\s*[:=]\s*)[A-Za-z0-9_-]{20,}/g, '$1[REDACTED]')
+            .replace(/\n\s*at\s+[^\n]+/g, '\n[STACK_REDACTED]')
+            .replace(/\b[\w.-]+\.gs:\d+(?::\d+)?\b/g, '[STACK_REDACTED]');
+    if (result && result.ok !== true && /(?:\bat\s+\S+\s*\(|Error:|stack|Traceback|\.gs:\d+|\bline\s+\d+)/i.test(safeText)) {
+        return 'V54: nÃ£o foi possÃ­vel registrar com seguranÃ§a.';
+    }
+    return safeText;
 }

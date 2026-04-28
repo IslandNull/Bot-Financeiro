@@ -201,11 +201,14 @@ function normalizeV54ProductionErrors_(errors) {
 }
 
 function redactV54ProductionBridgeObject_(value) {
+    if (typeof redactSensitiveDiagnostics_ === 'function') {
+        return redactSensitiveDiagnostics_(value);
+    }
     if (Array.isArray(value)) {
         return value.map(redactV54ProductionBridgeObject_);
     }
     if (!value || typeof value !== 'object') {
-        return value;
+        return typeof value === 'string' ? redactV54ProductionBridgeText_(value) : value;
     }
 
     var redacted = {};
@@ -222,6 +225,18 @@ function redactV54ProductionBridgeObject_(value) {
         redacted[key] = redactV54ProductionBridgeObject_(value[key]);
     });
     return redacted;
+}
+
+function redactV54ProductionBridgeText_(value) {
+    return String(value === undefined || value === null ? '' : value)
+        .replace(/https:\/\/api\.telegram\.org\/bot[^\/\s"'<>]+/gi, 'https://api.telegram.org/bot[REDACTED]')
+        .replace(/\bbot\d{6,}:[A-Za-z0-9_-]+/g, 'bot[REDACTED]')
+        .replace(/\bsk-[A-Za-z0-9_-]{8,}\b/g, 'sk-[REDACTED]')
+        .replace(/([?&](?:webhook_secret|telegram_secret|proxy_secret)=)[^&\s"'<>]+/gi, '$1[REDACTED]')
+        .replace(/\b((?:webhook_secret|telegram_secret|proxy_secret)\s*[:=]\s*)[^&\s"'<>]+/gi, '$1[REDACTED]')
+        .replace(/\b((?:spreadsheet_id|SPREADSHEET_ID)\s*[:=]\s*)[A-Za-z0-9_-]{20,}/g, '$1[REDACTED]')
+        .replace(/\n\s*at\s+[^\n]+/g, '\n[STACK_REDACTED]')
+        .replace(/\b[\w.-]+\.gs:\d+(?::\d+)?\b/g, '[STACK_REDACTED]');
 }
 
 function isNonEmptyV54String_(value) {

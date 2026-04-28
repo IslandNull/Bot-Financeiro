@@ -1,7 +1,7 @@
 # ACTIVE_CONTEXT.md
 
 Last updated: 2026-04-28
-Branch: feat/v54-production-readiness
+Branch: main (verified locally on 2026-04-28)
 
 ## Premissa Atual
 - D031 esta aceita. V54 e o unico alvo arquitetural do MVP.
@@ -38,8 +38,10 @@ Branch: feat/v54-production-readiness
 - Phase 6A: Ponte controlada de producao V54 aceita. `doPost` agora opera por `V54_ROUTING_MODE` com rollback simples para `V53_CURRENT`: default/missing/invalid continuam em `V53_CURRENT`, `V54_SHADOW` preserva V53 como source-of-truth user-facing e executa diagnostico V54 no-write, `V54_PRIMARY` usa caminho V54 para entradas normais com falha segura sem fallback mutante V53. Dependencias de producao V54 foram centralizadas em `src/RunnerV54ProductionBridge.js` com validacao de config e redacao de segredos.
 - Phase 6A (Post-Merge Review Fixes): Endurecida a ponte V54_PRIMARY para exigir todas as dependências de idempotência, map de contratos de cartão/parcelas, upsert de faturas e card context, garantindo fail-closed estruturado. Corrigida a telemetria do `V54_SHADOW` com explícita `decision: shadow_no_write` para evitar falsos positivos de `recorded`. Criada suíte de integração em `scripts/test-v54-production-bridge-integration.js` cobrindo o caminho de roteamento E2E e dependências fake-first. Testes inseridos na CI.
 
+- Phase 6B: VERIFIED local/fake-first security hardening for V54/shared notification boundary. `src/Main.js` now exposes shared redaction helpers for Telegram bot URLs, bot token fragments, OpenAI keys, webhook/proxy/Telegram secret params, labeled spreadsheet IDs, and stack-frame lines. `sendTelegram` returns structured `{ ok, statusCode, error }`, keeps `muteHttpExceptions`, catches fetch failures, and logs only redacted diagnostics. `V54_PRIMARY` runtime catch/log paths and V54 handler user-facing response text are redacted/generic. Minimal V53 legacy raw `err.message` sends were replaced with generic messages only. Verified by `npm run test:v54:all` and `git diff --check` on 2026-04-28.
+
 ## O que esta bloqueado / Risco Atual
-- **Seguranca:** O Telegram E2E path ainda requer checklist final de operacao manual revisada.
+- **Operacao:** O Telegram E2E path ainda requer checklist final de operacao manual revisada antes de qualquer teste real.
 - GET mutantes protegidos por token na URL devem ser extintos.
 
 ## Protocolo de release controlado (Phase 6A)
