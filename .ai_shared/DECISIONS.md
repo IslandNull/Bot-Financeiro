@@ -680,7 +680,7 @@ Rejected:
 - Chamar runner/gate ou qualquer dependencia de mutacao durante o preflight collector.
 
 
-## D052 - Controlled V54 Production Bridge and Release Protocol
+## D051 - Controlled V54 Production Bridge and Release Protocol
 Status: Accepted
 Date: 2026-04-28
 
