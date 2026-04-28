@@ -643,3 +643,20 @@ Optional evidence validation leaves a safety gap where `real_manual` could proce
 Rejected:
 - Treating evidence-envelope validation as optional in real manual mode.
 - Allowing `real_manual` to proceed when `input.evidence` is absent.
+
+## D049 - V54 Real Manual Preflight Report Builder
+Status: Accepted
+Date: 2026-04-28
+
+Decision:
+Phase 5A adiciona um builder local/read-only de preflight para `real_manual` em `scripts/lib/v54-real-manual-preflight-report.js`. O builder retorna um report deterministico `real_manual_preflight` baseado em diagnosticos injetados para routing (`mainJsDiffEmpty`, ausencia de refs V54 em `doPost`/`doGet`), validade do evidence envelope canonico, parser context executado/legivel e compatibilidade de abas/headers V54 (incluindo `Idempotency_Log`).
+
+O builder falha fechado com erros estruturados e sempre inclui o bloqueio canonico de acoes proibidas (`clasp`, `deploy`, `telegram`, `realOpenAI`, `realSpreadsheetMutation`). Ele nao chama runner, nao chama gate, nao chama Telegram/OpenAI, nao usa SpreadsheetApp real, nao executa setup/seed/deploy, e nao altera `doPost`/`doGet`.
+
+Reason:
+Antes de qualquer execucao manual revisada, e necessario um artefato de preflight auditavel e deterministico que consolide evidencias e diagnosticos sem abrir caminhos de execucao/mutacao. Isso reduz risco operacional e evita confundir preflight com ativacao de runtime.
+
+Rejected:
+- Acoplar preflight ao runner ou ao gate manual.
+- Ler estado real via servicos de producao dentro do builder.
+- Permitir overrides de blocked actions.
