@@ -200,6 +200,26 @@ failed += test('policy_headers_match_canonical_schema_exactly_for_every_sheet', 
 });
 
 
+
+failed += test('real_manual_valid_evidence_passes', () => {
+    const { evaluateV54RealManualPolicy } = loadPolicy();
+    const result = evaluateV54RealManualPolicy(input(), options());
+    assert.strictEqual(result.ok, true, JSON.stringify(result.errors));
+    assert.ok(result.diagnostics.passed.includes('evidence_envelope_valid'));
+});
+
+failed += test('real_manual_missing_validateEvidenceEnvelope_fails', () => {
+    const { evaluateV54RealManualPolicy } = loadPolicy();
+    const result = evaluateV54RealManualPolicy(input(), options({ validateEvidenceEnvelope: null }));
+    assertError(result, 'V54_REAL_MANUAL_EVIDENCE_DIAGNOSTIC_REQUIRED', 'validateEvidenceEnvelope');
+});
+
+failed += test('real_manual_missing_evidence_fails', () => {
+    const { evaluateV54RealManualPolicy } = loadPolicy();
+    const result = evaluateV54RealManualPolicy(input({ evidence: null }), options());
+    assertError(result, 'V54_REAL_MANUAL_EVIDENCE_INVALID', 'evidence');
+});
+
 failed += test('evidence_contract_valid_envelope_passes', () => {
     const result = validateV54RealManualEvidenceEnvelope(evidence(), { requiredSheets: Object.values(V54_SHEETS) });
     assert.strictEqual(result.ok, true, JSON.stringify(result.errors));
@@ -273,7 +293,7 @@ failed += test('evidence_contract_forbidden_actions_failure_blocks', () => {
     assertError(result, 'V54_REAL_MANUAL_EVIDENCE_FORBIDDEN_OPENAI_REQUIRED', 'forbiddenActions.noRealOpenAI');
 });
 
-failed += test('policy_blocks_runner_when_integrated_evidence_validation_fails', () => {
+failed += test('real_manual_invalid_evidence_fails', () => {
     let calls = 0;
     const { invokeV54ManualShadowGate } = loadGateWithPolicy();
     const result = invokeV54ManualShadowGate(input({ evidence: evidence({ mainJsDiffEmpty: false }) }), {
@@ -423,7 +443,7 @@ failed += test('policy_result_can_be_consumed_by_runner_gate_for_real_manual', (
     assert.strictEqual(result.gate.realManualPolicy.ok, true);
 });
 
-failed += test('gate_real_manual_without_policy_options_blocks_runner', () => {
+failed += test('gate_does_not_call_runner_when_evidence_validator_missing', () => {
     let calls = 0;
     const { invokeV54ManualShadowGate } = loadGateWithPolicy();
     const result = invokeV54ManualShadowGate(input(), {
@@ -431,11 +451,29 @@ failed += test('gate_real_manual_without_policy_options_blocks_runner', () => {
             calls += 1;
             return { ok: true, status: 'recorded', errors: [] };
         },
+        realManualPolicyOptions: options({ validateEvidenceEnvelope: null }),
     });
 
     assert.strictEqual(result.ok, false);
     assert.strictEqual(result.status, 'gate_real_manual_policy_blocked');
-    assertError(result, 'V54_REAL_MANUAL_SPREADSHEET_DIAGNOSTIC_REQUIRED', 'getSpreadsheet');
+    assertError(result, 'V54_REAL_MANUAL_EVIDENCE_DIAGNOSTIC_REQUIRED', 'validateEvidenceEnvelope');
+    assert.strictEqual(calls, 0);
+});
+
+failed += test('gate_does_not_call_runner_when_evidence_missing', () => {
+    let calls = 0;
+    const { invokeV54ManualShadowGate } = loadGateWithPolicy();
+    const result = invokeV54ManualShadowGate(input({ evidence: null }), {
+        runV54ManualShadow() {
+            calls += 1;
+            return { ok: true, status: 'recorded', errors: [] };
+        },
+        realManualPolicyOptions: options(),
+    });
+
+    assert.strictEqual(result.ok, false);
+    assert.strictEqual(result.status, 'gate_real_manual_policy_blocked');
+    assertError(result, 'V54_REAL_MANUAL_EVIDENCE_INVALID', 'evidence');
     assert.strictEqual(calls, 0);
 });
 

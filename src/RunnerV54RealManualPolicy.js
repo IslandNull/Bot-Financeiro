@@ -171,11 +171,14 @@ function evaluateV54RealManualParserContext_(deps, input, diagnostics, errors) {
 
 
 function evaluateV54RealManualEvidence_(deps, input, errors) {
-    if (!deps.validateEvidenceEnvelope) return '';
-
+    if (!deps.validateEvidenceEnvelope) {
+        errors.push(makeV54RealManualPolicyError_('V54_REAL_MANUAL_EVIDENCE_DIAGNOSTIC_REQUIRED', 'validateEvidenceEnvelope', 'Real manual policy requires injected evidence envelope diagnostics.'));
+        return '';
+    }
+  
     var result;
     try {
-        result = deps.validateEvidenceEnvelope(input.evidence, {
+        result = deps.validateEvidenceEnvelope(input && input.evidence, {
             requiredSheets: V54_REAL_MANUAL_REQUIRED_SHEETS.slice(),
         });
     } catch (error) {

@@ -628,3 +628,18 @@ Rejected:
 - Accepting parser/spreadsheet diagnostics as booleans only.
 - Silently allowing extra columns without explicit policy.
 - Treating evidence validation as production readiness or route authorization.
+
+
+## D048 - V54 Real Manual Evidence Validator Is Mandatory
+Status: Accepted
+Date: 2026-04-28
+
+Decision:
+For `mode=real_manual`, `RunnerV54RealManualPolicy` must fail closed unless `validateEvidenceEnvelope` is injected and returns `{ ok: true }` for `input.evidence`. Missing validator, missing evidence, or malformed evidence must block before runner execution.
+
+Reason:
+Optional evidence validation leaves a safety gap where `real_manual` could proceed without audited envelope checks. Making validator + envelope mandatory keeps the boundary explicit and fake-first while preserving no-route exposure.
+
+Rejected:
+- Treating evidence-envelope validation as optional in real manual mode.
+- Allowing `real_manual` to proceed when `input.evidence` is absent.
