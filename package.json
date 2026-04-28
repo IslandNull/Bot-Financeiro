@@ -35,7 +35,8 @@
     "test:routing-mode": "node scripts/test-routing-mode.js",
     "test:v54:architecture": "node scripts/test-v54-architecture-guardrails.js",
     "test:v54:real-manual-matrix": "node scripts/test-v54-real-manual-simulation-matrix.js",
-    "test:v54:real-manual-preflight": "node scripts/test-v54-real-manual-preflight-report.js"
+    "test:v54:real-manual-preflight": "node scripts/test-v54-real-manual-preflight-report.js",
+    "test:v54:real-manual-preflight-collector": "node scripts/test-v54-real-manual-preflight-diagnostics-collector.js"
   },
   "devDependencies": {
     "@google/clasp": "^2.4.2"
