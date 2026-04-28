@@ -13,11 +13,11 @@ const srcFiles = [
     'src/ParserV54OpenAI.js',
     'src/ParserV54Context.js',
     'src/ActionsV54.js',
+    'src/IdempotencyV54.js',
     'src/ActionsV54Idempotency.js',
     'src/ViewsV54.js'
 ];
 
-const { planV54IdempotentWrite } = require('./lib/v54-idempotent-write-path');
 const { mapSingleCardPurchaseContract } = require('./lib/v54-card-purchase-contract');
 const { mapInstallmentScheduleContract } = require('./lib/v54-installment-schedule-contract');
 const { planExpectedFaturasUpsert } = require('./lib/v54-faturas-expected-upsert');
@@ -134,7 +134,6 @@ function createSandbox(overrides) {
         handleEntry: () => {
             calls.handleEntryV53 += 1;
         },
-        planV54IdempotentWrite,
         mapSingleCardPurchaseContract,
         mapInstallmentScheduleContract,
         planExpectedFaturasUpsert
@@ -146,6 +145,23 @@ function createSandbox(overrides) {
 }
 
 let failed = 0;
+
+failed += test('src_runtime_exposes_planV54IdempotentWrite', () => {
+    const { sandbox } = createSandbox({ ROUTING_MODE: 'V54_PRIMARY' });
+
+    assert.strictEqual(typeof sandbox.planV54IdempotentWrite, 'function');
+    assert.strictEqual(typeof sandbox.planIdempotencyForUpdate, 'function');
+});
+
+failed += test('V54_PRIMARY_bridge_build_uses_src_idempotency_planner', () => {
+    const { sandbox } = createSandbox({ ROUTING_MODE: 'V54_PRIMARY' });
+    sandbox._loadSecrets();
+    const result = sandbox.buildV54ProductionBridgeDeps_({ mode: 'V54_PRIMARY' }, {});
+
+    assert.strictEqual(result.ok, true, JSON.stringify(result.errors));
+    assert.strictEqual(result.errors.some((error) => error.code === 'V54_IDEMPOTENCY_REQUIRED'), false);
+    assert.strictEqual(result.deps.recordOptions.planV54IdempotentWrite, sandbox.planV54IdempotentWrite);
+});
 
 failed += test('V54_PRIMARY_dependency_completeness', () => {
     const { sandbox, calls } = createSandbox({ ROUTING_MODE: 'V54_PRIMARY' });
