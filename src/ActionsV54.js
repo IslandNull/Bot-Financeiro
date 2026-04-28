@@ -248,7 +248,9 @@ function normalizeActionsV54Deps_(options) {
         idempotency: source.idempotency && typeof source.idempotency === 'object'
             ? cloneV54PlainObject_(source.idempotency)
             : null,
-        cards: typeof source.getCardsV54 === 'function' ? source.getCardsV54() : cloneV54Cards_(source.cards),
+        getCardsV54: typeof source.getCardsV54 === 'function' ? source.getCardsV54 : function() {
+            return cloneV54Cards_(source.cards);
+        },
     };
 }
 
@@ -306,8 +308,9 @@ function buildCardPurchaseContractOptions_(deps) {
             makeId: deps.makeId,
         },
     };
-    if (Array.isArray(deps.cards)) {
-        options.cards = cloneV54Cards_(deps.cards);
+    var cards = typeof deps.getCardsV54 === 'function' ? deps.getCardsV54() : [];
+    if (Array.isArray(cards)) {
+        options.cards = cloneV54Cards_(cards);
     }
     return options;
 }
@@ -326,8 +329,9 @@ function buildInstallmentScheduleContractOptions_(deps) {
     var options = {
         makeCompraId: deps.makeCompraId,
     };
-    if (Array.isArray(deps.cards)) {
-        options.cards = cloneV54Cards_(deps.cards);
+    var cards = typeof deps.getCardsV54 === 'function' ? deps.getCardsV54() : [];
+    if (Array.isArray(cards)) {
+        options.cards = cloneV54Cards_(cards);
     }
     return options;
 }
