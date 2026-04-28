@@ -13,14 +13,11 @@ const srcFiles = [
     'src/ParserV54OpenAI.js',
     'src/ParserV54Context.js',
     'src/ActionsV54.js',
+    'src/CardContractsV54.js',
     'src/IdempotencyV54.js',
     'src/ActionsV54Idempotency.js',
     'src/ViewsV54.js'
 ];
-
-const { mapSingleCardPurchaseContract } = require('./lib/v54-card-purchase-contract');
-const { mapInstallmentScheduleContract } = require('./lib/v54-installment-schedule-contract');
-const { planExpectedFaturasUpsert } = require('./lib/v54-faturas-expected-upsert');
 
 let globalCode = '';
 
@@ -133,10 +130,7 @@ function createSandbox(overrides) {
         console: console,
         handleEntry: () => {
             calls.handleEntryV53 += 1;
-        },
-        mapSingleCardPurchaseContract,
-        mapInstallmentScheduleContract,
-        planExpectedFaturasUpsert
+        }
     }, overrides || {});
 
     vm.createContext(sandbox);
@@ -146,21 +140,30 @@ function createSandbox(overrides) {
 
 let failed = 0;
 
-failed += test('src_runtime_exposes_planV54IdempotentWrite', () => {
+failed += test('src_runtime_exposes_v54_primary_bridge_dependencies', () => {
     const { sandbox } = createSandbox({ ROUTING_MODE: 'V54_PRIMARY' });
 
     assert.strictEqual(typeof sandbox.planV54IdempotentWrite, 'function');
     assert.strictEqual(typeof sandbox.planIdempotencyForUpdate, 'function');
+    assert.strictEqual(typeof sandbox.mapSingleCardPurchaseContract, 'function');
+    assert.strictEqual(typeof sandbox.mapInstallmentScheduleContract, 'function');
+    assert.strictEqual(typeof sandbox.planExpectedFaturasUpsert, 'function');
 });
 
-failed += test('V54_PRIMARY_bridge_build_uses_src_idempotency_planner', () => {
+failed += test('V54_PRIMARY_bridge_build_uses_src_runtime_contracts', () => {
     const { sandbox } = createSandbox({ ROUTING_MODE: 'V54_PRIMARY' });
     sandbox._loadSecrets();
     const result = sandbox.buildV54ProductionBridgeDeps_({ mode: 'V54_PRIMARY' }, {});
 
     assert.strictEqual(result.ok, true, JSON.stringify(result.errors));
     assert.strictEqual(result.errors.some((error) => error.code === 'V54_IDEMPOTENCY_REQUIRED'), false);
+    assert.strictEqual(result.errors.some((error) => error.code === 'V54_CARD_MAPPER_REQUIRED'), false);
+    assert.strictEqual(result.errors.some((error) => error.code === 'V54_INSTALLMENT_MAPPER_REQUIRED'), false);
+    assert.strictEqual(result.errors.some((error) => error.code === 'V54_FATURAS_PLANNER_REQUIRED'), false);
     assert.strictEqual(result.deps.recordOptions.planV54IdempotentWrite, sandbox.planV54IdempotentWrite);
+    assert.strictEqual(result.deps.recordOptions.mapSingleCardPurchaseContract, sandbox.mapSingleCardPurchaseContract);
+    assert.strictEqual(result.deps.recordOptions.mapInstallmentScheduleContract, sandbox.mapInstallmentScheduleContract);
+    assert.strictEqual(result.deps.recordOptions.planExpectedFaturasUpsert, sandbox.planExpectedFaturasUpsert);
 });
 
 failed += test('V54_PRIMARY_dependency_completeness', () => {
