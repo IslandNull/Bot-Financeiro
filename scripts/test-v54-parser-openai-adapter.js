@@ -333,6 +333,18 @@ failed += test('src_adapter_is_apps_script_compatible_no_commonjs', () => {
     assert.doesNotThrow(() => new Function(adapterSource));
 });
 
+failed += test('productive_parser_adapter_prompt_includes_health_checks_and_few_shot_examples', () => {
+    const { result, calls } = runAdapter(JSON.stringify(expense()));
+    const body = calls[0].body;
+    const prompt = JSON.stringify(body.messages);
+
+    assert.ok(prompt.includes('ambiguous personal categories'), 'Must include rule to avoid Casal default for ambiguous expenses');
+    assert.ok(prompt.includes('Example 1:'), 'Must include few-shot examples');
+    assert.ok(prompt.includes('return low confidence/warnings instead of guessing'), 'Must include safe failure rule for missing attribution');
+    assert.ok(prompt.includes('Never invent id_categoria'), 'Must prohibit making up IDs');
+    assert.ok(prompt.includes('Default pessoa: Gustavo'), 'Must inject context defaultPessoa into user prompt');
+});
+
 if (failed > 0) {
     console.error(`\n${failed} ParserV54 OpenAI adapter check(s) failed.`);
     process.exitCode = 1;

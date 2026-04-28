@@ -123,6 +123,51 @@ failed += test('redaction_hides_sensitive_fields', () => {
     assert.strictEqual(redacted.nested.stack, '[REDACTED]');
 });
 
+failed += test('bridge_parser_options_get_parser_context_propagates_default_pessoa_from_user_pagador', () => {
+    let capturedCtx = null;
+    const { api } = loadBridge({
+        getParserContextV54: (ctx) => {
+            capturedCtx = ctx;
+            return { ok: true, context: { cartoes: [] } };
+        },
+    });
+    const result = api.buildV54ProductionBridgeDeps_({ mode: 'V54_PRIMARY' }, {});
+    result.deps.parserOptions.getParserContext({
+        user: { pagador: 'Gustavo', nome: 'Gu' }
+    });
+    assert.strictEqual(capturedCtx.defaultPessoa, 'Gustavo', 'Should use user.pagador if it is Gustavo or Luana');
+});
+
+failed += test('bridge_parser_options_get_parser_context_propagates_default_pessoa_from_user_nome', () => {
+    let capturedCtx = null;
+    const { api } = loadBridge({
+        getParserContextV54: (ctx) => {
+            capturedCtx = ctx;
+            return { ok: true, context: { cartoes: [] } };
+        },
+    });
+    const result = api.buildV54ProductionBridgeDeps_({ mode: 'V54_PRIMARY' }, {});
+    result.deps.parserOptions.getParserContext({
+        user: { nome: 'Luana' }
+    });
+    assert.strictEqual(capturedCtx.defaultPessoa, 'Luana', 'Should use user.nome if pagador is missing but nome is Luana');
+});
+
+failed += test('bridge_parser_options_get_parser_context_leaves_default_pessoa_empty_for_unknown_user', () => {
+    let capturedCtx = null;
+    const { api } = loadBridge({
+        getParserContextV54: (ctx) => {
+            capturedCtx = ctx;
+            return { ok: true, context: { cartoes: [] } };
+        },
+    });
+    const result = api.buildV54ProductionBridgeDeps_({ mode: 'V54_PRIMARY' }, {});
+    result.deps.parserOptions.getParserContext({
+        user: { pagador: 'Visitante', nome: 'Outro' }
+    });
+    assert.strictEqual(capturedCtx.defaultPessoa, '', 'Should leave empty if not Gustavo or Luana');
+});
+
 if (failed > 0) {
     console.error(`\n${failed} V54 production bridge check(s) failed.`);
     process.exitCode = 1;

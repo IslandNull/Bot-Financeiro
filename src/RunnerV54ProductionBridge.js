@@ -48,7 +48,21 @@ function buildV54ProductionBridgeDeps_(runtimeContext, options) {
         },
         parserOptions: {
             getParserContext: function(handlerContext) {
-                return getParserContextV54(handlerContext || {}, {
+                var ctx = handlerContext || {};
+                var user = ctx.user || {};
+                var explicitPessoa = '';
+                if (user.pagador === 'Gustavo' || user.pagador === 'Luana') {
+                    explicitPessoa = user.pagador;
+                } else if (user.nome === 'Gustavo' || user.nome === 'Luana') {
+                    explicitPessoa = user.nome;
+                }
+
+                var injectedCtx = {
+                    defaultPessoa: explicitPessoa,
+                    referenceDate: ctx.referenceDate || ctx.data_referencia || ''
+                };
+
+                return getParserContextV54(injectedCtx, {
                     getSpreadsheet: getSpreadsheet,
                 });
             },
