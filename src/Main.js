@@ -137,8 +137,9 @@ function routeV54PrimaryEntry_(update, text, chatId, user) {
     }, {});
     if (!bridge.ok) {
         console.warn('V54 primary blocked:', JSON.stringify(redactV54ProductionBridgeObject_(bridge)));
-        sendTelegram(chatId, fallbackMessage);
-        return;
+        const sendResult = sendTelegram(chatId, fallbackMessage);
+        logV54PrimaryTelegramSendFailure_('bridge_blocked_fallback', sendResult, bridge);
+        return bridge;
     }
 
     let result;
@@ -157,17 +158,48 @@ function routeV54PrimaryEntry_(update, text, chatId, user) {
             message: error && error.message,
             stack: error && error.stack
         })));
-        sendTelegram(chatId, fallbackMessage);
-        return;
+        const sendResult = sendTelegram(chatId, fallbackMessage);
+        logV54PrimaryTelegramSendFailure_('runtime_exception_fallback', sendResult, {
+            ok: false,
+            status: 'runtime_exception',
+        });
+        return {
+            ok: false,
+            status: 'runtime_exception',
+            errors: [{ code: 'V54_PRIMARY_RUNTIME_EXCEPTION', field: 'runtime', message: 'V54 primary runtime failed safely.' }],
+        };
     }
 
     if (result && result.ok === true && typeof result.responseText === 'string' && result.responseText.trim()) {
-        sendTelegram(chatId, result.responseText.trim());
-        return;
+        const sendResult = sendTelegram(chatId, result.responseText.trim());
+        logV54PrimaryTelegramSendFailure_('success_response', sendResult, result);
+        return result;
     }
 
     console.warn('V54 primary returned non-ok result:', JSON.stringify(redactV54ProductionBridgeObject_(result)));
-    sendTelegram(chatId, fallbackMessage);
+    const sendResult = sendTelegram(chatId, fallbackMessage);
+    logV54PrimaryTelegramSendFailure_('non_ok_fallback', sendResult, result);
+    return result;
+}
+
+function logV54PrimaryTelegramSendFailure_(phase, sendResult, v54Result) {
+    if (!sendResult || sendResult.ok === true) return;
+
+    var record = v54Result && v54Result.record && typeof v54Result.record === 'object'
+        ? v54Result.record
+        : {};
+    var diagnostic = {
+        route: ROUTING_MODES.V54_PRIMARY,
+        phase: String(phase || ''),
+        statusCode: sendResult.statusCode === undefined ? null : sendResult.statusCode,
+        error: sendResult.error || 'telegram_send_failed',
+        result_ref: v54Result && v54Result.result_ref ? v54Result.result_ref : (record.result_ref || ''),
+        id_lancamento: v54Result && v54Result.id_lancamento ? v54Result.id_lancamento : (record.id_lancamento || ''),
+        decision: v54Result && v54Result.decision ? v54Result.decision : (record.decision || ''),
+        status: v54Result && v54Result.status ? v54Result.status : '',
+    };
+
+    console.warn('V54 primary Telegram send failed:', JSON.stringify(redactSensitiveDiagnostics_(diagnostic)));
 }
 
 function runV54ShadowDiagnostics_(update, text, chatId, user) {

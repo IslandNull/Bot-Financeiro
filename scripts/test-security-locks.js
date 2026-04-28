@@ -291,6 +291,99 @@ failed += test('routeV54PrimaryEntry_failure_sends_generic_fallback_and_redacted
     });
 });
 
+failed += test('routeV54PrimaryEntry_captures_all_v54_primary_send_phases', () => {
+    const body = extractFunction(main, 'routeV54PrimaryEntry_');
+    [
+        'bridge_blocked_fallback',
+        'runtime_exception_fallback',
+        'success_response',
+        'non_ok_fallback',
+    ].forEach((phase) => {
+        assert.ok(body.includes(`logV54PrimaryTelegramSendFailure_('${phase}'`), `${phase} send result must be captured`);
+    });
+});
+
+failed += test('routeV54PrimaryEntry_logs_redacted_send_failure_after_success_without_changing_result', () => {
+    const vm = require('vm');
+    const sentMessages = [];
+    const logs = [];
+    const rawToken = '123456789:ABCdef_SECRET-token';
+    const rawOpenAIKey = 'sk-proj-abcdefghijklmnopqrstuvwxyz123456';
+    const rawSpreadsheetId = '1AbCdEfGhIjKlMnOpQrStUvWxYz1234567890';
+    const successfulResult = {
+        ok: true,
+        status: 'recorded',
+        decision: 'planned_idempotent_write',
+        responseText: 'V54 ok',
+        record: {
+            ok: true,
+            result_ref: `LAN_V54_OK ${rawOpenAIKey}`,
+            id_lancamento: `LAN_V54_OK spreadsheet_id=${rawSpreadsheetId}`,
+        },
+    };
+    const mockEnv = {
+        PropertiesService: {
+            getScriptProperties: () => ({
+                getProperty: (k) => {
+                    if (k === 'TELEGRAM_TOKEN') return rawToken;
+                    if (k === 'AUTHORIZED') return '{}';
+                    return null;
+                }
+            })
+        },
+        ContentService: { createTextOutput: () => ({ setMimeType: () => {} }) },
+        UrlFetchApp: {
+            fetch: (url, opts) => {
+                sentMessages.push(JSON.parse(opts.payload).text);
+                return { getResponseCode: () => 403 };
+            }
+        },
+        console: {
+            log: () => {},
+            warn: (...args) => logs.push(args.join(' ')),
+            error: (...args) => logs.push(args.join(' ')),
+        },
+        buildV54ProductionBridgeDeps_: () => ({
+            ok: true,
+            deps: {
+                handleTelegramUpdateV54: () => successfulResult,
+                parseTextV54: () => ({}),
+                parserOptions: {},
+                validateParsedEntryV54: () => ({}),
+                recordEntryV54: () => ({}),
+                recordOptions: {},
+            }
+        }),
+    };
+    const context = vm.createContext(mockEnv);
+    vm.runInContext(main, context);
+    context._loadSecrets();
+
+    const returned = context.routeV54PrimaryEntry_(
+        { update_id: 1, message: { message_id: 2, chat: { id: 123 }, text: 'x' } },
+        'x',
+        '123',
+        { pagador: 'Teste' }
+    );
+
+    assert.strictEqual(returned, successfulResult, 'successful V54 result must remain unchanged');
+    assert.strictEqual(returned.ok, true);
+    assert.strictEqual(sentMessages.length, 1);
+    assert.strictEqual(sentMessages[0], 'V54 ok');
+
+    const combined = logs.join('\n');
+    assert.ok(combined.includes('V54 primary Telegram send failed:'), 'V54 send failure diagnostic must be logged');
+    assert.ok(combined.includes('"route":"V54_PRIMARY"'));
+    assert.ok(combined.includes('"phase":"success_response"'));
+    assert.ok(combined.includes('"statusCode":403'));
+    assert.ok(combined.includes('"decision":"planned_idempotent_write"'));
+    assert.ok(combined.includes('"status":"recorded"'));
+    [rawToken, rawOpenAIKey, rawSpreadsheetId].forEach((secret) => {
+        assert.strictEqual(combined.includes(secret), false, `${secret} must not leak`);
+    });
+    assert.ok(combined.includes('[REDACTED]'), 'diagnostic should show redaction marker');
+});
+
 failed += test('v54_user_facing_response_never_contains_raw_secret_or_stack_trace', () => {
     const vm = require('vm');
     const rawToken = '123456789:ABCdef_SECRET-token';
