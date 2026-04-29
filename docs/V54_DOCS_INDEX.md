@@ -30,7 +30,6 @@
 | `.ai_shared/KNOWN_ISSUES.md` | Debugging, troubleshooting, ou avaliação de riscos. |
 | `.ai_shared/SPREADSHEET_STATE.md` | Estado real da planilha (gerado por `npm run sync`, não editar). |
 | `docs/MASTERPLAN_PRODUCAO_V54.md` | Planejamento geral do MVP V54. |
-| `docs/V54_DOMAIN_DECISIONS.md` | Regras de domínio financeiro propostas/aceitas. Decisões aceitas em `DECISIONS.md` prevalecem. |
 
 ## 4. AGENT_WRAPPER (Apenas apontamentos)
 

@@ -1,422 +1,112 @@
 # MASTERPLAN PRODUCAO V54
 
-Last updated: 2026-04-28
+Last updated: 2026-04-29
 Branch: main
 Status: MVP V54-only plan
-Planning premise: V54 is the target product. V53 is a deprecated historical prototype, not a mandatory production fallback.
+Planning premise: V54 is the target product. V53 is completely deprecated and moved to `legacy/v53/`.
 
 > **Authority note:** this masterplan is a planning/reference document. Accepted decisions in `.ai_shared/DECISIONS.md` prevail over any stale TODO/OPEN item here.
 
 ## 1. Executive Summary
 
-DECISION: The project is still in development. V53 was a prototype and must not be treated as active production or mandatory fallback in V54 planning.
+DECISION: V54 is the only active runtime (D054). V53 has been entirely removed from the active source tree and now resides in `legacy/v53/`. 
 
-VERIFIED: The repo still contains V53-era code, sheets, tests, and routing helpers. They are historical/deprecated unless a later task explicitly migrates or removes them.
+VERIFIED: The V54 primary bridge is live. `doPost` processes messages via `V54_PRIMARY` directly without `V54_ROUTING_MODE`.
 
-VERIFIED: V54 sheets, headers, and clean seed/config data exist in the real spreadsheet snapshot according to `.ai_shared/ACTIVE_CONTEXT.md` and `.ai_shared/SPREADSHEET_STATE.md`.
+VERIFIED: V54 sheets, headers, and clean seed/config data exist in the real spreadsheet.
 
-VERIFIED: V54 local/fake-first work exists for schema, seed, setup planner, parser contract, mapper, ActionsV54, reporting contracts, card cycle, single card purchase, installment scheduling, idempotency, controlled production bridge, and Telegram send observability.
+VERIFIED: Real Telegram usage, including logging, idempotency, and messages, has been successfully smoke-tested by the user.
 
-VERIFIED: `doPost` has controlled V54 routing through `V54_ROUTING_MODE`: default/missing/invalid use `V53_CURRENT`, `V54_SHADOW` keeps V53 user-facing and runs V54 no-write diagnostics, and `V54_PRIMARY` reaches V54 without automatic mutating fallback to V53. Real deploy/setup/sync/Telegram/OpenAI execution remains UNVERIFIED in this task.
-
-TODO: Complete reviewed operational activation for V54 primary and keep rollback by removing or resetting `V54_ROUTING_MODE`.
-
-TODO: Treat V53 cleanup as technical-debt removal, not as a production cutover/sunset program.
-
-## 2. Product Goal
-
-Build a minimal but correct household finance bot for Gustavo and Luana using V54 as the only target architecture.
-
-MVP scope:
-
-- record day-to-day cash expenses and income in `Lancamentos_V54`;
-- record card purchases without duplicate DRE recognition;
-- schedule installment purchases in `Compras_Parceladas` and `Parcelas_Agenda`;
-- model faturas, invoice payments, and reconciliation safely enough for real use;
-- preserve privacy through `visibilidade`;
-- support deterministic monthly reports before any LLM recommendation;
-- validate real spreadsheet writes through protected tests before Telegram V54 goes live.
-
-Non-goals for MVP:
-
-- no migration of V53 history;
-- no new V53 features;
-- no V53 fallback gate;
-- no LLM financial advice before deterministic facts are reliable;
-- no unsupported debt amortization advice;
-- no irreversible spreadsheet mutation without protected tests and cleanup.
-
-## 3. Current Verified State
+## 2. Current Verified State
 
 | Area | State |
 |---|---|
-| Repository | VERIFIED: branch `main`; working tree was clean at startup on 2026-04-28 before this refactor. |
-| Package scripts | VERIFIED: local scripts exist for V53 and V54 tests. V53 scripts are legacy/deprecated under the new premise. |
-| Formula standard | VERIFIED: use `range.setFormula()` with English function names and semicolon separators. |
-| V54 schema | VERIFIED: `scripts/lib/v54-schema.js` remains Node authority and `src/000_V54Schema.js` is the Apps Script mirror. |
-| Real V54 sheets | VERIFIED: V54 sheets and headers exist in the real spreadsheet snapshot. |
-| V54 seed | VERIFIED: clean seed/config data exists for categories, sources, incomes, cards, assets, debts, and future home forecast. |
-| V54 setup/seed | VERIFIED: dry-run-first, additive, lock-protected setup/seed mechanisms exist. Do not rerun without explicit task approval. |
-| Security | VERIFIED: local code requires `WEBHOOK_SECRET` before trusting Telegram payload/chat data. |
-| Mutating GET | VERIFIED: known mutating GET actions are blocked locally. |
-| Locking | VERIFIED: `withScriptLock()` exists and local tests cover current guarded write paths. |
-| V54 parser | VERIFIED: ParserV54 is local-only and contract-based; it does not call OpenAI. |
-| V54 actions | VERIFIED: `src/ActionsV54.js` supports fake-first writes for simple events, card purchase, and installment schedule; pure helpers live in `src/ActionsV54Helpers.js`. |
-| Faturas | VERIFIED: schema exists. TODO: production lifecycle is not implemented. |
-| Pagamentos_Fatura | VERIFIED: schema exists. TODO: `pagamento_fatura` remains unsupported in `ActionsV54`. |
-| Reporting | VERIFIED: local deterministic reporting contracts exist. TODO: not wired into Telegram/views. |
-| Telegram V54 | VERIFIED local/fake-first: controlled routing and send logging exist. UNVERIFIED: real Telegram/OpenAI/Spreadsheet E2E activation. |
-| Production negative webhook tests | TODO: missing against real endpoint. |
+| Repository | VERIFIED: branch `main`; V53 code is archived. |
+| V54 schema & seed | VERIFIED: `scripts/lib/v54-schema.js` and `src/000_V54Schema.js` are synced with real spreadsheet. |
+| Security | VERIFIED: `WEBHOOK_SECRET` is required and enforced. |
+| V54 parser | VERIFIED: `ParserV54OpenAI` is integrated with robust guardrails (Phase 6K). |
+| V54 actions | VERIFIED: `src/ActionsV54.js` handles fake-first writes, integrated into the V54 primary bridge. |
+| Faturas | VERIFIED: schema exists. Expected upsert is implemented. |
+| Pagamentos_Fatura | VERIFIED: schema exists. TODO: `pagamento_fatura` logic remains unsupported. |
+| Reporting | VERIFIED: local deterministic reporting contracts exist. TODO: wire into Telegram/views. |
+| Telegram V54 | VERIFIED: E2E routing, fail-closed, send logging, and real user smoke-tests are functional. |
 
-## 4. Accepted Direction
+## 3. Accepted Direction
 
-- DECISION: V54 is the only target architecture for MVP.
-- DECISION: V53 is deprecated prototype code. Do not add features to it.
-- DECISION: Do not migrate V53 history by default.
-- DECISION: Existing V54 sheets/seed are the starting point, but opening state must still be reviewed before real usage.
+- DECISION: V54 is the only target architecture for MVP (D031, D054).
+- DECISION: Existing V54 sheets/seed are the starting point.
 - DECISION: Card invoice payment is settlement, not operational expense.
 - DECISION: Purchases/installments create expense recognition; fatura payment must not create duplicate DRE expense.
 - DECISION: Recommendations start deterministic/rule-based before any LLM phrasing.
-- DECISION: Real spreadsheet writes require protected tests with deterministic fixtures and cleanup.
 
-## 5. Domain Decision Status
+## 4. Domain Decision Status
 
-### Accepted / resolved in DECISIONS.md
-- V54-only premise → D031
-- Rateio / income base → D032
-- Benefits VA/VR/Alelo → D033
-- `Fora orcamento` disabled → D034
-- Home earmarked assets taxonomy → D035
-- Fatura prepayment blocked → D036
-- Acerto allocation by fatura competence → D037
-- Idempotency_Log required before Telegram routing → D038
-- Future fatura refunds → D039
-- Debt payments as cash obligations → D040
-- Expected Faturas upsert → D041
+### Accepted
+See `.ai_shared/DECISIONS.md` for the full list of architectural and domain decisions. Decisions D001 through D054 have been accepted and govern the V54 implementation.
 
-### Still missing / unresolved inputs
-- V54 opening date and competence.
-- Opening balances for account sources.
-- Opening balances for VA/Alelo benefits.
-- Open faturas at start date by card.
-- Active installments still being paid.
-- Caixa debt details.
-- Vasco debt details.
-- Privacy defaults, if not fully accepted elsewhere.
-- Thresholds for large purchase/surplus/recommendation triggers.
-- Future home activation date and forecast confirmation.
-- Protected real test surface, if still pending.
-
-## 6. Missing Inputs
-
+### Missing Inputs
+The following inputs are still required for full operation:
 - MISSING_INPUT: V54 opening date.
 - MISSING_INPUT: Opening balances for account sources.
 - MISSING_INPUT: Opening balances for Alelo/VA benefits.
 - MISSING_INPUT: Open faturas at start date by card.
 - MISSING_INPUT: Active installments still being paid.
-- MISSING_INPUT: Caixa debt details: current balance, installment, remaining term, interest/rate, amortization system, start date.
-- MISSING_INPUT: Vasco debt details: current balance, installment, remaining term, interest/rate, amortization system, start date.
-- MISSING_INPUT: Privacy defaults for personal categories.
-- MISSING_INPUT: Thresholds for large purchase, large surplus, and recommendation triggers.
-- MISSING_INPUT: Confirmation of future home activation date and forecast values.
+- MISSING_INPUT: Caixa and Vasco debt details.
 
-## 7. MVP Domain Rules
+## 5. Roadmap
 
-### 7.1 Transactions
+### Fase 1: Nucleo Transacional (Faturas e Relatorios)
 
-VERIFIED: `Lancamentos_V54` is the target transaction/recognition table.
+Goal: complete V54 transaction behavior locally and prepare for real spreadsheet writes of complex entities.
 
-MVP rule:
-
-- Store positive values.
-- Use `tipo_evento`, category behavior, and flags to decide DRE/acerto/patrimony effects.
-- Do not write `undefined`; optional links must be blank strings.
-- Use immutable corrections rather than silently editing historical records after Telegram usage begins.
-
-### 7.2 Cards, Installments, And Faturas
-
-VERIFIED: Card cycle local contract exists.
-
-VERIFIED: `compra_cartao` fake path writes one `Lancamentos_V54` row with computed `id_fatura`.
-
-VERIFIED: `compra_parcelada` fake path writes one `Compras_Parceladas` row and N `Parcelas_Agenda` rows, not `Lancamentos_V54` or `Faturas` rows.
-
-VERIFIED: `Faturas` expected upsert local/fake-first is implemented and accepted in D041.
-
-MVP requirements:
-
-- Implement `Pagamentos_Fatura` (not yet implemented; D036 blocks prepayment).
-- Support full payment, partial payment, and divergence.
-- Define how expected, closed, and paid values reconcile.
-- Refunds/cancellations follow D039.
-
-### 7.3 Rateio And Acerto
-
-VERIFIED: `Acertos_Casal` schema exists.
-
-VERIFIED: local reporting excludes `receita` from couple settlement.
-
-MVP requirements:
-
-- Rateio follows D032 (base uses only unrestricted recurring incomes).
-- Benefits follow D033 (VA/VR/Alelo are restricted, do not enter rateio base).
-- Acerto allocation by fatura competence follows D037.
-- Prevent duplicate acerto from purchase plus invoice settlement.
-- Keep private details out of shared detailed views.
-
-### 7.4 Assets, Reserve, And Debts
-
-VERIFIED: Current home-item assets total `16635` in seed and are not emergency reserve.
-
-MVP requirements:
-
-- Emergency reserve counts only assets with `conta_reserva_emergencia=true`.
-- Home earmarked assets follow D035 (must remain visible but excluded from reserve).
-- Debt payments follow D040 (tracked as cash outflows and non-DRE obligations, without requiring principal/interest split on day one).
-- No amortization recommendation until reserve, invoices, and debt data are reliable.
-
-### 7.5 Reports And Recommendations
-
-VERIFIED: deterministic reporting contracts exist locally.
-
-MVP rule:
-
-- Facts first: DRE, faturas, installments, reserve, debts, net worth, acerto.
-- Recommendations second: deterministic rules only.
-- LLM wording later, if ever, must only explain deterministic outputs.
-
-## 8. Roadmap
-
-### Fase 0: Reset De Premissa E Limpeza V53
-
-Goal: remove false V53-production assumptions from planning and prevent new V53 work.
-
-Status:
-
-- TODO: Mark V53 as deprecated prototype in docs/context.
-- TODO: Stop using V53 as required fallback in roadmap, gates, rollback, and acceptance criteria.
-- TODO: Keep V53 files only as legacy reference until removal is safe.
-- TODO: Do not add new features to V53.
-- TODO: Review scripts/docs that imply V53 production and either reword or mark deprecated.
-
-Out of scope:
-
-- Do not delete V53 code in this documentation phase.
-- Do not rename/delete V53 sheets in this documentation phase.
-
-### Fase 1: Decisoes De Dominio
-
-Goal: close the domain decisions that would otherwise corrupt financial reporting.
-
-Required outputs:
-
-- PROPOSTA: review `docs/V54_DOMAIN_DECISIONS.md` and accept/reject/adjust each proposed rule.
-- TODO: Opening date and opening competence, if no accepted decision yet.
-- TODO: Opening balances.
-- TODO: Active installments.
-- TODO: Full debt details.
-- TODO: Privacy defaults, if not yet accepted.
-- TODO: Recommendation thresholds.
-- TODO: Protected real test surface, if still pending.
-
-Exit criteria:
-
-- VERIFIED: decisions recorded in `.ai_shared/DECISIONS.md`.
-- VERIFIED: tests or TODO test cases identified for each accepted decision.
-
-### Fase 2: Nucleo Transacional V54 Local/Fake-First
-
-Goal: complete V54 transaction behavior locally before real spreadsheet writes.
-
-Already verified locally:
-
-- schema and seed contracts;
-- strict ParsedEntryV54;
-- ParserV54 adapter;
-- Lancamentos_V54 mapper;
-- ActionsV54 simple events;
-- single card purchase fake write path;
-- installment schedule fake write path;
-- reporting contracts.
-
-Next TODOs:
-
-- Implement local/fake-first `Idempotency_Log` (D038).
-- Implement local/fake-first `Pagamentos_Fatura` writes (respecting D036).
-- Implement local/fake-first reconciliation: expected, closed, paid, partial, divergent.
-- Implement local/fake-first adjustment/refund/cancellation behavior or explicit rejection.
+Remaining TODOs:
+- Implement `Pagamentos_Fatura` writes (respecting D036).
+- Implement reconciliation: expected, closed, paid, partial, divergent.
+- Implement adjustment/refund/cancellation behavior or explicit rejection.
 - Add fake tests proving no duplicate DRE/acerto recognition.
 
-Exit criteria:
+### Fase 2: Comandos Secundários e E2E Telegram
 
-- VERIFIED: local tests pass for all MVP transaction types.
-- VERIFIED: unsupported events fail closed with structured errors.
-- VERIFIED: no OpenAI/vendor/API calls in deterministic tests.
+Goal: finalize user-facing features on the active Telegram flow.
 
-### Fase 3: Testes Reais Protegidos Na Planilha
+Remaining TODOs:
+- Implement `/desfazer` ou equivalent V54 undo/reversal safely.
+- Implement minimal V54 commands: `/saldo`, `/faturas`, `/fechar_mes` only if deterministic data supports them.
+- Run negative webhook tests: missing secret, invalid secret, unauthorized chat against real endpoint.
 
-Goal: prove V54 writes against the real spreadsheet through deterministic protected tests with cleanup.
-
-Do not start until Phase 1 and Phase 2 exit criteria are met.
-
-Required tests:
-
-- TODO: simple despesa write and cleanup in `Lancamentos_V54`;
-- TODO: receita write and cleanup;
-- TODO: card purchase with expected fatura and cleanup;
-- TODO: installment schedule and cleanup;
-- TODO: full fatura payment and cleanup;
-- TODO: partial fatura payment and reconciliation cleanup;
-- TODO: duplicate/idempotency rejection;
-- TODO: adjustment/refund/cancellation behavior or explicit rejection;
-- TODO: snapshot verification after cleanup.
-
-Safety rules:
-
-- Use deterministic low-value fixtures.
-- Prefix all test IDs/descriptions with a V54 test marker.
-- Fail closed if cleanup cannot be guaranteed.
-- Do not call OpenAI.
-- Do not use Telegram for these tests.
-- Do not run setup, seed, deploy, or migration as part of protected write tests.
-
-### Fase 4: Telegram V54
-
-Goal: route Telegram to V54 only after protected real writes are verified.
-
-Required work:
-
-- TODO: wire ParserV54 and ActionsV54 into Telegram flow.
-- TODO: ensure webhook secret validation still runs before parsing/routing.
-- TODO: implement authorization and fail-closed handling.
-- TODO: implement `/desfazer` or equivalent V54 undo/reversal safely.
-- TODO: implement minimal V54 commands: `/saldo`, `/hoje`, `/faturas`, `/parcelas`, `/fechar_mes` only if deterministic data supports them.
-- TODO: run production negative webhook tests: missing secret, invalid secret, unauthorized chat.
-- TODO: run V54 Telegram E2E with controlled write and cleanup.
-
-Exit criteria:
-
-- VERIFIED: V54 Telegram write path works end-to-end.
-- VERIFIED: cleanup/reversal works.
-- VERIFIED: negative webhook tests do not write data.
-- VERIFIED: no V53 write path is required for MVP operation.
-
-### Fase 5: Relatorios E Recomendacoes Deterministicas
+### Fase 3: Relatorios E Recomendacoes Deterministicas
 
 Goal: provide useful decision support without fake precision.
 
 Required reports:
-
-- TODO: operational DRE;
-- TODO: faturas next 60 days;
-- TODO: installments future exposure;
-- TODO: reserve progress;
-- TODO: home earmark outside reserve;
-- TODO: debts with known limitations;
-- TODO: net worth;
-- TODO: acerto casal;
-- TODO: monthly closing.
+- TODO: operational DRE; faturas next 60 days; installments future exposure; reserve progress; home earmark outside reserve; debts with known limitations; net worth; acerto casal; monthly closing.
 
 Required recommendation rules:
+- TODO: reserve below minimum; upcoming fatura pressure; large purchase safety check; large surplus allocation; 13th salary, vacation pay, bonus, extra income; amortization only when debt/reserve/invoice gates allow it.
 
-- TODO: reserve below minimum;
-- TODO: upcoming fatura pressure;
-- TODO: large purchase safety check;
-- TODO: large surplus allocation;
-- TODO: 13th salary, vacation pay, bonus, extra income;
-- TODO: amortization only when debt/reserve/invoice gates allow it.
-
-Exit criteria:
-
-- VERIFIED: reports use deterministic V54 data only.
-- VERIFIED: private entries do not leak into shared detailed reports.
-- VERIFIED: recommendations expose missing data instead of inventing conclusions.
-
-## 9. Test Strategy
-
-Local deterministic tests:
-
-- VERIFIED: existing V54 local tests cover schema, seed, setup, snapshot, security, routing foundation, domain, parser contract, parser adapter, mapper, actions, reporting, card cycle, card purchase, and installment schedule.
-- TODO: add local tests for fatura upsert, payments, reconciliation, idempotency, dedupe, adjustments, refunds, cancellations, and debt payments or explicit exclusions.
-
-Fake spreadsheet tests:
-
-- VERIFIED: existing fake tests cover setup/seed/actions behavior.
-- TODO: add fake tests for all MVP transaction flows before real writes.
-
-Protected real spreadsheet tests:
-
-- TODO: not implemented for V54 MVP transaction flows.
-- TODO: must run only after explicit approval in a later task.
-
-Telegram E2E tests:
-
-- TODO: not implemented for V54.
-- TODO: must run only after protected real spreadsheet tests pass.
-
-## 10. Safety Rules
-
-Hard constraints:
-
-- Do not run setup, seed, deploy, clasp, real tests, spreadsheet mutation, migration, or Telegram mutation without explicit task approval.
-- Do not read or commit `.env` or secrets.
-- Do not add V53 features.
-- Do not claim V54 Telegram readiness until V54 E2E is verified.
-- Do not claim fatura/payment readiness until protected write tests verify it.
-- Do not use LLM recommendations before deterministic reports are correct.
-
-Rollback within V54-only MVP:
-
-- Prefer cleanup by deterministic test IDs for protected tests.
-- Prefer reversal/adjustment records for real user data after Telegram starts.
-- If a V54 path is unsafe, disable that V54 feature path rather than returning to a V53 product fallback.
-- Spreadsheet backup/export is required before broad real-data mutation phases.
-
-## 11. MVP Acceptance Criteria
+## 6. MVP Acceptance Criteria
 
 V54 MVP is ready for real household use only when all applicable items are VERIFIED:
 
-- V53 is documented as deprecated prototype with no new features.
-- V54 domain decisions are recorded and accepted decisions live in `.ai_shared/DECISIONS.md`.
-- Opening state is reviewed.
-- Rateio (D032) and benefits (D033) rules are implemented and tested.
-- Idempotency (D038) is implemented and tested.
-- Fatura expected (D041)/closed/paid/reconciliation lifecycle is implemented and tested.
-- `Pagamentos_Fatura` never affects operational DRE.
-- Purchases/installments are recognized once.
-- Adjustments/refunds/cancellations (D039) are supported or safely rejected.
-- Protected real spreadsheet tests pass with cleanup.
-- Production negative webhook tests pass.
-- Telegram V54 E2E passes.
-- Reports use V54 data only.
-- Privacy rules are enforced.
-- Recommendations are deterministic and expose missing data.
+- VERIFIED: V53 is documented as deprecated prototype with no new features.
+- VERIFIED: V54 domain decisions are recorded and accepted decisions live in `.ai_shared/DECISIONS.md`.
+- VERIFIED: Rateio (D032) and benefits (D033) rules are implemented and tested.
+- VERIFIED: Idempotency (D038) is implemented and tested.
+- VERIFIED: Fatura expected (D041).
+- VERIFIED: Telegram V54 E2E passes.
+- TODO: Opening state is reviewed.
+- TODO: Fatura closed/paid/reconciliation lifecycle is implemented and tested.
+- TODO: `Pagamentos_Fatura` never affects operational DRE.
+- TODO: Purchases/installments are recognized once.
+- TODO: Adjustments/refunds/cancellations (D039) are supported or safely rejected.
+- TODO: Reports use V54 data only.
+- TODO: Privacy rules are enforced.
+- TODO: Recommendations are deterministic and expose missing data.
 
-## 12. Removed From Previous Plan
-
-Removed because it depended on the false premise that V53 was production or mandatory fallback:
-
-- `V53_CURRENT` as production-flow assumption.
-- V53 fallback as a required gate for V54 rollout.
-- Cutover plan from V53 production to V54 production.
-- Rollback plan that returns to V53 write path.
-- Sunset plan for retiring a production V53 system.
-- Acceptance criteria requiring V53 tests as production successor gates.
-- Requirement to keep V53 sheets because production depends on them.
-- Framing of Telegram positive test as proof of production V53 readiness.
-- Migration/fallback language around V53 transaction history.
-- Roadmap phases focused on preserving V53 while staging V54.
-
-V53 may still remain in the repository temporarily as deprecated reference code, but it is not a product target and should not receive new features.
-
-## 13. References
+## 7. References
 
 - `.ai_shared/ACTIVE_CONTEXT.md`
 - `.ai_shared/DECISIONS.md`
 - `.ai_shared/KNOWN_ISSUES.md`
 - `.ai_shared/FORMULA_STANDARD.md`
-- `.ai_shared/SPREADSHEET_STATE.md`
-- `docs/V54_DOMAIN_DECISIONS.md`
-- `scripts/lib/v54-schema.js`
-- `scripts/lib/v54-seed.js`
-- `src/ActionsV54.js`
+- `.ai_shared/SHEET_SCHEMA.md`

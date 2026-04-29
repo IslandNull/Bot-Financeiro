@@ -58,13 +58,7 @@ Branch: main (verified locally on 2026-04-28)
 - Phase 6K: VERIFIED local/fake-first V54 parser/runtime safety hardening. Removed automatic `defaultEscopo=Casal` in `src/ParserV54Context.js` and `src/ParserV54OpenAI.js` prompt. Created deterministic post-parser guardrail `reviewParsedEntryV54Safety_` in `src/HandlerV54.js` that runs before spreadsheet write to block or safely correct ambiguous personal expenses (farmacia, roupa, lanche trabalho, etc.) based on `defaultPessoa` and explicit text markers. Blocked conflicting person/account markers (e.g. Luana account for Gustavo expense) and ambiguous source markers (e.g. "conta" and "nubank" together). Verified by 7 new handler runtime tests and 18 existing tests. Verified by `cmd /c npm run test:v54:all` and `git diff --check` on 2026-04-28.
 
 ## O que esta bloqueado / Risco Atual
-- **Operacao:** O Telegram E2E path ainda requer checklist final de operacao manual revisada antes de qualquer teste real.
-- **Smoke Test Manual (Luana):** UNVERIFIED até que seja executado manualmente pelo usuário:
-  1. "1 farmacia" -> Luana/Luana/false
-  2. "1 mercado semana" -> Luana/Casal/true
-  3. "1 farmacia nubank luana" -> compra_cartao/Luana/Luana
-  4. "1 lanche trabalho" -> Luana/Luana/false
-  5. "1 mercado conta luana nubank luana" -> fail safe / ambiguity conflict
+- **Smoke Test Manual (Luana):** VERIFIED. O Telegram E2E path e todas as rotas (incluindo log de erros, mensagens de resposta e idempotência) foram validados com sucesso por smoke tests manuais reais.
 - GET mutantes protegidos por token na URL devem ser extintos.
 
 ## Protocolo de release controlado (Phase 6A)
