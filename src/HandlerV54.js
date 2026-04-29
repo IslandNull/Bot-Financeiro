@@ -283,14 +283,7 @@ function reviewParsedEntryV54Safety_(entry, context) {
             .replace(/[\u00f9\u00fa\u00fb\u00fc]/g, 'u')
             .replace(/\u00e7/g, 'c');
 
-    var extractedPessoa = '';
-    if (context && context.user) {
-        extractedPessoa = context.user.pessoa || context.user.pagador || context.user.nome || '';
-    }
-    var defaultPessoa = '';
-    if (extractedPessoa === 'Gustavo' || extractedPessoa === 'Luana') {
-        defaultPessoa = extractedPessoa;
-    }
+    var defaultPessoa = resolveV54SafetyDefaultPessoa_(context && context.user);
 
     if (!defaultPessoa) {
         return { ok: false, errors: [makeV54ContractError_('V54_SAFETY_NO_CANONICAL_PERSON', 'pessoa', 'Safety guardrail requires a canonical default pessoa (Gustavo/Luana).')] };
@@ -364,4 +357,26 @@ function reviewParsedEntryV54Safety_(entry, context) {
     }
 
     return { ok: true, normalized: normalized };
+}
+
+/**
+ * @private
+ */
+function resolveV54SafetyDefaultPessoa_(user) {
+    if (typeof user === 'string') {
+        if (user === 'Gustavo' || user === 'Luana') return user;
+    }
+
+    var candidates = [
+        user && user.pessoa,
+        user && user.pagador,
+        user && user.nome,
+    ];
+
+    for (var i = 0; i < candidates.length; i++) {
+        var value = String(candidates[i] || '').trim();
+        if (value === 'Gustavo' || value === 'Luana') return value;
+    }
+
+    return '';
 }
