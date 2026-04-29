@@ -15,7 +15,7 @@ VERIFIED: The V54 primary bridge is live. `doPost` processes messages via `V54_P
 
 VERIFIED: V54 sheets, headers, and clean seed/config data exist in the real spreadsheet.
 
-VERIFIED: Real Telegram usage, including logging, idempotency, and messages, has been successfully smoke-tested by the user.
+VERIFIED: Real Telegram usage, including logging, idempotency, and messages. Smoke Test Manual is USER-REPORTED VERIFIED, pending recorded evidence in ACTIVE_CONTEXT.
 
 ## 2. Current Verified State
 
@@ -29,7 +29,7 @@ VERIFIED: Real Telegram usage, including logging, idempotency, and messages, has
 | Faturas | VERIFIED: schema exists. Expected upsert is implemented. |
 | Pagamentos_Fatura | VERIFIED: schema exists. TODO: `pagamento_fatura` logic remains unsupported. |
 | Reporting | VERIFIED: local deterministic reporting contracts exist. TODO: wire into Telegram/views. |
-| Telegram V54 | VERIFIED: E2E routing, fail-closed, send logging, and real user smoke-tests are functional. |
+| Telegram V54 | VERIFIED: E2E routing, fail-closed, send logging, and real user smoke-tests are functional (USER-REPORTED VERIFIED). |
 
 ## 3. Accepted Direction
 
@@ -42,7 +42,7 @@ VERIFIED: Real Telegram usage, including logging, idempotency, and messages, has
 ## 4. Domain Decision Status
 
 ### Accepted
-See `.ai_shared/DECISIONS.md` for the full list of architectural and domain decisions. Decisions D001 through D054 have been accepted and govern the V54 implementation.
+`DECISIONS.md` is authoritative; statuses vary by decision. Most V54 implementation decisions are accepted, but individual statuses must be read from `.ai_shared/DECISIONS.md`. Do not assume all D001-D054 are accepted.
 
 ### Missing Inputs
 The following inputs are still required for full operation:

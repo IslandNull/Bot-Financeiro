@@ -1,7 +1,8 @@
 # ACTIVE_CONTEXT.md
 
-Last updated: 2026-04-28
-Branch: main (verified locally on 2026-04-28)
+Last updated: 2026-04-29
+Branch: main
+Verification scope: docs updated; real smoke evidence only if recorded below.
 
 ## Premissa Atual
 - D031 esta aceita e concretizada. V54 e o unico alvo arquitetural e runtime operacional ativo.
@@ -58,7 +59,7 @@ Branch: main (verified locally on 2026-04-28)
 - Phase 6K: VERIFIED local/fake-first V54 parser/runtime safety hardening. Removed automatic `defaultEscopo=Casal` in `src/ParserV54Context.js` and `src/ParserV54OpenAI.js` prompt. Created deterministic post-parser guardrail `reviewParsedEntryV54Safety_` in `src/HandlerV54.js` that runs before spreadsheet write to block or safely correct ambiguous personal expenses (farmacia, roupa, lanche trabalho, etc.) based on `defaultPessoa` and explicit text markers. Blocked conflicting person/account markers (e.g. Luana account for Gustavo expense) and ambiguous source markers (e.g. "conta" and "nubank" together). Verified by 7 new handler runtime tests and 18 existing tests. Verified by `cmd /c npm run test:v54:all` and `git diff --check` on 2026-04-28.
 
 ## O que esta bloqueado / Risco Atual
-- **Smoke Test Manual (Luana):** VERIFIED. O Telegram E2E path e todas as rotas (incluindo log de erros, mensagens de resposta e idempotência) foram validados com sucesso por smoke tests manuais reais.
+- **Smoke Test Manual (Luana):** USER-REPORTED VERIFIED, pending recorded evidence in ACTIVE_CONTEXT with exact messages, expected rows, observed rows, and timestamp. (O usuário informou que validou com sucesso, mas a evidência concreta do teste ainda precisa ser registrada).
 - GET mutantes protegidos por token na URL devem ser extintos.
 
 ## Protocolo de release controlado (Phase 6A)
